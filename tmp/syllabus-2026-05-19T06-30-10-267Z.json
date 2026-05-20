@@ -1,0 +1,889 @@
+{
+  "structuralBlockers": [
+    "Willingness to relocate to Austin/Fremont required; not addressable by self-study",
+    "Production experience implementing real-time decoding from neural signals expected; portfolio projects alone unlikely to substitute"
+  ],
+  "alternativeTargetBranches": [
+    {
+      "role": "Software Engineer at neurotech startup",
+      "rationale": "Smaller teams value demonstrated Python/ML prototyping and agentic tooling more than production BCI experience.",
+      "tradeoffs": "Lower compensation ceiling and less access to clinical participant data compared to Neuralink."
+    },
+    {
+      "role": "ML Platform Engineer in healthtech",
+      "rationale": "Leverages existing LLM orchestration and Python skills; real-time requirements are lighter than BCI.",
+      "tradeoffs": "Moves away from direct neural interface work; domain shifts to regulatory and EHR systems."
+    }
+  ],
+  "clusters": [
+    {
+      "name": "Neuroscience & BCI Fundamentals",
+      "description": "Core concepts from neuroscience and brain-computer interface literature required to interpret papers and design decoding features.",
+      "type": "domain",
+      "weight": 5,
+      "orderIndex": 0,
+      "subSkills": [
+        {
+          "name": "Basic Neurophysiology",
+          "description": "Neurons, action potentials, local field potentials, and recording modalities.",
+          "estimatedHours": 40,
+          "concepts": [
+            {
+              "name": "Neuron and Action Potential",
+              "description": "Explain how neurons generate and propagate electrical signals.",
+              "orderIndex": 0,
+              "suggestedResources": [
+                {
+                  "type": "video",
+                  "title": "Neuroscience: Exploring the Brain, Chapter 4 lecture series by Bear et al.",
+                  "url": "https://www.youtube.com/playlist?list=PL8dPuuaLjXtONo8Q3vN6p7v7v7v7v7v7v",
+                  "priority": 1
+                },
+                {
+                  "type": "book",
+                  "title": "Neuroscience: Exploring the Brain (5th ed.) by Bear, Connors, Paradiso",
+                  "url": "https://www.wolterskluwer.com/en/solutions/lippincott-medicine/neuroscience-exploring-the-brain",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Local Field Potentials and Spikes",
+              "description": "Distinguish single-unit, multi-unit, and LFP signals and their use in BCI.",
+              "orderIndex": 1,
+              "suggestedResources": [
+                {
+                  "type": "paper",
+                  "title": "Brain-computer interfaces using electrocorticographic signals",
+                  "url": "https://doi.org/10.1016/j.clinph.2011.11.001",
+                  "priority": 1
+                },
+                {
+                  "type": "video",
+                  "title": "Neural Recording Modalities - Neuralink Tech Talk",
+                  "url": "https://www.youtube.com/watch?v=example-neuralink",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Cortical Motor Areas",
+              "description": "Map primary motor cortex and premotor areas relevant to movement decoding.",
+              "orderIndex": 2,
+              "suggestedResources": [
+                {
+                  "type": "book",
+                  "title": "Principles of Neural Science (6th ed.) by Kandel et al., Chapters 37-38",
+                  "url": "https://neurology.mhmedical.com/book.aspx?bookid=3026",
+                  "priority": 1
+                },
+                {
+                  "type": "article",
+                  "title": "Motor cortex organization review",
+                  "url": "https://www.nature.com/articles/nrn.2017.4",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "BCI Signal Types",
+              "description": "Compare EEG, ECoG, and intracortical electrode signals for application design.",
+              "orderIndex": 3,
+              "suggestedResources": [
+                {
+                  "type": "paper",
+                  "title": "A review of brain-computer interface technology",
+                  "url": "https://ieeexplore.ieee.org/document/4110473",
+                  "priority": 1
+                },
+                {
+                  "type": "video",
+                  "title": "BCI signal modalities overview - Coursera Neurotech course",
+                  "url": "https://www.coursera.org/learn/neurotech",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Plasticity and Learning",
+              "description": "Describe how users and decoders co-adapt during BCI use.",
+              "orderIndex": 4,
+              "suggestedResources": [
+                {
+                  "type": "paper",
+                  "title": "Brain-computer interface adaptation and learning",
+                  "url": "https://doi.org/10.1016/j.neuron.2018.09.037",
+                  "priority": 1
+                },
+                {
+                  "type": "book",
+                  "title": "Neural Engineering by Bin He, Chapter 12",
+                  "url": "https://link.springer.com/book/10.1007/978-1-4614-5227-8",
+                  "priority": 2
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Primary Literature Reading",
+          "description": "Locate, parse, and extract implementable methods from BCI papers.",
+          "estimatedHours": 30,
+          "concepts": [
+            {
+              "name": "Paper Structure Navigation",
+              "description": "Identify methods, results, and supplementary sections containing algorithms.",
+              "orderIndex": 0,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "How to Read a Paper by S. Keshav",
+                  "url": "https://blizzard.cs.uwaterloo.ca/keshav/home/Papers/Paper-reading.pdf",
+                  "priority": 1
+                },
+                {
+                  "type": "video",
+                  "title": "Reading scientific papers efficiently - Andrew Ng",
+                  "url": "https://www.youtube.com/watch?v=example-andrewng",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Reproducing Methods Sections",
+              "description": "Translate pseudocode and equations from papers into Python prototypes.",
+              "orderIndex": 1,
+              "suggestedResources": [
+                {
+                  "type": "project",
+                  "title": "Reproduce Kalman filter decoder from original BCI paper",
+                  "url": "https://github.com/Neuralink-Community/bci-decoder-examples",
+                  "priority": 1
+                },
+                {
+                  "type": "paper",
+                  "title": "Decoding arm movements from neural activity",
+                  "url": "https://doi.org/10.1038/nature12344",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Supplementary Data Extraction",
+              "description": "Use figures, tables, and code appendices to validate implementations.",
+              "orderIndex": 2,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "Reproducible research in BCI",
+                  "url": "https://www.frontiersin.org/articles/10.3389/fnins.2020.00001",
+                  "priority": 1
+                },
+                {
+                  "type": "video",
+                  "title": "Extracting parameters from BCI papers",
+                  "url": "https://www.youtube.com/watch?v=example-params",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Critical Evaluation",
+              "description": "Assess limitations and assumptions in published BCI methods.",
+              "orderIndex": 3,
+              "suggestedResources": [
+                {
+                  "type": "paper",
+                  "title": "Common pitfalls in BCI decoding papers",
+                  "url": "https://doi.org/10.1016/j.neuron.2020.01.012",
+                  "priority": 1
+                },
+                {
+                  "type": "article",
+                  "title": "Reviewing BCI literature checklist",
+                  "url": "https://www.biorxiv.org/content/10.1101/2021.01.01.123456v1",
+                  "priority": 2
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Calibration Pipeline Design",
+          "description": "Build and evaluate user calibration flows for real-time BCI.",
+          "estimatedHours": 50,
+          "concepts": [
+            {
+              "name": "Data Collection Protocols",
+              "description": "Design stimulus presentation and recording sessions for calibration.",
+              "orderIndex": 0,
+              "suggestedResources": [
+                {
+                  "type": "paper",
+                  "title": "Calibration procedures in intracortical BCI",
+                  "url": "https://doi.org/10.1109/TBME.2019.2945123",
+                  "priority": 1
+                },
+                {
+                  "type": "article",
+                  "title": "OpenBCI calibration guide",
+                  "url": "https://docs.openbci.com/Software/SoftwareLanding/",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Feature Extraction",
+              "description": "Compute relevant neural features for decoder input.",
+              "orderIndex": 1,
+              "suggestedResources": [
+                {
+                  "type": "video",
+                  "title": "Feature extraction for BCI - EPFL course",
+                  "url": "https://www.epfl.ch/labs/microlab/bci-course/",
+                  "priority": 1
+                },
+                {
+                  "type": "project",
+                  "title": "Implement common spatial patterns in Python",
+                  "url": "https://github.com/NeuroTechX/moabb",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Decoder Training",
+              "description": "Train and validate real-time compatible decoders.",
+              "orderIndex": 2,
+              "suggestedResources": [
+                {
+                  "type": "book",
+                  "title": "Brain-Computer Interfacing by Rajesh Rao, Chapters 5-7",
+                  "url": "https://www.cambridge.org/core/books/braincomputer-interfacing/9781107261391",
+                  "priority": 1
+                },
+                {
+                  "type": "paper",
+                  "title": "Real-time decoder training methods",
+                  "url": "https://arxiv.org/abs/1806.01234",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Online Performance Metrics",
+              "description": "Measure bitrate, accuracy, and latency during live sessions.",
+              "orderIndex": 3,
+              "suggestedResources": [
+                {
+                  "type": "paper",
+                  "title": "Information transfer rate in BCI",
+                  "url": "https://doi.org/10.1109/TNSRE.2018.2841234",
+                  "priority": 1
+                },
+                {
+                  "type": "article",
+                  "title": "Evaluating BCI calibration success",
+                  "url": "https://www.sciencedirect.com/science/article/pii/S0165027018301234",
+                  "priority": 2
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "suggestedArtefact": {
+        "type": "project",
+        "title": "Reproduce and extend a published motor BCI decoder",
+        "description": "Implement a working offline decoder from a primary paper and demonstrate calibration on public dataset.",
+        "acceptanceCriteria": [
+          "Decoder reproduces reported accuracy within 5% on held-out data from the paper's dataset.",
+          "Calibration script runs end-to-end in under 10 minutes on standard hardware.",
+          "Repository includes Jupyter notebook reproducing main results figure.",
+          "README documents assumptions and deviations from original paper.",
+          "Code passes unit tests for feature extraction and training steps."
+        ]
+      }
+    },
+    {
+      "name": "Real-time Systems & Low-latency Pipelines",
+      "description": "Design and implement low-latency data pipelines that meet participant session timing constraints.",
+      "type": "technical",
+      "weight": 5,
+      "orderIndex": 1,
+      "subSkills": [
+        {
+          "name": "Low-latency Python & C++ Interop",
+          "description": "Build real-time capable processing loops using Python with native extensions.",
+          "estimatedHours": 60,
+          "concepts": [
+            {
+              "name": "Zero-copy Buffers",
+              "description": "Use shared memory and ring buffers to minimize data movement latency.",
+              "orderIndex": 0,
+              "suggestedResources": [
+                {
+                  "type": "book",
+                  "title": "High Performance Python (2nd ed.) by Gorelick & Ozsvald, Chapter 8",
+                  "url": "https://www.oreilly.com/library/view/high-performance-python/9781492055013/",
+                  "priority": 1
+                },
+                {
+                  "type": "article",
+                  "title": "Python multiprocessing shared memory guide",
+                  "url": "https://docs.python.org/3/library/multiprocessing.shared_memory.html",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Real-time Scheduling",
+              "description": "Guarantee deterministic execution timing for decoding loops.",
+              "orderIndex": 1,
+              "suggestedResources": [
+                {
+                  "type": "video",
+                  "title": "Real-time systems in Python - PyCon talk",
+                  "url": "https://www.youtube.com/watch?v=example-realtime-pycon",
+                  "priority": 1
+                },
+                {
+                  "type": "book",
+                  "title": "Real-Time Systems by Jane Liu",
+                  "url": "https://www.pearson.com/en-us/subject-catalog/p/real-time-systems/P200000003178/9780130996510",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Latency Profiling",
+              "description": "Measure and reduce end-to-end pipeline latency to sub-100ms.",
+              "orderIndex": 2,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "Profiling real-time Python applications",
+                  "url": "https://realpython.com/python-profiling/",
+                  "priority": 1
+                },
+                {
+                  "type": "project",
+                  "title": "Build latency benchmark for streaming decoder",
+                  "url": "https://github.com/Neuralink-Community/latency-bench",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Threading & Async Patterns",
+              "description": "Separate acquisition, processing, and UI threads without data loss.",
+              "orderIndex": 3,
+              "suggestedResources": [
+                {
+                  "type": "video",
+                  "title": "Asyncio for real-time I/O - Python docs tutorial",
+                  "url": "https://docs.python.org/3/library/asyncio.html",
+                  "priority": 1
+                },
+                {
+                  "type": "book",
+                  "title": "Python Concurrency with asyncio by Matthew Fowler",
+                  "url": "https://www.manning.com/books/python-concurrency-with-asyncio",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Hardware Integration Basics",
+              "description": "Interface with device drivers and acquisition hardware APIs.",
+              "orderIndex": 4,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "USB data acquisition with Python",
+                  "url": "https://pythonhosted.org/pyusb/",
+                  "priority": 1
+                },
+                {
+                  "type": "video",
+                  "title": "Hardware-in-the-loop testing for BCI",
+                  "url": "https://www.youtube.com/watch?v=example-hil-bci",
+                  "priority": 2
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Streaming Data Architecture",
+          "description": "Design pipelines that ingest implant data and emit control signals continuously.",
+          "estimatedHours": 45,
+          "concepts": [
+            {
+              "name": "Ring Buffer Design",
+              "description": "Implement bounded buffers for continuous neural data streams.",
+              "orderIndex": 0,
+              "suggestedResources": [
+                {
+                  "type": "project",
+                  "title": "Circular buffer implementation for neural streams",
+                  "url": "https://github.com/Neuralink-Community/ringbuffer",
+                  "priority": 1
+                },
+                {
+                  "type": "article",
+                  "title": "Lock-free ring buffers in Python",
+                  "url": "https://realpython.com/lock-free-ring-buffer/",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Backpressure Handling",
+              "description": "Drop or buffer samples gracefully under compute load.",
+              "orderIndex": 1,
+              "suggestedResources": [
+                {
+                  "type": "video",
+                  "title": "Backpressure in streaming systems - Kafka talk",
+                  "url": "https://kafka.apache.org/documentation/#streams",
+                  "priority": 1
+                },
+                {
+                  "type": "article",
+                  "title": "Handling overload in real-time decoders",
+                  "url": "https://arxiv.org/abs/2103.04567",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Deterministic Execution",
+              "description": "Ensure consistent timing across decoding iterations.",
+              "orderIndex": 2,
+              "suggestedResources": [
+                {
+                  "type": "book",
+                  "title": "Real-Time Systems by Liu, Chapter 3",
+                  "url": "https://www.pearson.com/en-us/subject-catalog/p/real-time-systems/P200000003178/9780130996510",
+                  "priority": 1
+                },
+                {
+                  "type": "paper",
+                  "title": "Deterministic BCI pipeline design",
+                  "url": "https://doi.org/10.1109/EMBC.2019.8856789",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "State Machine for Sessions",
+              "description": "Manage calibration, training, and live control states reliably.",
+              "orderIndex": 3,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "Finite state machines for medical device software",
+                  "url": "https://ieeexplore.ieee.org/document/1234567",
+                  "priority": 1
+                },
+                {
+                  "type": "project",
+                  "title": "Session state machine for BCI app",
+                  "url": "https://github.com/Neuralink-Community/bci-state-machine",
+                  "priority": 2
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "suggestedArtefact": {
+        "type": "project",
+        "title": "Low-latency streaming decoder prototype",
+        "description": "Build a Python pipeline that ingests simulated neural data and outputs control signals with measured sub-50ms latency.",
+        "acceptanceCriteria": [
+          "End-to-end latency under 50 ms on benchmark hardware.",
+          "No sample loss during 30-minute continuous run.",
+          "Pipeline uses ring buffer and separate processing thread.",
+          "Latency histogram and CPU profile included in repo.",
+          "Code includes simulated hardware driver interface."
+        ]
+      }
+    },
+    {
+      "name": "Cross-functional Communication",
+      "description": "Work with neuroscientists and clinical operators to translate requirements into shipped features.",
+      "type": "soft",
+      "weight": 4,
+      "orderIndex": 4,
+      "subSkills": [
+        {
+          "name": "Technical Writing for Research Teams",
+          "description": "Produce design documents that neuroscientists can review and approve.",
+          "estimatedHours": 25,
+          "concepts": [
+            {
+              "name": "Design Doc Structure",
+              "description": "Write sections on assumptions, alternatives, and risk for BCI features.",
+              "orderIndex": 0,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "How to write design documents at Google",
+                  "url": "https://www.industrialempathy.com/posts/design-docs-at-google/",
+                  "priority": 1
+                },
+                {
+                  "type": "video",
+                  "title": "Writing engineering proposals - Stripe blog talk",
+                  "url": "https://stripe.com/blog/engineering-design-docs",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Explaining Tradeoffs",
+              "description": "Present latency vs accuracy decisions to non-engineers.",
+              "orderIndex": 1,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "Communicating technical tradeoffs",
+                  "url": "https://www.fastcompany.com/3067773/how-to-communicate-technical-tradeoffs",
+                  "priority": 1
+                },
+                {
+                  "type": "video",
+                  "title": "Presenting to scientists - TED-style talk",
+                  "url": "https://www.youtube.com/watch?v=example-presenting",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Reviewing Analysis Code",
+              "description": "Give and receive feedback on signal processing implementations.",
+              "orderIndex": 2,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "Code review for data scientists",
+                  "url": "https://www.dataquest.io/blog/code-review-for-data-scientists/",
+                  "priority": 1
+                },
+                {
+                  "type": "video",
+                  "title": "Effective code review in research teams",
+                  "url": "https://www.youtube.com/watch?v=example-codereview",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Session Debriefs",
+              "description": "Run post-participant session reviews with clinical operators.",
+              "orderIndex": 3,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "Post-mortem best practices",
+                  "url": "https://www.atlassian.com/blog/leadership/post-mortem-best-practices",
+                  "priority": 1
+                },
+                {
+                  "type": "video",
+                  "title": "Running effective debrief meetings",
+                  "url": "https://www.youtube.com/watch?v=example-debrief",
+                  "priority": 2
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Interviewing Domain Experts",
+          "description": "Extract precise requirements from neuroscientists during feature scoping.",
+          "estimatedHours": 20,
+          "concepts": [
+            {
+              "name": "Asking Clarifying Questions",
+              "description": "Probe assumptions about signal quality and participant variability.",
+              "orderIndex": 0,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "Asking good questions of domain experts",
+                  "url": "https://www.fast.ai/posts/2019-03-11-asking-good-questions.html",
+                  "priority": 1
+                },
+                {
+                  "type": "video",
+                  "title": "Interviewing subject matter experts",
+                  "url": "https://www.youtube.com/watch?v=example-sme-interview",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Translating Jargon",
+              "description": "Map neuroscience terms to software requirements.",
+              "orderIndex": 1,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "Bridging engineering and science vocabularies",
+                  "url": "https://hbr.org/2019/05/how-to-bridge-the-language-gap-between-engineers-and-scientists",
+                  "priority": 1
+                },
+                {
+                  "type": "video",
+                  "title": "Technical translation for cross-functional teams",
+                  "url": "https://www.youtube.com/watch?v=example-translation",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Documenting Assumptions",
+              "description": "Record modeling choices so clinical staff can validate them.",
+              "orderIndex": 2,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "Documenting modeling assumptions",
+                  "url": "https://www.modelingguidelines.org/",
+                  "priority": 1
+                },
+                {
+                  "type": "video",
+                  "title": "Writing assumption logs for research software",
+                  "url": "https://www.youtube.com/watch?v=example-assumptions",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Feedback Loops",
+              "description": "Incorporate operator observations into next iteration planning.",
+              "orderIndex": 3,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "Building feedback loops with clinical teams",
+                  "url": "https://www.atlassian.com/blog/collaboration/feedback-loops",
+                  "priority": 1
+                },
+                {
+                  "type": "video",
+                  "title": "Iterating with domain experts",
+                  "url": "https://www.youtube.com/watch?v=example-feedback",
+                  "priority": 2
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "suggestedArtefact": {
+        "type": "writeup",
+        "title": "BCI feature design document",
+        "description": "Produce a 4-page design doc for a calibration flow that has been reviewed by a neuroscientist or domain expert.",
+        "acceptanceCriteria": [
+          "Document contains sections on signal assumptions, latency budget, and failure modes.",
+          "At least one neuroscientist or equivalent provides written feedback.",
+          "Tradeoff matrix for decoder choices is included.",
+          "Implementation plan maps directly to code structure.",
+          "Risk section addresses participant safety and data quality."
+        ]
+      }
+    },
+    {
+      "name": "Signal Processing for Neural Data",
+      "description": "Implement filtering, feature extraction, and decoding algorithms used in intracortical BCI.",
+      "type": "technical",
+      "weight": 4,
+      "orderIndex": 2,
+      "subSkills": [
+        {
+          "name": "Filtering & Preprocessing",
+          "description": "Apply bandpass, notch, and spatial filters to raw electrode data.",
+          "estimatedHours": 35,
+          "concepts": [
+            {
+              "name": "Bandpass Filtering",
+              "description": "Design and apply causal filters suitable for real-time use.",
+              "orderIndex": 0,
+              "suggestedResources": [
+                {
+                  "type": "video",
+                  "title": "Real-time filtering with SciPy - SciPy 2020 talk",
+                  "url": "https://www.youtube.com/watch?v=example-scipy-filter",
+                  "priority": 1
+                },
+                {
+                  "type": "book",
+                  "title": "Digital Signal Processing by Oppenheim & Schafer, Chapters 7-8",
+                  "url": "https://www.pearson.com/en-us/subject-catalog/p/digital-signal-processing/P200000003000/9780131873742",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Common Spatial Patterns",
+              "description": "Compute spatial filters that maximize class separability.",
+              "orderIndex": 1,
+              "suggestedResources": [
+                {
+                  "type": "paper",
+                  "title": "Common spatial patterns for BCI",
+                  "url": "https://doi.org/10.1109/TBME.2005.857566",
+                  "priority": 1
+                },
+                {
+                  "type": "project",
+                  "title": "CSP implementation on EEG data",
+                  "url": "https://github.com/NeuroTechX/moabb",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Spike Sorting Basics",
+              "description": "Detect and cluster spikes from high-density arrays.",
+              "orderIndex": 2,
+              "suggestedResources": [
+                {
+                  "type": "paper",
+                  "title": "Kilosort spike sorting algorithm",
+                  "url": "https://github.com/cortex-lab/KiloSort",
+                  "priority": 1
+                },
+                {
+                  "type": "video",
+                  "title": "Spike sorting tutorial - Allen Institute",
+                  "url": "https://alleninstitute.org/tutorials/spike-sorting",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Dimensionality Reduction",
+              "description": "Apply PCA or manifold methods to neural population activity.",
+              "orderIndex": 3,
+              "suggestedResources": [
+                {
+                  "type": "video",
+                  "title": "Dimensionality reduction for neural data",
+                  "url": "https://www.youtube.com/watch?v=example-dimred",
+                  "priority": 1
+                },
+                {
+                  "type": "paper",
+                  "title": "PCA for BCI feature spaces",
+                  "url": "https://arxiv.org/abs/2001.01234",
+                  "priority": 2
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Decoding Algorithms",
+          "description": "Implement and compare linear and nonlinear decoders for movement intent.",
+          "estimatedHours": 50,
+          "concepts": [
+            {
+              "name": "Kalman Filter Decoder",
+              "description": "Derive and code a Kalman filter for continuous cursor control.",
+              "orderIndex": 0,
+              "suggestedResources": [
+                {
+                  "type": "paper",
+                  "title": "Neural decoding using Kalman filters",
+                  "url": "https://doi.org/10.1038/nn.1234",
+                  "priority": 1
+                },
+                {
+                  "type": "project",
+                  "title": "Kalman BCI decoder from scratch",
+                  "url": "https://github.com/Neuralink-Community/kalman-decoder",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Linear Discriminant Analysis",
+              "description": "Train and deploy LDA for discrete intent classification.",
+              "orderIndex": 1,
+              "suggestedResources": [
+                {
+                  "type": "video",
+                  "title": "LDA for BCI classification",
+                  "url": "https://www.youtube.com/watch?v=example-lda",
+                  "priority": 1
+                },
+                {
+                  "type": "book",
+                  "title": "Pattern Recognition and Machine Learning by Bishop, Chapter 4",
+                  "url": "https://www.microsoft.com/en-us/research/people/cmbishop/prml/",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Recurrent Neural Decoders",
+              "description": "Use LSTMs or GRUs for sequence modeling of neural activity.",
+              "orderIndex": 2,
+              "suggestedResources": [
+                {
+                  "type": "paper",
+                  "title": "RNNs for neural decoding",
+                  "url": "https://arxiv.org/abs/1706.01234",
+                  "priority": 1
+                },
+                {
+                  "type": "video",
+                  "title": "Sequence models for BCI - NeurIPS workshop",
+                  "url": "https://www.youtube.com/watch?v=example-rnn-bci",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Online Adaptation",
+              "description": "Update decoder parameters during live sessions.",
+              "orderIndex": 3,
+              "suggestedResources": [
+                {
+                  "type": "paper",
+                  "title": "Adaptive decoders in BCI",
+                  "url": "https://doi.org/10.1016/j.neuron.2019.05.012",
+                  "priority": 1
+                },
+                {
+                  "type": "article",
+                  "title": "Online learning for neural interfaces",
+                  "url": "https://arxiv.org/abs/1905.01234",
+                  "priority": 2
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "suggestedArtefact": {
+        "type": "project",
+        "title": "Compare three decoders on public motor BCI dataset",
+        "description": "Benchmark Kalman, LDA, and simple RNN on the same dataset with latency and accuracy metrics.",
+        "acceptanceCriteria": [
+          "All three decoders achieve published baseline performance.",
+          "Benchmark report includes latency, accuracy, and bitrate.",
+          "Code is modular so new decoder can be swapped in <1 day.",
+          "Results table matches format used in primary literature.",
+          "Repo contains dataset loader and reproducible training scripts."
+        ]
+      }
+    }
+  ]
+}

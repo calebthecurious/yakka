@@ -1,0 +1,740 @@
+{
+  "structuralBlockers": [
+    "Requires relocation to Austin or Fremont; not addressable by self-study",
+    "Demands demonstrated production experience in real-time or low-latency systems; self-taught prototypes insufficient"
+  ],
+  "alternativeTargetBranches": [
+    {
+      "role": "Software Engineer, Healthtech / Neurotech",
+      "rationale": "Fits current full-stack + Python/ML prototyping skills while building domain exposure without Neuralink's hardware integration or relocation demands.",
+      "tradeoffs": "Lower compensation ceiling and less direct impact on cutting-edge implants; slower skill growth in low-latency neural decoding."
+    },
+    {
+      "role": "ML Engineer, Research Tools",
+      "rationale": "Leverages agentic AI and LLM experience for building internal research tooling at neuro or biotech labs.",
+      "tradeoffs": "Further from user-facing BCI applications; reduced ownership of end-to-end participant sessions."
+    }
+  ],
+  "clusters": [
+    {
+      "name": "Neuroscience & BCI Domain Fundamentals",
+      "description": "Core concepts from neuroscience and brain-computer interface literature required to interpret papers and collaborate with domain experts.",
+      "type": "domain",
+      "weight": 5,
+      "orderIndex": 0,
+      "subSkills": [
+        {
+          "name": "Basic Neurophysiology",
+          "description": "Neurons, action potentials, and cortical organization relevant to motor and sensory BCIs.",
+          "estimatedHours": 40,
+          "concepts": [
+            {
+              "name": "Action Potential Generation",
+              "description": "Explain ion channel dynamics and spike initiation; map to extracellular recording signals.",
+              "orderIndex": 0,
+              "suggestedResources": [
+                {
+                  "type": "book",
+                  "title": "Principles of Neural Science, 5th ed. - Kandel et al., Chapters 6-9",
+                  "url": "https://www.mhprofessional.com/principles-of-neural-science-fifth-edition-9780071390118",
+                  "priority": 1
+                },
+                {
+                  "type": "video",
+                  "title": "Khan Academy: Neuron Action Potential",
+                  "url": "https://www.khanacademy.org/science/biology/human-biology/neuron-nervous-system/v/neuron-action-potential",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Cortical Motor Areas",
+              "description": "Identify primary motor cortex, premotor areas, and their role in movement intent decoding.",
+              "orderIndex": 1,
+              "suggestedResources": [
+                {
+                  "type": "book",
+                  "title": "Principles of Neural Science, 5th ed. - Kandel et al., Chapters 37-38",
+                  "url": "https://www.mhprofessional.com/principles-of-neural-science-fifth-edition-9780071390118",
+                  "priority": 1
+                },
+                {
+                  "type": "paper",
+                  "title": "Georgopoulos et al. 1986 - Neuronal population coding of movement direction",
+                  "url": "https://science.sciencemag.org/content/233/4771/1416",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Spike Sorting Basics",
+              "description": "Distinguish single-unit vs multi-unit activity and basic clustering approaches used in BCI recordings.",
+              "orderIndex": 2,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "Spike Sorting Tutorial - Kilosort documentation",
+                  "url": "https://github.com/MouseLand/Kilosort",
+                  "priority": 1
+                },
+                {
+                  "type": "paper",
+                  "title": "Lewicki 1998 - A review of methods for spike sorting",
+                  "url": "https://www.sciencedirect.com/science/article/pii/S0165027098000958",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "BCI Signal Types",
+              "description": "Compare ECoG, intracortical spikes, and EEG for bandwidth, invasiveness, and decoding potential.",
+              "orderIndex": 3,
+              "suggestedResources": [
+                {
+                  "type": "paper",
+                  "title": "Wolpaw et al. 2002 - Brain-computer interfaces for communication and control",
+                  "url": "https://ieeexplore.ieee.org/document/1007889",
+                  "priority": 1
+                },
+                {
+                  "type": "article",
+                  "title": "Neuralink Blog: How Neuralink Works",
+                  "url": "https://neuralink.com/blog/",
+                  "priority": 2
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Motor Imagery & Intent Decoding",
+          "description": "Link participant mental strategies to measurable neural correlates used in real-time control.",
+          "estimatedHours": 30,
+          "concepts": [
+            {
+              "name": "Motor Imagery Paradigms",
+              "description": "Distinguish imagined vs attempted movement and resulting mu/beta rhythm changes.",
+              "orderIndex": 0,
+              "suggestedResources": [
+                {
+                  "type": "paper",
+                  "title": "Pfurtscheller & Neuper 2001 - Motor imagery and direct brain-computer communication",
+                  "url": "https://ieeexplore.ieee.org/document/939829",
+                  "priority": 1
+                },
+                {
+                  "type": "video",
+                  "title": "BCI 2000 Tutorial Series - Wadsworth Center",
+                  "url": "https://www.bci2000.org/mediawiki/index.php/Tutorials",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Population Vector Decoding",
+              "description": "Implement basic direction decoding from tuned neuron populations as in early BCI work.",
+              "orderIndex": 1,
+              "suggestedResources": [
+                {
+                  "type": "paper",
+                  "title": "Georgopoulos et al. 1986 - Neuronal population coding",
+                  "url": "https://science.sciencemag.org/content/233/4771/1416",
+                  "priority": 1
+                },
+                {
+                  "type": "article",
+                  "title": "OpenBCI Motor Imagery Guide",
+                  "url": "https://docs.openbci.com/Examples/EEGProjects/MotorImagery/",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Calibration Sessions",
+              "description": "Design data collection protocols that map neural activity to intended commands.",
+              "orderIndex": 2,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "Neuralink Patient Journey Overview",
+                  "url": "https://neuralink.com/",
+                  "priority": 1
+                },
+                {
+                  "type": "paper",
+                  "title": "Hochberg et al. 2006 - Neuronal ensemble control of prosthetic devices",
+                  "url": "https://www.nature.com/articles/nature04970",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Closed-Loop Feedback",
+              "description": "Explain why immediate sensory or visual feedback is required for participant learning.",
+              "orderIndex": 3,
+              "suggestedResources": [
+                {
+                  "type": "paper",
+                  "title": "Carmena et al. 2003 - Learning to control a brain-machine interface",
+                  "url": "https://science.sciencemag.org/content/300/5634/795",
+                  "priority": 1
+                },
+                {
+                  "type": "video",
+                  "title": "Synchron BCI Demo Videos",
+                  "url": "https://www.synchron.com/",
+                  "priority": 2
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "suggestedArtefact": {
+        "type": "writeup",
+        "title": "Annotated summary of 5 seminal BCI papers with pseudocode for each decoding approach",
+        "description": "Produce a technical memo that extracts implementable algorithms from primary literature."
+      }
+    },
+    {
+      "name": "Low-Latency Real-Time Systems",
+      "description": "Engineering patterns for deterministic, sub-100ms pipelines from implant to UI.",
+      "type": "technical",
+      "weight": 5,
+      "orderIndex": 1,
+      "subSkills": [
+        {
+          "name": "Real-Time Data Pipelines",
+          "description": "Streaming architectures that guarantee bounded latency from hardware to application layer.",
+          "estimatedHours": 50,
+          "concepts": [
+            {
+              "name": "Ring Buffers & Lock-Free Queues",
+              "description": "Implement producer-consumer patterns without GC pauses or mutex contention.",
+              "orderIndex": 0,
+              "suggestedResources": [
+                {
+                  "type": "book",
+                  "title": "Java Concurrency in Practice - Goetz et al.",
+                  "url": "https://jcip.net/",
+                  "priority": 1
+                },
+                {
+                  "type": "article",
+                  "title": "LMAX Disruptor documentation",
+                  "url": "https://lmax-exchange.github.io/disruptor/",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Deterministic Scheduling",
+              "description": "Use real-time OS primitives or thread priorities to bound jitter.",
+              "orderIndex": 1,
+              "suggestedResources": [
+                {
+                  "type": "book",
+                  "title": "Real-Time Systems - Jane W.S. Liu",
+                  "url": "https://www.pearson.com/us/higher-education/program/Liu-Real-Time-Systems/PGM310862.html",
+                  "priority": 1
+                },
+                {
+                  "type": "article",
+                  "title": "Linux PREEMPT_RT patch guide",
+                  "url": "https://rt.wiki.kernel.org/",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Zero-Copy Networking",
+              "description": "Move data from kernel to user space without memcpy for sensor streams.",
+              "orderIndex": 2,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "DPDK Programmer's Guide",
+                  "url": "https://doc.dpdk.org/guides/",
+                  "priority": 1
+                },
+                {
+                  "type": "book",
+                  "title": "High Performance Browser Networking - Ilya Grigorik",
+                  "url": "https://hpbn.co/",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Latency Measurement",
+              "description": "Instrument end-to-end timing and set SLOs for participant-visible actions.",
+              "orderIndex": 3,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "Brendan Gregg - Systems Performance, 2nd ed. Chapter 5",
+                  "url": "http://www.brendangregg.com/systems-performance-2nd-edition.html",
+                  "priority": 1
+                },
+                {
+                  "type": "project",
+                  "title": "Linux perf examples repository",
+                  "url": "https://github.com/brendangregg/perf-tools",
+                  "priority": 2
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Hardware Abstraction",
+          "description": "Interface cleanly with custom implant drivers and FPGA outputs.",
+          "estimatedHours": 30,
+          "concepts": [
+            {
+              "name": "Memory-Mapped I/O",
+              "description": "Read hardware registers and DMA buffers directly from user space.",
+              "orderIndex": 0,
+              "suggestedResources": [
+                {
+                  "type": "book",
+                  "title": "Linux Device Drivers, 3rd ed. - Corbet et al.",
+                  "url": "https://lwn.net/Kernel/LDD3/",
+                  "priority": 1
+                },
+                {
+                  "type": "article",
+                  "title": "NVIDIA Jetson real-time I/O examples",
+                  "url": "https://developer.nvidia.com/embedded/jetson",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Event-Driven Architectures",
+              "description": "React to spike events or feature vectors without polling loops.",
+              "orderIndex": 1,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "libevent documentation",
+                  "url": "https://libevent.org/",
+                  "priority": 1
+                },
+                {
+                  "type": "book",
+                  "title": "The C++ Programming Language, 4th ed. - Stroustrup (concurrency chapter)",
+                  "url": "https://www.stroustrup.com/4th.html",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Time Synchronization",
+              "description": "Align implant timestamps with host clock across USB or wireless links.",
+              "orderIndex": 2,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "PTP IEEE 1588 tutorial - Cisco",
+                  "url": "https://www.cisco.com/c/en/us/about/press/internet-protocol-journal/back-issues/table-contents-58/1588.html",
+                  "priority": 1
+                },
+                {
+                  "type": "paper",
+                  "title": "Chrony documentation for sub-millisecond sync",
+                  "url": "https://chrony.tuxfamily.org/",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Fail-Safe Degradation",
+              "description": "Define graceful fallback modes when sensor packets are lost.",
+              "orderIndex": 3,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "Designing Fault-Tolerant Systems - Google SRE Chapter 22",
+                  "url": "https://sre.google/sre-book/part-iv/",
+                  "priority": 1
+                },
+                {
+                  "type": "book",
+                  "title": "Release It! 2nd ed. - Nygard",
+                  "url": "https://pragprog.com/titles/mnee2/release-it/",
+                  "priority": 2
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "suggestedArtefact": {
+        "type": "project",
+        "title": "Real-time spike stream simulator with <20ms end-to-end latency to cursor control",
+        "description": "Build and benchmark a minimal pipeline using Python/C++ that mimics implant output."
+      }
+    },
+    {
+      "name": "Cross-Disciplinary Communication",
+      "description": "Skills for translating between code, neuroscience papers, and clinical operators during weekly sessions.",
+      "type": "soft",
+      "weight": 4,
+      "orderIndex": 2,
+      "subSkills": [
+        {
+          "name": "Technical Design Documentation",
+          "description": "Write engineering docs that neuroscientists and hardware engineers can review and approve.",
+          "estimatedHours": 25,
+          "concepts": [
+            {
+              "name": "Writing for Mixed Audiences",
+              "description": "Structure docs so both domain experts and software engineers extract needed information.",
+              "orderIndex": 0,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "Google Engineering Practices: Design Docs",
+                  "url": "https://google.github.io/eng-practices/review/",
+                  "priority": 1
+                },
+                {
+                  "type": "book",
+                  "title": "The Elements of Style - Strunk & White",
+                  "url": "https://www.bartleby.com/141/",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Paper-to-Code Translation",
+              "description": "Summarize methods sections into concrete implementation tickets.",
+              "orderIndex": 1,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "Distill.pub: How to read a paper",
+                  "url": "https://distill.pub/2017/aia/",
+                  "priority": 1
+                },
+                {
+                  "type": "video",
+                  "title": "Andrew Ng - Reading Research Papers",
+                  "url": "https://www.youtube.com/watch?v=2r4n0p1f0fM",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Live Session Debriefs",
+              "description": "Capture participant feedback and turn observations into next-day code changes.",
+              "orderIndex": 2,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "Atlassian Incident Review Template",
+                  "url": "https://www.atlassian.com/incident-management/post-incident-review",
+                  "priority": 1
+                },
+                {
+                  "type": "book",
+                  "title": "Crucial Conversations - Patterson et al.",
+                  "url": "https://www.vitalsmarts.com/crucial-conversations-book/",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Pair Debugging with Domain Experts",
+              "description": "Run joint debugging sessions where signal anomalies are diagnosed together.",
+              "orderIndex": 3,
+              "suggestedResources": [
+                {
+                  "type": "video",
+                  "title": "Julia Evans - Debugging Zine and talks",
+                  "url": "https://jvns.ca/",
+                  "priority": 1
+                },
+                {
+                  "type": "article",
+                  "title": "Stripe Engineering Blog - On-call and collaboration",
+                  "url": "https://stripe.com/blog/",
+                  "priority": 2
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Research Implementation Workflow",
+          "description": "Process for turning primary literature directly into production-grade code.",
+          "estimatedHours": 35,
+          "concepts": [
+            {
+              "name": "Reproducibility Setup",
+              "description": "Replicate published figures before extending the method.",
+              "orderIndex": 0,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "Papers with Code - BCI benchmarks",
+                  "url": "https://paperswithcode.com/task/brain-computer-interface",
+                  "priority": 1
+                },
+                {
+                  "type": "project",
+                  "title": "Elephant neuroscience analysis library",
+                  "url": "https://elephant.readthedocs.io/",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Evaluation Against Baselines",
+              "description": "Compare new decoder against published benchmarks using same datasets.",
+              "orderIndex": 1,
+              "suggestedResources": [
+                {
+                  "type": "paper",
+                  "title": "CHB-MIT Scalp EEG Database",
+                  "url": "https://physionet.org/content/chbmit/1.0.0/",
+                  "priority": 1
+                },
+                {
+                  "type": "article",
+                  "title": "MOABB BCI benchmark framework",
+                  "url": "https://github.com/NeuroTechX/moabb",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Versioned Experiment Tracking",
+              "description": "Log every hyperparameter and data split so results are auditable.",
+              "orderIndex": 2,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "Weights & Biases Quickstart",
+                  "url": "https://docs.wandb.ai/quickstart",
+                  "priority": 1
+                },
+                {
+                  "type": "book",
+                  "title": "Designing Machine Learning Systems - Huyen",
+                  "url": "https://huyenchip.com/books/designing-ml-systems/",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Participant Data Ethics",
+              "description": "Handle neural data under IRB and FDA constraints.",
+              "orderIndex": 3,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "FDA Guidance on BCI Devices",
+                  "url": "https://www.fda.gov/medical-devices",
+                  "priority": 1
+                },
+                {
+                  "type": "paper",
+                  "title": "NIH BRAIN Initiative ethics guidelines",
+                  "url": "https://braininitiative.nih.gov/",
+                  "priority": 2
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "suggestedArtefact": {
+        "type": "contribution",
+        "title": "Open PR to an existing BCI toolbox (e.g. MOABB or Elephant) implementing one missing decoder",
+        "description": "Demonstrates both code quality and domain understanding via public review."
+      }
+    },
+    {
+      "name": "Signal Processing for Neural Data",
+      "description": "Core DSP techniques used to clean and extract features from raw implant streams.",
+      "type": "technical",
+      "weight": 4,
+      "orderIndex": 3,
+      "subSkills": [
+        {
+          "name": "Filtering & Artifact Removal",
+          "description": "Apply causal filters that preserve timing for closed-loop use.",
+          "estimatedHours": 35,
+          "concepts": [
+            {
+              "name": "Causal vs Non-causal Filters",
+              "description": "Implement real-time IIR filters without lookahead.",
+              "orderIndex": 0,
+              "suggestedResources": [
+                {
+                  "type": "book",
+                  "title": "Digital Signal Processing - Oppenheim & Schafer, 4th ed.",
+                  "url": "https://www.pearson.com/us/higher-education/product/Oppenheim-Digital-Signal-Processing-4th-Edition/9780131873742.html",
+                  "priority": 1
+                },
+                {
+                  "type": "article",
+                  "title": "SciPy signal processing tutorial",
+                  "url": "https://docs.scipy.org/doc/scipy/reference/signal.html",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Feature Extraction",
+              "description": "Compute bandpower, spike rates, and local field potentials usable by decoders.",
+              "orderIndex": 1,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "MNE-Python tutorial: Time-frequency analysis",
+                  "url": "https://mne.tools/stable/auto_tutorials/time-freq/index.html",
+                  "priority": 1
+                },
+                {
+                  "type": "paper",
+                  "title": "Blankertz et al. 2008 - Optimizing spatial filters",
+                  "url": "https://ieeexplore.ieee.org/document/4407677",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Dimensionality Reduction",
+              "description": "Apply PCA/CCA to high-channel count data while maintaining real-time constraints.",
+              "orderIndex": 2,
+              "suggestedResources": [
+                {
+                  "type": "book",
+                  "title": "Pattern Recognition and Machine Learning - Bishop, Chapter 12",
+                  "url": "https://www.microsoft.com/en-us/research/people/cmbishop/prml-book/",
+                  "priority": 1
+                },
+                {
+                  "type": "article",
+                  "title": "scikit-learn manifold learning docs",
+                  "url": "https://scikit-learn.org/stable/modules/manifold.html",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Online Adaptation",
+              "description": "Update model parameters incrementally as participant performance drifts.",
+              "orderIndex": 3,
+              "suggestedResources": [
+                {
+                  "type": "paper",
+                  "title": "Vidaurre et al. 2011 - Online adaptation in BCI",
+                  "url": "https://ieeexplore.ieee.org/document/5742723",
+                  "priority": 1
+                },
+                {
+                  "type": "article",
+                  "title": "River library for online ML",
+                  "url": "https://riverml.xyz/",
+                  "priority": 2
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "UX for Thought-Controlled Interfaces",
+          "description": "Application-layer patterns that turn decoded intent into reliable, low-frustration user experiences.",
+          "estimatedHours": 30,
+          "concepts": [
+            {
+              "name": "Cursor & Click Mapping",
+              "description": "Translate continuous velocity commands into stable pointer control with dwell or neural click.",
+              "orderIndex": 0,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "NUIX BCI cursor control examples",
+                  "url": "https://www.nuix.com/",
+                  "priority": 1
+                },
+                {
+                  "type": "paper",
+                  "title": "Collinger et al. 2013 - High-performance neuroprosthetic control",
+                  "url": "https://www.thelancet.com/journals/lancet/article/PIIS0140-6736(13)61816-9/fulltext",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Error Correction & Undo",
+              "description": "Detect and recover from misclassifications without breaking participant flow.",
+              "orderIndex": 1,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "Typing Interface Design - Dasher project",
+                  "url": "http://www.inference.org.uk/dasher/",
+                  "priority": 1
+                },
+                {
+                  "type": "paper",
+                  "title": "Willet et al. 2021 - High-performance brain-to-text",
+                  "url": "https://www.nature.com/articles/s41586-021-03506-2",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Calibration UI Flows",
+              "description": "Guide participants through data collection with minimal cognitive load.",
+              "orderIndex": 2,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "BrainGate clinical interface descriptions",
+                  "url": "https://www.braingate.org/",
+                  "priority": 1
+                },
+                {
+                  "type": "video",
+                  "title": "Neuralink 2023 Demo Walkthrough",
+                  "url": "https://neuralink.com/blog/",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Accessibility & Fatigue Mitigation",
+              "description": "Design sessions that account for attention limits and muscle artifacts.",
+              "orderIndex": 3,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "W3C Accessibility Guidelines for cognitive load",
+                  "url": "https://www.w3.org/WAI/WCAG21/quickref/",
+                  "priority": 1
+                },
+                {
+                  "type": "paper",
+                  "title": "Fatigue in BCI users - study",
+                  "url": "https://pubmed.ncbi.nlm.nih.gov//",
+                  "priority": 2
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "suggestedArtefact": {
+        "type": "project",
+        "title": "Web-based BCI cursor demo using keyboard-emulated neural input with calibration wizard",
+        "description": "Full-stack prototype connecting simulated decoder output to browser events."
+      }
+    }
+  ]
+}

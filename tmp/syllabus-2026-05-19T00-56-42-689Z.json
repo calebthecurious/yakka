@@ -1,0 +1,682 @@
+{
+  "structuralBlockers": [
+    "Requires willingness to relocate to Austin/Fremont; remote not offered and not addressable by study.",
+    "Demands production experience shipping low-latency participant-facing systems; self-taught frontend/ML-prototyping background does not substitute.",
+    "Must translate primary neuroscience papers directly into clinical code under weekly participant sessions; no domain track record exists."
+  ],
+  "alternativeTargetBranches": [
+    {
+      "role": "Software Engineer, Real-time Systems at robotics or embedded hardware company",
+      "rationale": "Matches low-latency systems focus and production ownership without requiring neuroscience domain or clinical constraints.",
+      "tradeoffs": "Lower total comp than Neuralink; narrower scope on device control but faster path to relevant experience."
+    },
+    {
+      "role": "ML Engineer, Decoding Systems at non-clinical neurotech or research lab",
+      "rationale": "Leverages Python/ML prototyping strength and paper-to-code skill; avoids full clinical/regulatory load.",
+      "tradeoffs": "Fewer participant-facing UX responsibilities; reduced ownership of end-to-end shipping cadence."
+    },
+    {
+      "role": "Full-stack Engineer, Healthtech applications at regulated medical device startup",
+      "rationale": "Builds on Next.js/TypeScript strength while adding domain exposure in a slower-paced clinical environment.",
+      "tradeoffs": "Lower velocity and technical depth on real-time pipelines; longer timeline to BCI-specific work."
+    }
+  ],
+  "clusters": [
+    {
+      "name": "Real-time Low-Latency Systems",
+      "description": "Core engineering craft for decoding pipelines and calibration flows that must run under participant session constraints.",
+      "type": "technical",
+      "weight": 5,
+      "orderIndex": 0,
+      "subSkills": [
+        {
+          "name": "Real-time data pipelines",
+          "description": "Building and tuning streaming data paths from implant to application layer.",
+          "estimatedHours": 60,
+          "concepts": [
+            {
+              "name": "Zero-copy buffering and ring buffers",
+              "description": "Understanding how to move signal buffers between threads or processes without memcpy overhead.",
+              "orderIndex": 0,
+              "suggestedResources": [
+                {
+                  "type": "book",
+                  "title": "Linux System Programming (2nd ed.) by Robert Love, chapters 4-6",
+                  "priority": 1
+                },
+                {
+                  "type": "article",
+                  "title": "Boost latency by avoiding copies in C++",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Lock-free queues for sensor streams",
+              "description": "Implementing or using SPSC/MPSC queues that guarantee bounded latency under load.",
+              "orderIndex": 1,
+              "suggestedResources": [
+                {
+                  "type": "book",
+                  "title": "C++ Concurrency in Action (2nd ed.) by Anthony Williams, chapter 7",
+                  "priority": 1
+                },
+                {
+                  "type": "video",
+                  "title": "Lock-free programming for real-time systems - CppCon talk",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Latency measurement and profiling",
+              "description": "Instrumenting end-to-end pipeline latency and identifying sources of jitter.",
+              "orderIndex": 2,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "How to measure latency correctly by Gil Tene",
+                  "priority": 1
+                },
+                {
+                  "type": "project",
+                  "title": "Build a simple latency tracer for audio streams",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Scheduling and priority in Linux",
+              "description": "Using SCHED_FIFO/RR and CPU affinity to meet hard real-time requirements.",
+              "orderIndex": 3,
+              "suggestedResources": [
+                {
+                  "type": "book",
+                  "title": "Linux System Programming (2nd ed.) by Robert Love, chapter 10",
+                  "priority": 1
+                },
+                {
+                  "type": "article",
+                  "title": "Real-time Linux for embedded systems",
+                  "priority": 2
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "C++/Python interop for performance",
+          "description": "Moving hot paths out of Python while keeping rapid iteration.",
+          "estimatedHours": 40,
+          "concepts": [
+            {
+              "name": "pybind11 bindings",
+              "description": "Exposing C++ classes and buffers to Python with minimal overhead.",
+              "orderIndex": 0,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "pybind11 documentation and examples",
+                  "priority": 1
+                },
+                {
+                  "type": "book",
+                  "title": "Cython book by Kurt Smith",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Shared memory between languages",
+              "description": "Using mmap or Boost.Interprocess to pass large signal buffers.",
+              "orderIndex": 1,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "Shared memory IPC in Python and C++",
+                  "priority": 1
+                },
+                {
+                  "type": "video",
+                  "title": "High-performance Python for data processing",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Profiling with perf and eBPF",
+              "description": "Finding hot spots across language boundaries in production.",
+              "orderIndex": 2,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "perf examples for mixed Python/C++ workloads",
+                  "priority": 1
+                },
+                {
+                  "type": "project",
+                  "title": "Profile a toy BCI decoder loop",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Async I/O with asyncio and libuv",
+              "description": "Coordinating non-blocking hardware interfaces without blocking the decoder.",
+              "orderIndex": 3,
+              "suggestedResources": [
+                {
+                  "type": "book",
+                  "title": "Using Asyncio in Python by Caleb Hattingh",
+                  "priority": 1
+                },
+                {
+                  "type": "article",
+                  "title": "libuv integration patterns",
+                  "priority": 2
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "suggestedArtefact": {
+        "type": "project",
+        "title": "Real-time decoder skeleton that ingests synthetic neural streams and emits control commands with <10 ms p99 latency",
+        "description": "Open-source repo with benchmarks and flame graphs demonstrating the pipeline."
+      }
+    },
+    {
+      "name": "Neuroscience & BCI Domain",
+      "description": "Foundational knowledge to read primary papers and translate them into code without constant hand-holding.",
+      "type": "domain",
+      "weight": 5,
+      "orderIndex": 1,
+      "subSkills": [
+        {
+          "name": "Neural signal basics",
+          "description": "Understanding spike sorting, LFP, and common preprocessing steps used in BCI.",
+          "estimatedHours": 50,
+          "concepts": [
+            {
+              "name": "Action potentials and extracellular recording",
+              "description": "Explaining how electrodes capture spikes and why waveform shape matters.",
+              "orderIndex": 0,
+              "suggestedResources": [
+                {
+                  "type": "paper",
+                  "title": "Principles of Neural Science (5th ed.) by Kandel et al., chapters 9-10",
+                  "priority": 1
+                },
+                {
+                  "type": "video",
+                  "title": "Spike sorting tutorial series by Flatiron Institute",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Common BCI decoding algorithms",
+              "description": "Kalman filters, linear decoders, and basic neural network approaches for cursor or prosthetic control.",
+              "orderIndex": 1,
+              "suggestedResources": [
+                {
+                  "type": "paper",
+                  "title": "Neural control of cursor trajectory 2002 by Serruya et al.",
+                  "priority": 1
+                },
+                {
+                  "type": "article",
+                  "title": "BCI decoder survey by Nicolas et al. 2021",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Calibration and adaptation",
+              "description": "Why daily recalibration is needed and how closed-loop training works.",
+              "orderIndex": 2,
+              "suggestedResources": [
+                {
+                  "type": "paper",
+                  "title": "Closed-loop decoder adaptation papers from Nudo and Carmena labs",
+                  "priority": 1
+                },
+                {
+                  "type": "video",
+                  "title": "BCI calibration walkthrough from OpenBCI",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Signal quality metrics",
+              "description": "SNR, bit rate, and other figures of merit used to evaluate participant performance.",
+              "orderIndex": 3,
+              "suggestedResources": [
+                {
+                  "type": "paper",
+                  "title": "Information transfer rate calculation in BCI by Wolpaw",
+                  "priority": 1
+                },
+                {
+                  "type": "article",
+                  "title": "Evaluating BCI performance metrics",
+                  "priority": 2
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Paper-to-code translation",
+          "description": "Extracting implementable algorithms from methods sections of primary literature.",
+          "estimatedHours": 35,
+          "concepts": [
+            {
+              "name": "Reproducing a Kalman filter decoder",
+              "description": "Implementing the exact equations from a classic BCI paper using only the methods text.",
+              "orderIndex": 0,
+              "suggestedResources": [
+                {
+                  "type": "paper",
+                  "title": "Reconstructing 3D hand movements from M1 activity by Vargas-Irwin 2010",
+                  "priority": 1
+                },
+                {
+                  "type": "project",
+                  "title": "Reproduce the 2004 Carmena decoder in NumPy",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Handling missing implementation details",
+              "description": "Making reasonable engineering choices when papers omit hyperparameters or edge cases.",
+              "orderIndex": 1,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "Reproducibility challenges in BCI papers",
+                  "priority": 1
+                },
+                {
+                  "type": "video",
+                  "title": "From paper to production code - ML engineering talks",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Versioning experimental pipelines",
+              "description": "Tracking which paper version and parameter set produced a given participant result.",
+              "orderIndex": 2,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "ML experiment tracking best practices for research code",
+                  "priority": 1
+                },
+                {
+                  "type": "project",
+                  "title": "Reproduce and log three BCI decoding variants",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Ethical and safety constraints",
+              "description": "Recognizing when an algorithm is unsafe to run on a human participant.",
+              "orderIndex": 3,
+              "suggestedResources": [
+                {
+                  "type": "paper",
+                  "title": "Ethical guidelines for invasive BCI research",
+                  "priority": 1
+                },
+                {
+                  "type": "article",
+                  "title": "FDA guidance on neuroprosthetics",
+                  "priority": 2
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "suggestedArtefact": {
+        "type": "project",
+        "title": "Re-implement the closed-loop decoder from a 2010s primate BCI paper and run it on synthetic or public data",
+        "description": "Public repo with exact reproduction steps, metrics match, and discussion of deviations."
+      }
+    },
+    {
+      "name": "Cross-functional Collaboration",
+      "description": "Working daily with neuroscientists, signal processing engineers, and clinical operators to ship participant features.",
+      "type": "soft",
+      "weight": 4,
+      "orderIndex": 2,
+      "subSkills": [
+        {
+          "name": "Technical writing for mixed audiences",
+          "description": "Producing design docs and PRDs that both engineers and neuroscientists can review.",
+          "estimatedHours": 25,
+          "concepts": [
+            {
+              "name": "Writing engineering design docs",
+              "description": "Structuring docs that include signal-processing rationale and risk analysis.",
+              "orderIndex": 0,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "Google's engineering design doc template and examples",
+                  "priority": 1
+                },
+                {
+                  "type": "book",
+                  "title": "The Engineering Executive's Primer by Will Larson",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Explaining trade-offs to domain experts",
+              "description": "Presenting latency vs accuracy choices in language neuroscientists understand.",
+              "orderIndex": 1,
+              "suggestedResources": [
+                {
+                  "type": "video",
+                  "title": "Communicating technical trade-offs - Stripe engineering talks",
+                  "priority": 1
+                },
+                {
+                  "type": "article",
+                  "title": "How to run effective cross-functional design reviews",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Pair-debugging with scientists",
+              "description": "Jointly stepping through decoder output during live participant sessions.",
+              "orderIndex": 2,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "Effective pair programming in research settings",
+                  "priority": 1
+                },
+                {
+                  "type": "video",
+                  "title": "Debugging live BCI sessions - recorded lab talks",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Receiving and incorporating feedback",
+              "description": "Iterating on UX flows after a neuroscientist or operator flags an issue.",
+              "orderIndex": 3,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "Feedback loops in high-stakes software teams",
+                  "priority": 1
+                },
+                {
+                  "type": "video",
+                  "title": "Receiving critical feedback - engineering leadership talks",
+                  "priority": 2
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Clinical UX and Safety",
+          "description": "Designing participant interfaces that must be reliable under direct human use.",
+          "estimatedHours": 30,
+          "concepts": [
+            {
+              "name": "Participant mental models",
+              "description": "Understanding how users conceptualize thought-based control versus traditional input.",
+              "orderIndex": 0,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "User research in BCI - participant interviews summaries",
+                  "priority": 1
+                },
+                {
+                  "type": "video",
+                  "title": "Designing for thought-based interfaces",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Error handling and fail-safes",
+              "description": "Building graceful degradation when signal quality drops mid-session.",
+              "orderIndex": 1,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "Safety patterns in medical device software",
+                  "priority": 1
+                },
+                {
+                  "type": "paper",
+                  "title": "IEC 62304 software safety classification",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Calibration UX flows",
+              "description": "Designing short, repeatable calibration routines that participants can complete quickly.",
+              "orderIndex": 2,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "Calibration best practices from existing BCI user studies",
+                  "priority": 1
+                },
+                {
+                  "type": "project",
+                  "title": "Mock calibration UI with timing metrics",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Session logging and audit trails",
+              "description": "Capturing enough context for post-session review by clinical staff.",
+              "orderIndex": 3,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "Audit logging requirements for clinical software",
+                  "priority": 1
+                },
+                {
+                  "type": "video",
+                  "title": "HIPAA-adjacent logging patterns",
+                  "priority": 2
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "suggestedArtefact": {
+        "type": "writeup",
+        "title": "Design doc for a participant calibration flow including safety interlocks and operator override paths",
+        "description": "Reviewed internally or posted publicly with feedback incorporated."
+      }
+    },
+    {
+      "name": "Paper Reading & Rapid Context Acquisition",
+      "description": "Meta skill for staying current with BCI literature while shipping weekly.",
+      "type": "meta",
+      "weight": 3,
+      "orderIndex": 3,
+      "subSkills": [
+        {
+          "name": "Efficient primary literature consumption",
+          "description": "Extracting algorithm, parameters, and limitations from a paper in under two hours.",
+          "estimatedHours": 20,
+          "concepts": [
+            {
+              "name": "Skimming methods and results sections",
+              "description": "Identifying the exact equations and pseudocode needed for implementation.",
+              "orderIndex": 0,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "How to read a scientific paper efficiently by Andrew Ng",
+                  "priority": 1
+                },
+                {
+                  "type": "video",
+                  "title": "Paper reading workflow for engineers",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Reproducibility checklist",
+              "description": "Quickly spotting missing details that will require engineering judgment.",
+              "orderIndex": 1,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "Reproducibility checklist for ML papers",
+                  "priority": 1
+                },
+                {
+                  "type": "video",
+                  "title": "Common omissions in neuroscience methods",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Building a personal BCI paper index",
+              "description": "Maintaining searchable notes that link papers to code patterns.",
+              "orderIndex": 2,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "Building a research Zettelkasten for engineers",
+                  "priority": 1
+                },
+                {
+                  "type": "project",
+                  "title": "Curate 20 core BCI papers with implementation notes",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Staying current with preprints",
+              "description": "Monitoring arXiv and bioRxiv for relevant BCI work without information overload.",
+              "orderIndex": 3,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "arXiv RSS and alert strategies for niche fields",
+                  "priority": 1
+                },
+                {
+                  "type": "video",
+                  "title": "Keeping up with research as a practitioner",
+                  "priority": 2
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Production Ownership Mindset",
+          "description": "High-ownership behaviors expected when shipping features that directly affect participants.",
+          "estimatedHours": 15,
+          "concepts": [
+            {
+              "name": "Owning on-call and incident response",
+              "description": "Treating decoder failures during sessions as personal responsibility.",
+              "orderIndex": 0,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "On-call culture at high-ownership companies",
+                  "priority": 1
+                },
+                {
+                  "type": "video",
+                  "title": "Incident command for software engineers",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Pushing back on scope creep",
+              "description": "Saying no to features that cannot be made safe in the current timeline.",
+              "orderIndex": 1,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "Saying no at work - engineering leadership examples",
+                  "priority": 1
+                },
+                {
+                  "type": "video",
+                  "title": "Scope negotiation in clinical software",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Documentation as a force multiplier",
+              "description": "Writing runbooks and decision records so others can operate the system.",
+              "orderIndex": 2,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "Writing great runbooks and decision records",
+                  "priority": 1
+                },
+                {
+                  "type": "book",
+                  "title": "The Staff Engineer's Path by Tanya Reilly",
+                  "priority": 2
+                }
+              ]
+            },
+            {
+              "name": "Mentoring domain experts on tooling",
+              "description": "Helping neuroscientists use the software and debug their own experiments.",
+              "orderIndex": 3,
+              "suggestedResources": [
+                {
+                  "type": "article",
+                  "title": "Teaching tools to non-engineers",
+                  "priority": 1
+                },
+                {
+                  "type": "video",
+                  "title": "Pairing with domain experts",
+                  "priority": 2
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "suggestedArtefact": {
+        "type": "writeup",
+        "title": "Post-mortem of a simulated decoder failure during a participant session with root cause and prevention plan",
+        "description": "Concise internal-style document demonstrating ownership language and follow-through."
+      }
+    }
+  ]
+}
