@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { connection } from "next/server";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { format, formatDistanceToNow } from "date-fns";
@@ -54,6 +55,8 @@ const CLUSTER_TYPE_STYLE: Record<ClusterType, { label: string; dot: string }> =
   };
 
 async function loadProfile() {
+  await connection();
+
   const [currentSyllabus] = await db
     .select()
     .from(syllabi)

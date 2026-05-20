@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { connection } from "next/server";
 import Link from "next/link";
 import type { Metadata } from "next";
 import {
@@ -24,6 +25,8 @@ const TYPE_META: Record<ArtefactType, { label: string; icon: LucideIcon }> = {
 };
 
 async function loadCluster(id: string) {
+  await connection();
+
   return db.query.skillClusters.findFirst({
     where: (c, { eq }) => eq(c.id, id),
     with: {

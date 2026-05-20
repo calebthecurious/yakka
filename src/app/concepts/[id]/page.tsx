@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { connection } from "next/server";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { format, formatDistanceToNow } from "date-fns";
@@ -50,6 +51,8 @@ const STATUS_BADGE: Record<
 };
 
 async function loadConcept(id: string) {
+  await connection();
+
   return db.query.concepts.findFirst({
     where: (c, { eq }) => eq(c.id, id),
     with: {

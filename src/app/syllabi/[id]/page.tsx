@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { connection } from "next/server";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { format } from "date-fns";
@@ -10,6 +11,8 @@ import { DeleteSyllabusButton } from "./delete-syllabus-button";
 type PageProps = { params: Promise<{ id: string }> };
 
 async function loadSyllabus(id: string) {
+  await connection();
+
   return db.query.syllabi.findFirst({
     where: (s, { eq }) => eq(s.id, id),
     with: {

@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { env } from "@/lib/env";
+import { getEnv } from "@/lib/env";
 
 export const DEFAULT_MODEL = "grok-4-latest";
 
@@ -7,13 +7,30 @@ const globalForGrok = globalThis as unknown as {
   grok?: OpenAI;
 };
 
-export const grok =
-  globalForGrok.grok ??
-  new OpenAI({
-    apiKey: env.GROK_API_KEY,
-    baseURL: "https://api.x.ai/v1",
-  });
+let grokInstance: OpenAI | undefined;
 
-if (process.env.NODE_ENV !== "production") {
-  globalForGrok.grok = grok;
+function createGrok() {
+  const grok =
+    globalForGrok.grok ??
+    new OpenAI({
+      apiKey: getEnv("GROK_API_KEY"),
+      baseURL: "https://api.x.ai/v1",
+    });
+
+  if (process.env.NODE_ENV !== "production") {
+    globalForGrok.grok = grok;
+  }
+
+  return grok;
 }
+
+function getGrok() {
+  grokInstance ??= globalForGrok.grok ?? createGrok();
+  return grokInstance;
+}
+
+export const grok = new Proxy({} as OpenAI, {
+  get(_target, prop, receiver) {
+    return Reflect.get(getGrok(), prop, receiver);
+  },
+});

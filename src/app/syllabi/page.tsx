@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { connection } from "next/server";
 import type { Metadata } from "next";
 import { format } from "date-fns";
 import { desc } from "drizzle-orm";
@@ -20,6 +21,8 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function SyllabiIndexPage() {
+  await connection();
+
   const rows = await db
     .select({
       id: syllabi.id,

@@ -7,18 +7,33 @@ const EnvSchema = z.object({
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
 });
 
-const parsed = EnvSchema.safeParse({
-  DATABASE_URL: process.env.DATABASE_URL,
-  GROK_API_KEY: process.env.GROK_API_KEY,
-  NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-});
+type Env = z.infer<typeof EnvSchema>;
+type EnvKey = keyof Env;
 
-if (!parsed.success) {
-  const issues = parsed.error.issues
-    .map((i) => `  - ${i.path.join(".")}: ${i.message}`)
+const EnvValueSchemas = {
+  DATABASE_URL: EnvSchema.shape.DATABASE_URL,
+  GROK_API_KEY: EnvSchema.shape.GROK_API_KEY,
+  NEXT_PUBLIC_SUPABASE_URL: EnvSchema.shape.NEXT_PUBLIC_SUPABASE_URL,
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: EnvSchema.shape.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+} satisfies { [K in EnvKey]: z.ZodType<Env[K]> };
+
+function formatIssues(error: z.ZodError, fallbackPath?: string): string {
+  return error.issues
+    .map((i) => {
+      const path = i.path.length > 0 ? i.path.join(".") : fallbackPath;
+      return `  - ${path ?? "(root)"}: ${i.message}`;
+    })
     .join("\n");
-  throw new Error(`Invalid environment variables:\n${issues}`);
 }
 
-export const env = parsed.data;
+export function getEnv<K extends EnvKey>(key: K): Env[K] {
+  const parsed = EnvValueSchemas[key].safeParse(process.env[key]);
+
+  if (!parsed.success) {
+    throw new Error(
+      `Invalid environment variable ${key}:\n${formatIssues(parsed.error, key)}`,
+    );
+  }
+
+  return parsed.data;
+}
