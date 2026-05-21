@@ -16,6 +16,7 @@ import { db } from "@/db";
 import {
   artefacts,
   concepts,
+  profiles,
   skillClusters,
   subSkills,
   syllabi,
@@ -24,13 +25,6 @@ import {
 export const revalidate = 60;
 
 type PageProps = { params: Promise<{ handle: string }> };
-
-const PROFILE = {
-  handle: "caleb",
-  userId: "caleb",
-  displayName: "Caleb",
-  tagline: "Self-taught engineer, working toward medtech / BCI roles.",
-} as const;
 
 type ClusterType = "technical" | "domain" | "soft" | "meta";
 type Status = "not_started" | "learning" | "understood" | "verified";
@@ -54,17 +48,34 @@ const CLUSTER_TYPE_STYLE: Record<ClusterType, { label: string; dot: string }> =
     meta: { label: "Meta", dot: "bg-emerald-400/80" },
   };
 
-async function loadProfile() {
+async function loadProfile(handle: string) {
   await connection();
+
+  const [profileRow] = await db
+    .select()
+    .from(profiles)
+    .where(eq(profiles.handle, handle))
+    .limit(1);
+
+  if (!profileRow) return null;
 
   const [currentSyllabus] = await db
     .select()
     .from(syllabi)
-    .where(eq(syllabi.userId, PROFILE.userId))
+    .where(eq(syllabi.userId, profileRow.id))
     .orderBy(desc(syllabi.createdAt))
     .limit(1);
 
-  if (!currentSyllabus) return null;
+  if (!currentSyllabus) {
+    return {
+      publicProfile: profileRow,
+      syllabus: null,
+      clusters: [],
+      totals: { total: 0, understood: 0, verified: 0 },
+      recentUnderstood: [],
+      verifiedArtefacts: [],
+    };
+  }
 
   const clusterRows = await db
     .select()
@@ -75,6 +86,7 @@ async function loadProfile() {
   const clusterIds = clusterRows.map((c) => c.id);
   if (clusterIds.length === 0) {
     return {
+      publicProfile: profileRow,
       syllabus: currentSyllabus,
       clusters: [],
       totals: { total: 0, understood: 0, verified: 0 },
@@ -207,6 +219,7 @@ async function loadProfile() {
           );
 
   return {
+    publicProfile: profileRow,
     syllabus: currentSyllabus,
     clusters: perCluster,
     totals: {
@@ -223,27 +236,27 @@ export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { handle } = await params;
-  if (handle !== PROFILE.handle) return { title: "Not found" };
-  const profile = await loadProfile();
-  if (!profile) {
-    return { title: `${PROFILE.displayName} — Yakka` };
+  const profile = await loadProfile(handle);
+  if (!profile) return { title: "Not found" };
+  if (!profile.syllabus) {
+    return { title: `${profile.publicProfile.displayName} — Yakka` };
   }
   return {
-    title: `${PROFILE.displayName} → ${profile.syllabus.targetRole} — Yakka`,
-    description: PROFILE.tagline,
+    title: `${profile.publicProfile.displayName} → ${profile.syllabus.targetRole} — Yakka`,
+    description: `${profile.publicProfile.displayName}'s public learning profile.`,
   };
 }
 
 export default async function PublicProfilePage({ params }: PageProps) {
   const { handle } = await params;
-  if (handle !== PROFILE.handle) notFound();
 
-  const profile = await loadProfile();
-  if (!profile) {
+  const profile = await loadProfile(handle);
+  if (!profile) notFound();
+  if (!profile.syllabus) {
     return (
       <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-12 sm:px-6 sm:py-20">
         <h1 className="text-3xl font-semibold tracking-tight">
-          {PROFILE.displayName}
+          {profile.publicProfile.displayName}
         </h1>
         <p className="text-muted-foreground">
           No syllabus generated yet.
@@ -252,7 +265,7 @@ export default async function PublicProfilePage({ params }: PageProps) {
     );
   }
 
-  const { syllabus, clusters, totals, recentUnderstood, verifiedArtefacts } =
+  const { publicProfile, syllabus, clusters, totals, recentUnderstood, verifiedArtefacts } =
     profile;
   const percent =
     totals.total > 0
@@ -270,10 +283,10 @@ export default async function PublicProfilePage({ params }: PageProps) {
 
       <header className="flex flex-col gap-3">
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          {PROFILE.displayName}
+          {publicProfile.displayName}
         </h1>
         <p className="text-muted-foreground text-sm sm:text-base">
-          {PROFILE.tagline}
+          Public learning profile.
         </p>
         <div className="border-border/60 mt-3 flex flex-col gap-1 border-l-2 pl-4">
           <span className="text-muted-foreground text-xs uppercase tracking-wide">

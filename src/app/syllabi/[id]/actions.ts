@@ -6,6 +6,14 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { artefacts, concepts, syllabi } from "@/db/schema";
+import { requireCurrentUserId } from "@/lib/auth";
+import {
+  getProfilePathForUser,
+  requireOwnedArtefact,
+  requireOwnedConcept,
+  requireOwnedSubSkill,
+  requireOwnedSyllabus,
+} from "@/lib/ownership";
 
 const NEXT_STATUS = {
   not_started: "learning",
@@ -36,6 +44,10 @@ export async function cycleConceptStatus(input: {
   const next = NEXT_STATUS[parsed.data.currentStatus];
 
   try {
+    const userId = await requireCurrentUserId();
+    await requireOwnedSyllabus(parsed.data.syllabusId, userId);
+    await requireOwnedConcept(parsed.data.conceptId, userId);
+
     await db
       .update(concepts)
       .set({
@@ -105,6 +117,10 @@ export async function addArtefact(input: {
     };
   }
   try {
+    const userId = await requireCurrentUserId();
+    await requireOwnedSyllabus(parsed.data.syllabusId, userId);
+    await requireOwnedSubSkill(parsed.data.subSkillId, userId);
+
     await db.insert(artefacts).values({
       subSkillId: parsed.data.subSkillId,
       type: parsed.data.type,
@@ -115,7 +131,7 @@ export async function addArtefact(input: {
       verifiedAt: parsed.data.verified ? new Date() : null,
     });
     revalidatePath(`/syllabi/${parsed.data.syllabusId}`);
-    revalidatePath(`/u/caleb`);
+    revalidatePath(await getProfilePathForUser(userId));
     return { ok: true };
   } catch (err) {
     console.error("[addArtefact] failed", err);
@@ -140,6 +156,10 @@ export async function toggleArtefactVerification(input: {
   const parsed = ToggleArtefactVerificationInput.safeParse(input);
   if (!parsed.success) return { ok: false, message: "Invalid input." };
   try {
+    const userId = await requireCurrentUserId();
+    await requireOwnedSyllabus(parsed.data.syllabusId, userId);
+    await requireOwnedArtefact(parsed.data.artefactId, userId);
+
     await db
       .update(artefacts)
       .set({
@@ -148,7 +168,7 @@ export async function toggleArtefactVerification(input: {
       })
       .where(eq(artefacts.id, parsed.data.artefactId));
     revalidatePath(`/syllabi/${parsed.data.syllabusId}`);
-    revalidatePath(`/u/caleb`);
+    revalidatePath(await getProfilePathForUser(userId));
     return { ok: true };
   } catch (err) {
     console.error("[toggleArtefactVerification] failed", err);
@@ -171,9 +191,13 @@ export async function deleteArtefact(input: {
   const parsed = DeleteArtefactInput.safeParse(input);
   if (!parsed.success) return { ok: false, message: "Invalid input." };
   try {
+    const userId = await requireCurrentUserId();
+    await requireOwnedSyllabus(parsed.data.syllabusId, userId);
+    await requireOwnedArtefact(parsed.data.artefactId, userId);
+
     await db.delete(artefacts).where(eq(artefacts.id, parsed.data.artefactId));
     revalidatePath(`/syllabi/${parsed.data.syllabusId}`);
-    revalidatePath(`/u/caleb`);
+    revalidatePath(await getProfilePathForUser(userId));
     return { ok: true };
   } catch (err) {
     console.error("[deleteArtefact] failed", err);
@@ -195,6 +219,9 @@ export async function deleteSyllabus(input: {
   if (!parsed.success) return { ok: false, message: "Invalid input." };
 
   try {
+    const userId = await requireCurrentUserId();
+    await requireOwnedSyllabus(parsed.data.syllabusId, userId);
+
     await db.delete(syllabi).where(eq(syllabi.id, parsed.data.syllabusId));
   } catch (err) {
     console.error("[deleteSyllabus] failed", err);
@@ -205,6 +232,5 @@ export async function deleteSyllabus(input: {
   }
 
   revalidatePath("/syllabi");
-  revalidatePath("/u/caleb");
   redirect("/syllabi");
 }

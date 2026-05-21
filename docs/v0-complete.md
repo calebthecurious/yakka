@@ -10,7 +10,7 @@ _Snapshot: 2026-05-19. Reflects a single day's iteration from empty Next.js scaf
 - `/syllabi` list page
 - `/syllabi/[id]` collapsible tree with cluster-typed accents, concept checkboxes, optimistic status
 - `/concepts/[id]` single page with breadcrumb, status radio, resources, markdown notes editor (debounced autosave, 30-min session-coalesce)
-- `/u/caleb` public profile with progress stats, per-cluster breakdown, recent activity, verified-artefacts section
+- `/u/[handle]` public profile with progress stats, per-cluster breakdown, recent activity, verified-artefacts section
 - Top nav present on app pages, hidden on `/u/*` so the profile stays chrome-free
 - Drizzle schema with 8 tables across the four-level hierarchy (syllabus → cluster → sub-skill → concept → resources); migrations 0000 + 0001 applied
 - Server Actions for: concept status cycling, resource add/status, learning session autosave, artefact add/verify-toggle/delete
@@ -43,7 +43,7 @@ _Snapshot: 2026-05-19. Reflects a single day's iteration from empty Next.js scaf
 
 1. **Replace `ANTHROPIC_API_KEY`** with a real, current key. Run `npx tsx scripts/test-generate-syllabus.ts` — if it dumps JSON to `tmp/`, the key is good and the whole pipeline is unblocked.
 2. **Wipe the 3 stale syllabi.** Easiest path: `DROP SCHEMA public CASCADE; CREATE SCHEMA public;` in Supabase + `npx drizzle-kit migrate`. Costs nothing — those rows are corrupt anyway.
-3. **Run one real generation end-to-end** (form → tree → concept → mark understood → check `/u/caleb`). This is the verification step that's blocked right now on item 1.
+3. **Run one real generation end-to-end** (form → tree → concept → mark understood → check `/u/[handle]`). This is the verification step that's blocked right now on item 1.
 4. **Surface action errors instead of consoling them.** A 30-line toast component would cover concept status, resource status, artefact add — every place currently swallowing errors. Otherwise you'll have ghosts.
 5. **Add one retry on Zod validation failure** in `generateSyllabus` before throwing. The most common failure mode (per spec) will be Sonnet emitting too-few concepts or skipping the soft cluster; one retry with an appended assistant correction usually fixes that.
 
@@ -53,7 +53,7 @@ After those five, this is shippable as a single-user product you'd use yourself 
 
 - Edit flow for artefacts (delete + re-add is fine for v0)
 - `/artefacts/[id]` detail page
-- OG image for `/u/caleb` LinkedIn previews
+- OG image for `/u/[handle]` LinkedIn previews
 - Multi-syllabus support on the public profile (only the most recent renders)
 - FSRS retention loop
-- Auth (single user, hardcoded `userId='caleb'`)
+- Auth ownership/RLS hardening follow-through

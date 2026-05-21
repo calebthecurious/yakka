@@ -8,8 +8,16 @@ import {
   timestamp,
   jsonb,
   index,
+  unique,
+  pgSchema,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
+
+export const authSchema = pgSchema("auth");
+
+export const authUsers = authSchema.table("users", {
+  id: uuid("id").primaryKey(),
+});
 
 export const subSkillStatusEnum = pgEnum("sub_skill_status", [
   "not_started",
@@ -54,6 +62,8 @@ export const artefactType = pgEnum("artefact_type", [
   "contribution",
 ]);
 
+export const aiConfidenceEnum = pgEnum("ai_confidence", ["high", "low"]);
+
 export type SyllabusAlternativeTargetBranch = {
   role: string;
   rationale: string;
@@ -66,11 +76,28 @@ export type SyllabusMetadata = {
   currentSkills: string;
 };
 
+export const profiles = pgTable(
+  "profiles",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .references(() => authUsers.id, { onDelete: "cascade" }),
+    handle: text("handle").unique(),
+    displayName: text("display_name").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("profiles_handle_idx").on(t.handle)],
+);
+
 export const syllabi = pgTable(
   "syllabi",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    userId: text("user_id").notNull(),
+    userId: uuid("user_id").references(() => authUsers.id, {
+      onDelete: "cascade",
+    }),
     targetRole: text("target_role").notNull(),
     targetCompany: text("target_company"),
     jobDescriptionText: text("job_description_text").notNull(),
@@ -261,8 +288,83 @@ export const artefacts = pgTable(
   (t) => [index("artefacts_sub_skill_id_idx").on(t.subSkillId)],
 );
 
+export type StudyBriefLocation = { label: string; detail: string };
+export type StudyBriefCheckQuestion = { question: string; answer: string };
+
+export const studyBriefs = pgTable(
+  "study_briefs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    resourceId: uuid("resource_id")
+      .notNull()
+      .references(() => resources.id, { onDelete: "cascade" }),
+    conceptId: uuid("concept_id")
+      .notNull()
+      .references(() => concepts.id, { onDelete: "cascade" }),
+    keyPoints: jsonb("key_points")
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    application: text("application").notNull().default(""),
+    locations: jsonb("locations")
+      .$type<StudyBriefLocation[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    checkQuestions: jsonb("check_questions")
+      .$type<StudyBriefCheckQuestion[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    aiConfidence: aiConfidenceEnum("ai_confidence").notNull().default("high"),
+    generatedAt: timestamp("generated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    model: text("model").notNull(),
+  },
+  (t) => [
+    index("study_briefs_resource_id_idx").on(t.resourceId),
+    index("study_briefs_concept_id_idx").on(t.conceptId),
+    unique("study_briefs_resource_concept_unq").on(t.resourceId, t.conceptId),
+  ],
+);
+
+export type CompetencyQuestion = {
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
+};
+
+export const competencyChecks = pgTable(
+  "competency_checks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    conceptId: uuid("concept_id")
+      .notNull()
+      .references(() => concepts.id, { onDelete: "cascade" }),
+    questions: jsonb("questions")
+      .$type<CompetencyQuestion[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    score: integer("score"),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("competency_checks_concept_id_idx").on(t.conceptId)],
+);
+
 export const syllabiRelations = relations(syllabi, ({ many }) => ({
   clusters: many(skillClusters),
+}));
+
+export const profilesRelations = relations(profiles, ({ many }) => ({
+  syllabi: many(syllabi),
+}));
+
+export const usersRelations = relations(authUsers, ({ one, many }) => ({
+  profile: one(profiles),
+  syllabi: many(syllabi),
 }));
 
 export const skillClustersRelations = relations(skillClusters, ({ one, many }) => ({
@@ -290,13 +392,16 @@ export const conceptsRelations = relations(concepts, ({ one, many }) => ({
   resources: many(resources),
   learningSessions: many(learningSessions),
   retentionCards: many(retentionCards),
+  studyBriefs: many(studyBriefs),
+  competencyChecks: many(competencyChecks),
 }));
 
-export const resourcesRelations = relations(resources, ({ one }) => ({
+export const resourcesRelations = relations(resources, ({ one, many }) => ({
   concept: one(concepts, {
     fields: [resources.conceptId],
     references: [concepts.id],
   }),
+  studyBriefs: many(studyBriefs),
 }));
 
 export const learningSessionsRelations = relations(learningSessions, ({ one }) => ({
@@ -320,8 +425,31 @@ export const artefactsRelations = relations(artefacts, ({ one }) => ({
   }),
 }));
 
+export const studyBriefsRelations = relations(studyBriefs, ({ one }) => ({
+  resource: one(resources, {
+    fields: [studyBriefs.resourceId],
+    references: [resources.id],
+  }),
+  concept: one(concepts, {
+    fields: [studyBriefs.conceptId],
+    references: [concepts.id],
+  }),
+}));
+
+export const competencyChecksRelations = relations(
+  competencyChecks,
+  ({ one }) => ({
+    concept: one(concepts, {
+      fields: [competencyChecks.conceptId],
+      references: [concepts.id],
+    }),
+  }),
+);
+
 export type Syllabus = typeof syllabi.$inferSelect;
 export type NewSyllabus = typeof syllabi.$inferInsert;
+export type Profile = typeof profiles.$inferSelect;
+export type NewProfile = typeof profiles.$inferInsert;
 export type SkillCluster = typeof skillClusters.$inferSelect;
 export type NewSkillCluster = typeof skillClusters.$inferInsert;
 export type SubSkill = typeof subSkills.$inferSelect;
@@ -336,3 +464,7 @@ export type RetentionCard = typeof retentionCards.$inferSelect;
 export type NewRetentionCard = typeof retentionCards.$inferInsert;
 export type Artefact = typeof artefacts.$inferSelect;
 export type NewArtefact = typeof artefacts.$inferInsert;
+export type StudyBrief = typeof studyBriefs.$inferSelect;
+export type NewStudyBrief = typeof studyBriefs.$inferInsert;
+export type CompetencyCheck = typeof competencyChecks.$inferSelect;
+export type NewCompetencyCheck = typeof competencyChecks.$inferInsert;

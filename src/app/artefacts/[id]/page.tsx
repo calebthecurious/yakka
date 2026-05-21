@@ -11,6 +11,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { db } from "@/db";
+import { requireCurrentUserId } from "@/lib/auth";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ArtefactCoreForm } from "./artefact-core-form";
@@ -30,7 +31,7 @@ const TYPE_META: Record<ArtefactType, { label: string; icon: LucideIcon }> = {
   contribution: { label: "Contribution", icon: GitPullRequest },
 };
 
-async function loadArtefact(id: string) {
+async function loadArtefact(id: string, userId: string) {
   await connection();
 
   return db.query.artefacts.findFirst({
@@ -49,21 +50,25 @@ async function loadArtefact(id: string) {
         },
       },
     },
-  });
+  }).then((artefact) =>
+    artefact?.subSkill.cluster.syllabus.userId === userId ? artefact : null,
+  );
 }
 
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { id } = await params;
-  const artefact = await loadArtefact(id);
+  const userId = await requireCurrentUserId();
+  const artefact = await loadArtefact(id, userId);
   if (!artefact) return { title: "Artefact not found — Yakka" };
   return { title: `${artefact.title} — Yakka` };
 }
 
 export default async function ArtefactPage({ params }: PageProps) {
   const { id } = await params;
-  const artefact = await loadArtefact(id);
+  const userId = await requireCurrentUserId();
+  const artefact = await loadArtefact(id, userId);
   if (!artefact) notFound();
 
   const subSkill = artefact.subSkill;

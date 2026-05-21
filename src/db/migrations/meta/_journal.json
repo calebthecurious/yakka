@@ -22,6 +22,20 @@
       "when": 1779168720684,
       "tag": "0002_artefact_project_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1779260050554,
+      "tag": "0003_awesome_stingray",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1779261686390,
+      "tag": "0004_clever_scarecrow",
+      "breakpoints": true
     }
   ]
 }

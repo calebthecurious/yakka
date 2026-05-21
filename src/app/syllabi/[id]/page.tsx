@@ -4,17 +4,18 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { format } from "date-fns";
 import { db } from "@/db";
+import { requireCurrentUserId } from "@/lib/auth";
 import { BlockersCard } from "./blockers-card";
 import { SyllabusTree } from "./syllabus-tree";
 import { DeleteSyllabusButton } from "./delete-syllabus-button";
 
 type PageProps = { params: Promise<{ id: string }> };
 
-async function loadSyllabus(id: string) {
+async function loadSyllabus(id: string, userId: string) {
   await connection();
 
   return db.query.syllabi.findFirst({
-    where: (s, { eq }) => eq(s.id, id),
+    where: (s, { and, eq }) => and(eq(s.id, id), eq(s.userId, userId)),
     with: {
       clusters: {
         orderBy: (c, { asc }) => [asc(c.orderIndex)],
@@ -42,14 +43,16 @@ export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { id } = await params;
-  const syllabus = await loadSyllabus(id);
+  const userId = await requireCurrentUserId();
+  const syllabus = await loadSyllabus(id, userId);
   if (!syllabus) return { title: "Syllabus not found — Yakka" };
   return { title: `${syllabus.targetRole} — Yakka` };
 }
 
 export default async function SyllabusPage({ params }: PageProps) {
   const { id } = await params;
-  const syllabus = await loadSyllabus(id);
+  const userId = await requireCurrentUserId();
+  const syllabus = await loadSyllabus(id, userId);
   if (!syllabus) notFound();
 
   const { metadata, clusters } = syllabus;

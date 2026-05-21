@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { db } from "@/db";
+import { requireCurrentUserId } from "@/lib/auth";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { StatusControls } from "./status-controls";
@@ -19,6 +20,7 @@ import { AlternativeResources } from "./alternative-resources";
 import { AddResourceForm } from "./add-resource-form";
 import { ResourceCard } from "./resource-card";
 import { NotesEditor } from "./notes-editor";
+import { CompetencyCheck } from "./competency-check";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -50,7 +52,7 @@ const STATUS_BADGE: Record<
   },
 };
 
-async function loadConcept(id: string) {
+async function loadConcept(id: string, userId: string) {
   await connection();
 
   return db.query.concepts.findFirst({
@@ -71,27 +73,52 @@ async function loadConcept(id: string) {
       learningSessions: {
         orderBy: (s, { desc }) => [desc(s.createdAt)],
       },
+      studyBriefs: true,
+      competencyChecks: {
+        where: (cc, { isNotNull }) => isNotNull(cc.completedAt),
+        orderBy: (cc, { desc }) => [desc(cc.completedAt)],
+        limit: 1,
+      },
     },
-  });
+  }).then((concept) =>
+    concept?.subSkill.cluster.syllabus.userId === userId ? concept : null,
+  );
 }
 
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { id } = await params;
-  const concept = await loadConcept(id);
+  const userId = await requireCurrentUserId();
+  const concept = await loadConcept(id, userId);
   if (!concept) return { title: "Concept not found — Yakka" };
   return { title: `${concept.name} — Yakka` };
 }
 
 export default async function ConceptPage({ params }: PageProps) {
   const { id } = await params;
-  const concept = await loadConcept(id);
+  const userId = await requireCurrentUserId();
+  const concept = await loadConcept(id, userId);
   if (!concept) notFound();
 
-  const { subSkill, resources, learningSessions } = concept;
+  const { subSkill, resources, learningSessions, studyBriefs, competencyChecks } =
+    concept;
   const cluster = subSkill.cluster;
   const syllabus = cluster.syllabus;
+  const lastCheck = competencyChecks[0] ?? null;
+
+  const briefByResourceId = new Map(
+    studyBriefs.map((b) => [
+      b.resourceId,
+      {
+        keyPoints: b.keyPoints,
+        application: b.application,
+        locations: b.locations,
+        checkQuestions: b.checkQuestions,
+        aiConfidence: b.aiConfidence,
+      },
+    ]),
+  );
 
   const aiSuggested = resources.filter((r) => !r.addedByUser);
   const userAdded = resources.filter((r) => r.addedByUser);
@@ -176,6 +203,7 @@ export default async function ConceptPage({ params }: PageProps) {
               resource={primary}
               conceptId={concept.id}
               variant="prominent"
+              existingBrief={briefByResourceId.get(primary.id) ?? null}
             />
           </div>
         ) : null}
@@ -191,6 +219,7 @@ export default async function ConceptPage({ params }: PageProps) {
                   key={r.id}
                   resource={r}
                   conceptId={concept.id}
+                  existingBrief={briefByResourceId.get(r.id) ?? null}
                 />
               ))}
             </AlternativeResources>
@@ -208,6 +237,7 @@ export default async function ConceptPage({ params }: PageProps) {
                   key={r.id}
                   resource={r}
                   conceptId={concept.id}
+                  existingBrief={briefByResourceId.get(r.id) ?? null}
                 />
               ))}
             </div>
@@ -221,6 +251,25 @@ export default async function ConceptPage({ params }: PageProps) {
         ) : null}
 
         <AddResourceForm conceptId={concept.id} />
+      </section>
+
+      <Separator />
+
+      <section className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-lg font-medium">Check your understanding</h2>
+          <p className="text-muted-foreground text-sm leading-relaxed">
+            A short quiz across everything you&apos;ve studied for this concept.
+            Passing suggests you&apos;re ready to mark it understood — the call
+            stays yours.
+          </p>
+        </div>
+        <CompetencyCheck
+          conceptId={concept.id}
+          conceptStatus={concept.status as ConceptStatus}
+          lastScore={lastCheck?.score ?? null}
+          lastCompletedAt={lastCheck?.completedAt ?? null}
+        />
       </section>
 
       <Separator />

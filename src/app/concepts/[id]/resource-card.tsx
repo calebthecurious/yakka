@@ -1,27 +1,32 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import {
   ArrowUpRight,
   BookOpen,
   Check,
+  ChevronDown,
   CircleDashed,
   FileText,
   Film,
   GraduationCap,
   Hammer,
   Loader2,
+  RotateCw,
   ScrollText,
   Search,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import {
+  generateStudyBrief,
   markResourceConsuming,
   updateResourceStatus,
 } from "./actions";
+import { StudyBrief, type StudyBriefData } from "./study-brief";
 
 type ResourceType =
   | "course"
@@ -103,6 +108,7 @@ type Props = {
   };
   conceptId: string;
   variant?: "prominent" | "default";
+  existingBrief?: StudyBriefData | null;
 };
 
 function buildSearchUrl(resource: {
@@ -122,11 +128,47 @@ export function ResourceCard({
   resource,
   conceptId,
   variant = "default",
+  existingBrief = null,
 }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [brief, setBrief] = useState<StudyBriefData | null>(existingBrief);
+  const [briefExpanded, setBriefExpanded] = useState(false);
+  const [generatingBrief, setGeneratingBrief] = useState(false);
+  const [briefError, setBriefError] = useState<string | null>(null);
   const Icon = TYPE_ICON[resource.type];
   const isProminent = variant === "prominent";
+
+  function handleGenerateBrief() {
+    setGeneratingBrief(true);
+    setBriefError(null);
+    void (async () => {
+      try {
+        const result = await generateStudyBrief({
+          resourceId: resource.id,
+          conceptId,
+        });
+        if (result.ok && result.brief) {
+          setBrief({
+            keyPoints: result.brief.keyPoints,
+            application: result.brief.application,
+            locations: result.brief.locations,
+            checkQuestions: result.brief.checkQuestions,
+            aiConfidence: result.brief.aiConfidence,
+          });
+          setBriefExpanded(true);
+        } else {
+          setBriefError(result.message ?? "Generation failed.");
+        }
+      } catch (err) {
+        setBriefError(
+          err instanceof Error ? err.message : "Generation failed.",
+        );
+      } finally {
+        setGeneratingBrief(false);
+      }
+    })();
+  }
 
   const hasDirectUrl = Boolean(resource.url);
   const effectiveUrl =
@@ -220,6 +262,7 @@ export function ResourceCard({
   );
 
   return (
+    <div className="flex flex-col gap-2">
     <div className={cn("relative", isPending && "opacity-70")}>
       <a
         href={effectiveUrl}
@@ -276,6 +319,69 @@ export function ResourceCard({
             </button>
           );
         })}
+      </div>
+    </div>
+
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-3">
+          {brief ? (
+            <button
+              type="button"
+              onClick={() => setBriefExpanded((v) => !v)}
+              aria-expanded={briefExpanded}
+              className="text-foreground/80 hover:text-foreground inline-flex items-center gap-1.5 text-xs font-medium"
+            >
+              <Sparkles className="size-3.5" aria-hidden />
+              {briefExpanded ? "Hide study brief" : "View study brief"}
+              <ChevronDown
+                className={cn(
+                  "size-3 transition-transform",
+                  briefExpanded && "rotate-180",
+                )}
+                aria-hidden
+              />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleGenerateBrief}
+              disabled={generatingBrief}
+              className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 text-xs font-medium disabled:opacity-60"
+            >
+              {generatingBrief ? (
+                <Loader2 className="size-3.5 animate-spin" aria-hidden />
+              ) : (
+                <Sparkles className="size-3.5" aria-hidden />
+              )}
+              {generatingBrief ? "Generating brief…" : "Generate study brief"}
+            </button>
+          )}
+        </div>
+
+        {briefError ? (
+          <p className="text-destructive text-xs">{briefError}</p>
+        ) : null}
+
+        {brief && briefExpanded ? (
+          <div className="flex flex-col gap-2">
+            <StudyBrief brief={brief} />
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={handleGenerateBrief}
+                disabled={generatingBrief}
+                className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 text-xs disabled:opacity-60"
+              >
+                {generatingBrief ? (
+                  <Loader2 className="size-3 animate-spin" aria-hidden />
+                ) : (
+                  <RotateCw className="size-3" aria-hidden />
+                )}
+                {generatingBrief ? "Regenerating…" : "Regenerate"}
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );

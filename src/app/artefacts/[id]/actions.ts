@@ -10,6 +10,14 @@ import {
   type ArtefactCriterion,
   type ArtefactProgressEntry,
 } from "@/db/schema";
+import { requireCurrentUserId } from "@/lib/auth";
+import {
+  getProfilePathForUser,
+  requireOwnedArtefact,
+  requireOwnedCluster,
+  requireOwnedConcept,
+  requireOwnedSubSkill,
+} from "@/lib/ownership";
 
 const ArtefactType = z.enum([
   "project",
@@ -23,27 +31,12 @@ const CriterionSchema = z.object({
   done: z.boolean(),
 });
 
-async function getSyllabusIdForArtefact(
-  artefactId: string,
-): Promise<string | null> {
-  const row = await db.query.artefacts.findFirst({
-    where: (a, { eq }) => eq(a.id, artefactId),
-    with: {
-      subSkill: {
-        with: {
-          cluster: { with: { syllabus: true } },
-        },
-      },
-    },
-  });
-  return row?.subSkill.cluster.syllabus.id ?? null;
-}
-
-async function revalidateAfterArtefactChange(artefactId: string) {
-  const syllabusId = await getSyllabusIdForArtefact(artefactId);
+async function revalidateAfterArtefactChange(artefactId: string, userId: string) {
+  const artefact = await requireOwnedArtefact(artefactId, userId);
+  const syllabusId = artefact.subSkill.cluster.syllabus.id;
   revalidatePath(`/artefacts/${artefactId}`);
-  if (syllabusId) revalidatePath(`/syllabi/${syllabusId}`);
-  revalidatePath(`/u/caleb`);
+  revalidatePath(`/syllabi/${syllabusId}`);
+  revalidatePath(await getProfilePathForUser(userId));
 }
 
 const CommitSuggestedInput = z.object({
@@ -60,11 +53,10 @@ export async function commitSuggestedArtefact(input: {
 
   let newId: string;
   try {
-    const cluster = await db.query.skillClusters.findFirst({
-      where: (c, { eq }) => eq(c.id, parsed.data.clusterId),
-      with: { syllabus: true },
-    });
-    if (!cluster) return { ok: false, message: "Cluster not found." };
+    const userId = await requireCurrentUserId();
+    const cluster = await requireOwnedCluster(parsed.data.clusterId, userId);
+    await requireOwnedSubSkill(parsed.data.subSkillId, userId);
+
     if (!cluster.suggestedArtefact) {
       return { ok: false, message: "Cluster has no suggested artefact." };
     }
@@ -88,7 +80,7 @@ export async function commitSuggestedArtefact(input: {
 
     newId = inserted.id;
     revalidatePath(`/syllabi/${cluster.syllabusId}`);
-    revalidatePath(`/u/caleb`);
+    revalidatePath(await getProfilePathForUser(userId));
   } catch (err) {
     console.error("[commitSuggestedArtefact] failed", err);
     return {
@@ -137,6 +129,9 @@ export async function updateArtefactCore(input: {
     };
   }
   try {
+    const userId = await requireCurrentUserId();
+    await requireOwnedArtefact(parsed.data.artefactId, userId);
+
     await db
       .update(artefacts)
       .set({
@@ -149,7 +144,7 @@ export async function updateArtefactCore(input: {
         updatedAt: new Date(),
       })
       .where(eq(artefacts.id, parsed.data.artefactId));
-    await revalidateAfterArtefactChange(parsed.data.artefactId);
+    await revalidateAfterArtefactChange(parsed.data.artefactId, userId);
     return { ok: true };
   } catch (err) {
     console.error("[updateArtefactCore] failed", err);
@@ -172,6 +167,9 @@ export async function updateArtefactCriteria(input: {
   const parsed = UpdateCriteriaInput.safeParse(input);
   if (!parsed.success) return { ok: false, message: "Invalid input." };
   try {
+    const userId = await requireCurrentUserId();
+    await requireOwnedArtefact(parsed.data.artefactId, userId);
+
     await db
       .update(artefacts)
       .set({
@@ -179,7 +177,7 @@ export async function updateArtefactCriteria(input: {
         updatedAt: new Date(),
       })
       .where(eq(artefacts.id, parsed.data.artefactId));
-    await revalidateAfterArtefactChange(parsed.data.artefactId);
+    await revalidateAfterArtefactChange(parsed.data.artefactId, userId);
     return { ok: true };
   } catch (err) {
     console.error("[updateArtefactCriteria] failed", err);
@@ -207,10 +205,9 @@ export async function addArtefactProgressEntry(input: {
     };
   }
   try {
-    const row = await db.query.artefacts.findFirst({
-      where: (a, { eq }) => eq(a.id, parsed.data.artefactId),
-    });
-    if (!row) return { ok: false, message: "Artefact not found." };
+    const userId = await requireCurrentUserId();
+    const row = await requireOwnedArtefact(parsed.data.artefactId, userId);
+
     const entry: ArtefactProgressEntry = {
       at: new Date().toISOString(),
       note: parsed.data.note,
@@ -220,7 +217,7 @@ export async function addArtefactProgressEntry(input: {
       .update(artefacts)
       .set({ progressLog: nextLog, updatedAt: new Date() })
       .where(eq(artefacts.id, parsed.data.artefactId));
-    await revalidateAfterArtefactChange(parsed.data.artefactId);
+    await revalidateAfterArtefactChange(parsed.data.artefactId, userId);
     return { ok: true };
   } catch (err) {
     console.error("[addArtefactProgressEntry] failed", err);
@@ -243,6 +240,20 @@ export async function setArtefactDemonstratedConcepts(input: {
   const parsed = SetConceptsInput.safeParse(input);
   if (!parsed.success) return { ok: false, message: "Invalid input." };
   try {
+    const userId = await requireCurrentUserId();
+    const artefact = await requireOwnedArtefact(parsed.data.artefactId, userId);
+    const ownedConcepts = await Promise.all(
+      parsed.data.conceptIds.map((id) => requireOwnedConcept(id, userId)),
+    );
+    const syllabusId = artefact.subSkill.cluster.syllabus.id;
+    if (
+      ownedConcepts.some(
+        (concept) => concept.subSkill.cluster.syllabus.id !== syllabusId,
+      )
+    ) {
+      return { ok: false, message: "Invalid concept selection." };
+    }
+
     await db
       .update(artefacts)
       .set({
@@ -250,7 +261,7 @@ export async function setArtefactDemonstratedConcepts(input: {
         updatedAt: new Date(),
       })
       .where(eq(artefacts.id, parsed.data.artefactId));
-    await revalidateAfterArtefactChange(parsed.data.artefactId);
+    await revalidateAfterArtefactChange(parsed.data.artefactId, userId);
     return { ok: true };
   } catch (err) {
     console.error("[setArtefactDemonstratedConcepts] failed", err);
@@ -273,6 +284,9 @@ export async function toggleArtefactVerificationOnPage(input: {
   const parsed = VerificationInput.safeParse(input);
   if (!parsed.success) return { ok: false, message: "Invalid input." };
   try {
+    const userId = await requireCurrentUserId();
+    await requireOwnedArtefact(parsed.data.artefactId, userId);
+
     await db
       .update(artefacts)
       .set({
@@ -280,7 +294,7 @@ export async function toggleArtefactVerificationOnPage(input: {
         updatedAt: new Date(),
       })
       .where(eq(artefacts.id, parsed.data.artefactId));
-    await revalidateAfterArtefactChange(parsed.data.artefactId);
+    await revalidateAfterArtefactChange(parsed.data.artefactId, userId);
     return { ok: true };
   } catch (err) {
     console.error("[toggleArtefactVerificationOnPage] failed", err);
@@ -299,7 +313,9 @@ export async function deleteArtefactFromPage(input: {
   const parsed = DeleteInput.safeParse(input);
   if (!parsed.success) return { ok: false, message: "Invalid input." };
 
-  const syllabusId = await getSyllabusIdForArtefact(parsed.data.artefactId);
+  const userId = await requireCurrentUserId();
+  const artefact = await requireOwnedArtefact(parsed.data.artefactId, userId);
+  const syllabusId = artefact.subSkill.cluster.syllabus.id;
   try {
     await db
       .delete(artefacts)
@@ -311,7 +327,7 @@ export async function deleteArtefactFromPage(input: {
       message: err instanceof Error ? err.message : "Delete failed.",
     };
   }
-  if (syllabusId) revalidatePath(`/syllabi/${syllabusId}`);
-  revalidatePath(`/u/caleb`);
-  redirect(syllabusId ? `/syllabi/${syllabusId}` : "/syllabi");
+  revalidatePath(`/syllabi/${syllabusId}`);
+  revalidatePath(await getProfilePathForUser(userId));
+  redirect(`/syllabi/${syllabusId}`);
 }

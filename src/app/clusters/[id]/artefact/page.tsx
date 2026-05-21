@@ -10,6 +10,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { db } from "@/db";
+import { requireCurrentUserId } from "@/lib/auth";
 import { Badge } from "@/components/ui/badge";
 import { CommitArtefactButton } from "./commit-artefact-button";
 
@@ -24,23 +25,26 @@ const TYPE_META: Record<ArtefactType, { label: string; icon: LucideIcon }> = {
   contribution: { label: "Contribution", icon: GitPullRequest },
 };
 
-async function loadCluster(id: string) {
+async function loadCluster(id: string, userId: string) {
   await connection();
 
-  return db.query.skillClusters.findFirst({
+  const cluster = await db.query.skillClusters.findFirst({
     where: (c, { eq }) => eq(c.id, id),
     with: {
       syllabus: true,
       subSkills: true,
     },
   });
+
+  return cluster?.syllabus.userId === userId ? cluster : null;
 }
 
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { id } = await params;
-  const cluster = await loadCluster(id);
+  const userId = await requireCurrentUserId();
+  const cluster = await loadCluster(id, userId);
   if (!cluster?.suggestedArtefact) {
     return { title: "Project not found — Yakka" };
   }
@@ -49,7 +53,8 @@ export async function generateMetadata({
 
 export default async function ClusterArtefactPage({ params }: PageProps) {
   const { id } = await params;
-  const cluster = await loadCluster(id);
+  const userId = await requireCurrentUserId();
+  const cluster = await loadCluster(id, userId);
   if (!cluster || !cluster.suggestedArtefact) notFound();
 
   const suggested = cluster.suggestedArtefact;

@@ -2,10 +2,10 @@
 
 ## What this is
 A career-pathway product for self-taught knowledge workers — paste a target job description, get a personalised learning syllabus, work through it, and render progress on a public profile.
-v0 user: Caleb, targeting Australian medtech roles (Seer, Epiminder) en route to Synchron/Neuralink.
+Initial v0 user: Caleb, targeting Australian medtech roles (Seer, Epiminder) en route to Synchron/Neuralink.
 
 ## v0 scope
-- Single user, no auth — hardcoded `userId = 'caleb'`
+- Supabase Auth-backed ownership using `auth.users.id`
 - Paste JD → generate personalised syllabus
 - Four-level hierarchy: **Syllabus → Skill Cluster → Sub-skill → Concept → Resources**
 - Track resource consumption at the concept level
@@ -14,7 +14,6 @@ v0 user: Caleb, targeting Australian medtech roles (Seer, Epiminder) en route to
 - Public profile page rendering syllabus + progress + artefacts
 
 ## Out of scope for v0
-- Multi-user auth (single-user, hardcoded userId)
 - Payments
 - File/audio/video ingestion (text + URL only)
 - Employer-side features

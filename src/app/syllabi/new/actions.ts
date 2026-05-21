@@ -12,6 +12,7 @@ import {
   type SuggestedArtefact,
 } from "@/db/schema";
 import { generateSyllabus } from "@/lib/ai/generate-syllabus";
+import { requireCurrentUserId } from "@/lib/auth";
 
 const FormSchema = z.object({
   targetRole: z.string().trim().min(1, "Target role is required."),
@@ -34,13 +35,12 @@ export type CreateSyllabusState =
   | { status: "idle" }
   | { status: "error"; message: string };
 
-// v0 is single-user; userId is hardcoded until auth is wired.
-const LOCAL_USER_ID = "caleb";
-
 export async function createSyllabus(
   _prevState: CreateSyllabusState,
   formData: FormData,
 ): Promise<CreateSyllabusState> {
+  const userId = await requireCurrentUserId();
+
   const parsed = FormSchema.safeParse({
     targetRole: formData.get("targetRole"),
     targetCompany: formData.get("targetCompany"),
@@ -65,7 +65,7 @@ export async function createSyllabus(
       const [syllabus] = await tx
         .insert(syllabi)
         .values({
-          userId: LOCAL_USER_ID,
+          userId,
           targetRole: input.targetRole,
           targetCompany: input.targetCompany ?? null,
           jobDescriptionText: input.jobDescription,

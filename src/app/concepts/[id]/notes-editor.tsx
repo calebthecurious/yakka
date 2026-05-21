@@ -97,7 +97,12 @@ export function NotesEditor({
   return (
     <div className="flex flex-col gap-2" data-color-mode="dark">
       <div className="flex items-center justify-between">
-        <label className="text-sm font-medium">Notes</label>
+        <div className="flex flex-col gap-0.5">
+          <label className="text-sm font-medium">Your notes</label>
+          <span className="text-muted-foreground text-xs">
+            Your own reflections — separate from the AI study briefs above.
+          </span>
+        </div>
         <span
           className={cn(
             "text-xs",
