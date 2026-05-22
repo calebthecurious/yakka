@@ -384,6 +384,55 @@ async function callGrok(messages: ChatMessage[]): Promise<ToolCallResult> {
   return { id, name, arguments: args, finishReason };
 }
 
+// Long grok-4 reasoning + a ~16k-token structured stream occasionally drops the
+// socket mid-response (undici surfaces it as `TypeError: terminated`). That's a
+// transient transport failure, not a bad request — retry it. Real failures (bad
+// tool call, validation) are handled by the caller and must NOT be retried here.
+function isTransientConnectionError(err: unknown): boolean {
+  const cause = (err as { cause?: unknown } | null)?.cause;
+  const text = [
+    err instanceof Error ? err.message : String(err),
+    cause instanceof Error ? cause.message : "",
+  ]
+    .join(" ")
+    .toLowerCase();
+  const code =
+    (err as { code?: string } | null)?.code ??
+    (cause as { code?: string } | null)?.code ??
+    "";
+  return (
+    /terminated|econnreset|socket hang up|other side closed|und_err_socket|fetch failed/.test(
+      text,
+    ) || ["ECONNRESET", "UND_ERR_SOCKET", "ETIMEDOUT", "EPIPE"].includes(code)
+  );
+}
+
+// 2 attempts: one retry covers a genuinely transient mid-stream drop without
+// burning extra minutes/credits when the failure is deterministic (e.g. the
+// large generation exceeding the upstream stream-duration limit).
+async function callGrokWithRetry(
+  messages: ChatMessage[],
+  maxAttempts = 2,
+): Promise<ToolCallResult> {
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await callGrok(messages);
+    } catch (err) {
+      lastErr = err;
+      if (attempt === maxAttempts || !isTransientConnectionError(err)) throw err;
+      const backoffMs = 750 * attempt;
+      console.warn(
+        `[generateSyllabus] transient connection error on attempt ${attempt}/${maxAttempts}; retrying in ${backoffMs}ms: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, backoffMs));
+    }
+  }
+  throw lastErr;
+}
+
 function formatZodErrors(err: z.ZodError): string {
   return err.issues
     .map((i) => {
@@ -401,7 +450,7 @@ export async function generateSyllabus(
     { role: "user", content: buildUserMessage(input) },
   ];
 
-  const firstCall = await callGrok(messages);
+  const firstCall = await callGrokWithRetry(messages);
 
   if (firstCall.name !== "emit_syllabus" || firstCall.arguments.length === 0) {
     throw new Error(
@@ -443,7 +492,7 @@ export async function generateSyllabus(
     },
   ];
 
-  const retryCall = await callGrok(retryMessages);
+  const retryCall = await callGrokWithRetry(retryMessages);
   if (retryCall.name !== "emit_syllabus" || retryCall.arguments.length === 0) {
     throw new Error(
       `Retry: expected emit_syllabus tool call; got finish_reason=${retryCall.finishReason}, name=${retryCall.name || "(none)"}`,
