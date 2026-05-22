@@ -77,82 +77,105 @@ export type GenerateSyllabusInput = {
   currentSkills: string;
 };
 
-const SYSTEM_PROMPT = `You are a senior engineer and career strategist who has personally hired people into roles like the one being targeted. You've watched dozens of self-taught engineers either land these jobs or wash out in the loop. You know which knowledge gaps are fixable, which ones aren't, and which resources actually move the needle.
+/**
+ * Generation is split into two stages so no single streamed Grok call runs long
+ * enough to hit the upstream ~60s stream-duration cut:
+ *   1. SKELETON  — blockers, branches, clusters + sub-skills + artefacts (no
+ *      concepts/resources). Small, fast.
+ *   2. DETAIL    — per cluster, the concepts + resources for its sub-skills.
+ *      One call per cluster, run in parallel; each is ~1/N the size.
+ * The two stages are assembled and validated against `syllabusSchema`, so the
+ * return shape (and every caller) is unchanged.
+ */
 
-Your job is to produce a structured, brutally honest learning syllabus from a job description. Direct, no fluff. Name real resources. Flag real blockers.
+const PERSONA = `You are a senior engineer and career strategist who has personally hired people into roles like the one being targeted. You've watched dozens of self-taught engineers either land these jobs or wash out in the loop. You know which knowledge gaps are fixable, which ones aren't, and which resources actually move the needle. Direct, no fluff. No marketing language. State what things are.`;
+
+const SKELETON_SYSTEM_PROMPT = `${PERSONA}
+
+Produce the STRUCTURE of a learning syllabus from a job description by calling \`emit_skeleton\`. You are NOT writing concepts or resources yet — only blockers, alternative branches, and the cluster / sub-skill scaffold. Do not produce any other text.
 
 Rules:
 
-1. **Be honest about structural blockers.** \`structuralBlockers\` is an array of short, specific strings — one per blocker. Things like "Requires US work authorization; not addressable by self-study" or "Role demands 5+ years production ML experience; portfolio alone won't substitute at this company." Empty array if none exist. Do not invent blockers to seem rigorous, and do not paper over real ones.
+1. **Structural blockers.** \`structuralBlockers\`: short, specific strings, one per blocker (e.g. "Requires US work authorization; not addressable by self-study"). Empty array if none. Don't invent blockers; don't paper over real ones.
 
-2. **Propose alternative target branches when real blockers exist.** \`alternativeTargetBranches\` is an array of \`{role, rationale, tradeoffs}\` — 2-4 adjacent roles where the learner's actual profile is viable. \`tradeoffs\` is honest: what they give up by taking this branch vs. the original target (lower comp, different skill ceiling, longer detour, etc.). Empty array if no blockers.
+2. **Alternative branches.** \`alternativeTargetBranches\`: 2-4 \`{role, rationale, tradeoffs}\` for adjacent roles viable for this learner's actual profile, with honest tradeoffs. Empty array if no real blockers.
 
-3. **4-7 skill clusters total.** Weight each cluster 1-5 by importance to the actual job, not what's interesting to learn. \`orderIndex\` reflects a sensible learning sequence, foundations first.
+3. **4-7 clusters.** Weight each 1-5 by importance to the actual job. \`orderIndex\` reflects a sensible learning order, foundations first.
 
-4. **Every syllabus must include AT LEAST ONE cluster of type 'soft'.** Communication, collaboration, technical writing, presenting, interview-specific soft skills relevant to *this* role. Not generic "be a good teammate" — concrete things like "Writing engineering design docs that get approved" or "Pair-programming with a skeptical senior engineer."
+4. **At least one cluster of type 'soft'** — concrete communication/collaboration/interview skills for THIS role (e.g. "Writing engineering design docs that get approved"), not generic "be a good teammate".
 
-5. **Every syllabus must include AT LEAST ONE cluster of type 'domain'.** Role-specific domain knowledge — the field-specific context a generalist engineer would lack. For a Neuralink role: neuroscience fundamentals, BCI signal processing, medical device regulatory context. For a Stripe role: payment networks, fraud, financial regulation. Generic "industry knowledge" is wrong.
+5. **At least one cluster of type 'domain'** — role-specific field knowledge a generalist would lack (e.g. for Neuralink: neuroscience fundamentals, BCI signal processing). Not generic "industry knowledge".
 
-6. **Classify each cluster's \`type\`:**
-   - \`technical\` — engineering craft (languages, systems, tools)
-   - \`domain\` — field-specific knowledge (per rule 5)
-   - \`soft\` — interpersonal, communication, interview skills (per rule 4)
-   - \`meta\` — learning-to-learn, productivity systems, research skills
+6. **Classify each cluster's \`type\`:** technical (craft), domain (field knowledge), soft (interpersonal/interview), meta (learning-to-learn).
 
-7. **Each cluster has 2-5 sub-skills.** Estimate realistic hours for a self-taught learner starting from the candidate's actual current skills — not someone with a relevant degree. Real mastery of a sub-skill is usually 20-80 hours.
+7. **Each cluster has 2-5 sub-skills.** For each: a specific \`name\`, a 1-2 sentence \`description\` of what mastering it means, and realistic \`estimatedHours\` for a self-taught learner starting from the candidate's actual current skills (usually 20-80 hours per sub-skill). Do NOT include concepts — those come later.
 
-8. **Each sub-skill has 4-10 concepts.** Concepts are the atomic, checkable units of understanding — the things you either grasp or don't. \`name\` is concise and specific: "Swift Actors & Concurrency" not "Swift things". "Backpropagation through time" not "RNN stuff". "PID controller tuning" not "control theory". \`description\` is 1-2 sentences on what actually understanding this means — what you'd be able to do or explain. Order concepts by \`orderIndex\` reflecting how a learner should build them up.
+8. **One concrete portfolio artefact per cluster**, specific enough that a hiring manager for this exact role would recognize the relevance. Pick the type that fits: project, writeup, certificate, contribution. Include \`acceptanceCriteria\`: 3-6 concrete, checkable, single-sentence "done" bullets, measurable where possible ("Detector achieves AUC ≥ 0.85 on held-out test set"), not soft ones like "code is clean".
 
-9. **Each concept has 2-3 resources.** Exactly one is the primary recommendation with \`priority: 1\` — the single best resource for grasping this concept. The remaining 1-2 are alternatives with \`priority: 2\` or higher. Resources must be REAL and SPECIFIC: "3Blue1Brown's 'Essence of Linear Algebra' YouTube series" not "watch YouTube videos on linear algebra". "Sutton & Barto, *Reinforcement Learning: An Introduction* (2nd ed.), chapters 3-6" not "reinforcement learning textbook". Named courses, named books with author and edition, specific talks, specific YouTube channels and series. If you don't know a real resource for a concept, narrow the concept rather than inventing one.
+Checklist before emitting — fix any "no":
+- [ ] 4-7 clusters
+- [ ] At least one cluster type='soft'
+- [ ] At least one cluster type='domain'
+- [ ] Every cluster has 2-5 sub-skills, each with estimatedHours
+- [ ] Every cluster has a suggestedArtefact with 3-6 acceptanceCriteria`;
 
-10. **Every resource MUST include a \`url\` to the canonical landing page.** This is non-negotiable. Use the page where a learner would actually start — for a book, the publisher or author's page (e.g. \`http://incompleteideas.net/book/the-book-2nd.html\`); for a YouTube series, the playlist URL; for a course, the course's own page on Coursera/edX/MIT OCW/etc.; for a paper, its arXiv or DOI URL. Use \`https://\` where available. Do NOT use Google search URLs, Wikipedia, or generic homepages — those are the fallback the system uses when a real URL is missing, and you can do better. If you cannot confidently produce a canonical URL for a specific resource, pick a different resource you do know the URL for. Better to swap the resource than emit a bad guess.
+const DETAIL_SYSTEM_PROMPT = `${PERSONA}
 
-11. **One concrete portfolio artefact per cluster.** Specific enough that a hiring manager for this exact role would recognize the relevance. "Replicate the closed-loop seizure detection benchmark from Cook et al. 2013 on CHB-MIT using PyTorch" beats "machine learning project". Pick the artefact type that fits: \`project\` (built thing), \`writeup\` (written analysis), \`certificate\` (verifiable credential), \`contribution\` (open-source PR or similar). For each artefact, also emit \`acceptanceCriteria\`: 3-6 concrete, checkable bullets that define "done." Each bullet is a single sentence stating what must be true. "Detector achieves AUC ≥ 0.85 on held-out test set" beats "model performs well." "Repo has a README with usage instructions and a 30-second demo gif" beats "documented." Avoid soft criteria like "code is clean."
+You are filling in ONE cluster of an already-designed syllabus. You will be given the target role/JD/current-skills for context, the cluster (name, type, description), and its sub-skills (name + description). For EACH sub-skill, produce its concepts by calling \`emit_concepts\`. Return one entry per sub-skill, in the SAME ORDER you were given, echoing each sub-skill's \`name\`. Do not produce any other text.
 
-12. **Resources and artefacts should ladder.** Foundations → applied work → demonstrable output.
+Rules:
 
-13. **Tone for descriptions and rationales: direct.** No marketing language. No "you'll learn how to..." phrasing. State what the thing is.
+1. **Each sub-skill has 4-10 concepts.** Concepts are atomic, checkable units of understanding — things you either grasp or don't. \`name\` is concise and specific ("Backpropagation through time", not "RNN stuff"). \`description\` is 1-2 sentences on what actually understanding it means. Order by \`orderIndex\` (0 first) reflecting how a learner builds them up.
 
-Before you call \`emit_syllabus\`, verify against this checklist. If any item is "no," fix it before emitting:
-- [ ] Exactly 4-7 clusters
-- [ ] At least one cluster has type='soft'
-- [ ] At least one cluster has type='domain'
-- [ ] Every sub-skill has 4-10 concepts (not 3, not 11)
-- [ ] Every concept has 2-3 resources
-- [ ] Every concept has exactly one resource with priority=1
-- [ ] Every resource is a real, named source (not "watch some videos on X")
-- [ ] Every resource has a canonical URL (no Google search URLs, no Wikipedia, no generic homepages)
+2. **Each concept has 2-3 resources.** Exactly one is the primary recommendation with \`priority: 1\`; the other 1-2 are alternatives with \`priority: 2+\`. Resources must be REAL and SPECIFIC: named books with author/edition, named courses, specific talks, specific YouTube series — not "watch some videos on X". If you don't know a real resource, narrow the concept rather than inventing one.
 
-Output: call the \`emit_syllabus\` tool with the complete structured syllabus. Do not produce any other text.`;
+3. **Every resource MUST include a canonical \`url\`** — the page a learner would actually start from (publisher/author page for a book, playlist URL for a YouTube series, the course's own page, arXiv/DOI for a paper). Use https where available. NO Google search URLs, NO Wikipedia, NO generic homepages. If you can't confidently produce a canonical URL, swap to a resource you do know.
 
-const SYLLABUS_INPUT_SCHEMA = {
+Checklist before emitting — fix any "no":
+- [ ] One entry per sub-skill given, names echoed, same order
+- [ ] Every sub-skill has 4-10 concepts
+- [ ] Every concept has 2-3 resources, exactly one with priority=1
+- [ ] Every resource is real and named, with a canonical URL`;
+
+const ARTEFACT_SCHEMA = {
+  type: "object" as const,
+  required: ["type", "title", "description", "acceptanceCriteria"],
+  properties: {
+    type: {
+      type: "string",
+      enum: ["project", "writeup", "certificate", "contribution"],
+    },
+    title: { type: "string" },
+    description: { type: "string" },
+    acceptanceCriteria: {
+      type: "array",
+      minItems: 3,
+      maxItems: 6,
+      description: "3-6 concrete, checkable 'done' bullets, single sentences.",
+      items: { type: "string" },
+    },
+  },
+};
+
+const SKELETON_INPUT_SCHEMA = {
   type: "object" as const,
   required: ["structuralBlockers", "alternativeTargetBranches", "clusters"],
   properties: {
     structuralBlockers: {
       type: "array",
-      description:
-        "Short, specific strings naming each structural blocker. Empty array if none.",
+      description: "Specific blocker strings. Empty array if none.",
       items: { type: "string" },
     },
     alternativeTargetBranches: {
       type: "array",
-      description:
-        "Adjacent roles viable for this learner's profile. Empty if no blockers.",
+      description: "Adjacent viable roles. Empty if no blockers.",
       items: {
         type: "object",
         required: ["role", "rationale", "tradeoffs"],
         properties: {
           role: { type: "string" },
-          rationale: {
-            type: "string",
-            description: "Why this branch fits the learner's actual profile.",
-          },
-          tradeoffs: {
-            type: "string",
-            description:
-              "What is given up by taking this branch vs the original target.",
-          },
+          rationale: { type: "string" },
+          tradeoffs: { type: "string" },
         },
       },
     },
@@ -161,7 +184,7 @@ const SYLLABUS_INPUT_SCHEMA = {
       minItems: 4,
       maxItems: 7,
       description:
-        "4-7 skill clusters. Must include at least one of type 'soft' and at least one of type 'domain'.",
+        "4-7 clusters. At least one type 'soft' and at least one type 'domain'. No concepts here.",
       items: {
         type: "object",
         required: [
@@ -179,131 +202,91 @@ const SYLLABUS_INPUT_SCHEMA = {
           type: {
             type: "string",
             enum: ["technical", "domain", "soft", "meta"],
-            description:
-              "technical (craft), domain (field knowledge), soft (interpersonal/interview), meta (learning-to-learn).",
           },
-          weight: {
-            type: "integer",
-            minimum: 1,
-            maximum: 5,
-            description: "Importance to the role, 1-5.",
-          },
-          orderIndex: {
-            type: "integer",
-            minimum: 0,
-            description: "Sensible learning order, 0 first.",
-          },
+          weight: { type: "integer", minimum: 1, maximum: 5 },
+          orderIndex: { type: "integer", minimum: 0 },
           subSkills: {
             type: "array",
             minItems: 2,
             maxItems: 5,
             items: {
               type: "object",
-              required: ["name", "description", "estimatedHours", "concepts"],
+              required: ["name", "description", "estimatedHours"],
               properties: {
                 name: { type: "string" },
                 description: { type: "string" },
-                estimatedHours: {
-                  type: "integer",
-                  minimum: 0,
-                  description: "Realistic hours for a self-taught learner.",
-                },
-                concepts: {
-                  type: "array",
-                  minItems: 4,
-                  maxItems: 10,
-                  description:
-                    "4-10 atomic, checkable units of understanding inside this sub-skill.",
-                  items: {
-                    type: "object",
-                    required: [
-                      "name",
-                      "description",
-                      "orderIndex",
-                      "suggestedResources",
-                    ],
-                    properties: {
-                      name: {
-                        type: "string",
-                        description:
-                          "Concise and specific. 'Swift Actors & Concurrency' not 'Swift things'.",
-                      },
-                      description: {
-                        type: "string",
-                        description:
-                          "1-2 sentences on what understanding this concept means.",
-                      },
-                      orderIndex: {
-                        type: "integer",
-                        minimum: 0,
-                        description: "Order within the sub-skill, 0 first.",
-                      },
-                      suggestedResources: {
-                        type: "array",
-                        minItems: 2,
-                        maxItems: 3,
-                        description:
-                          "2-3 real, named resources. Exactly one with priority 1.",
-                        items: {
-                          type: "object",
-                          required: ["type", "title", "priority"],
-                          properties: {
-                            type: {
-                              type: "string",
-                              enum: [
-                                "course",
-                                "book",
-                                "video",
-                                "article",
-                                "project",
-                                "paper",
-                              ],
-                            },
-                            title: {
-                              type: "string",
-                              description:
-                                "Real, specific resource name including author/edition/series where applicable.",
-                            },
-                            url: {
-                              type: "string",
-                              description:
-                                "Required. Canonical landing page for this resource (https URL where possible). For books, the publisher/author page; for YouTube series, the playlist URL; for courses, the course's own page on Coursera/edX/MIT OCW/etc; for papers, arXiv or DOI URL. No Google search URLs, no Wikipedia, no generic homepages. If you don't know a canonical URL, swap the resource for one you do know.",
-                            },
-                            author: { type: "string" },
-                            priority: {
-                              type: "integer",
-                              minimum: 1,
-                              description:
-                                "1 = the single primary recommendation. 2+ = alternatives.",
-                            },
-                          },
-                        },
-                      },
-                    },
-                  },
-                },
+                estimatedHours: { type: "integer", minimum: 0 },
               },
             },
           },
-          suggestedArtefact: {
-            type: "object",
-            required: ["type", "title", "description", "acceptanceCriteria"],
-            properties: {
-              type: {
-                type: "string",
-                enum: ["project", "writeup", "certificate", "contribution"],
-              },
-              title: { type: "string" },
-              description: { type: "string" },
-              acceptanceCriteria: {
-                type: "array",
-                minItems: 3,
-                maxItems: 6,
-                description:
-                  "3-6 concrete, checkable 'done' bullets. Single sentences. Measurable where possible.",
-                items: { type: "string" },
-              },
-            },
+          suggestedArtefact: ARTEFACT_SCHEMA,
+        },
+      },
+    },
+  },
+};
+
+const CONCEPT_ITEM_SCHEMA = {
+  type: "object" as const,
+  required: ["name", "description", "orderIndex", "suggestedResources"],
+  properties: {
+    name: {
+      type: "string",
+      description: "Concise and specific.",
+    },
+    description: {
+      type: "string",
+      description: "1-2 sentences on what understanding this concept means.",
+    },
+    orderIndex: { type: "integer", minimum: 0 },
+    suggestedResources: {
+      type: "array",
+      minItems: 2,
+      maxItems: 3,
+      description: "2-3 real, named resources. Exactly one with priority 1.",
+      items: {
+        type: "object",
+        required: ["type", "title", "priority"],
+        properties: {
+          type: {
+            type: "string",
+            enum: ["course", "book", "video", "article", "project", "paper"],
+          },
+          title: { type: "string" },
+          url: {
+            type: "string",
+            description:
+              "Required. Canonical landing page (https where possible). No Google search URLs, Wikipedia, or generic homepages.",
+          },
+          author: { type: "string" },
+          priority: { type: "integer", minimum: 1 },
+        },
+      },
+    },
+  },
+};
+
+const DETAIL_INPUT_SCHEMA = {
+  type: "object" as const,
+  required: ["subSkills"],
+  properties: {
+    subSkills: {
+      type: "array",
+      description:
+        "One entry per sub-skill you were given, in the same order, echoing each name.",
+      items: {
+        type: "object",
+        required: ["name", "concepts"],
+        properties: {
+          name: {
+            type: "string",
+            description: "Echo the sub-skill name you were given.",
+          },
+          concepts: {
+            type: "array",
+            minItems: 4,
+            maxItems: 10,
+            items: CONCEPT_ITEM_SCHEMA,
           },
         },
       },
@@ -311,36 +294,59 @@ const SYLLABUS_INPUT_SCHEMA = {
   },
 };
 
-function buildUserMessage(input: GenerateSyllabusInput): string {
-  return [
-    `Target role: ${input.targetRole}`,
-    input.targetCompany ? `Target company: ${input.targetCompany}` : null,
-    "",
-    "Job description:",
-    input.jobDescription,
-    "",
-    "Learner's current skills and background:",
-    input.currentSkills,
-  ]
-    .filter((line): line is string => line !== null)
-    .join("\n");
-}
+// Internal stage schemas. The skeleton has clusters with sub-skills but no
+// concepts; the detail returns concepts grouped by sub-skill.
+const skeletonSubSkillSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().min(1),
+  estimatedHours: z.number().int().nonnegative(),
+});
+const skeletonClusterSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().min(1),
+  type: z.enum(["technical", "domain", "soft", "meta"]),
+  weight: z.number().int().min(1).max(5),
+  orderIndex: z.number().int().nonnegative(),
+  subSkills: z.array(skeletonSubSkillSchema).min(2).max(5),
+  suggestedArtefact: suggestedArtefactSchema,
+});
+const skeletonSchema = z
+  .object({
+    structuralBlockers: z.array(z.string().min(1)),
+    alternativeTargetBranches: z.array(alternativeTargetBranchSchema),
+    clusters: z.array(skeletonClusterSchema).min(4).max(7),
+  })
+  .refine(
+    (s) => s.clusters.some((c) => c.type === "soft"),
+    "Syllabus must include at least one cluster of type 'soft'.",
+  )
+  .refine(
+    (s) => s.clusters.some((c) => c.type === "domain"),
+    "Syllabus must include at least one cluster of type 'domain'.",
+  );
+type SyllabusSkeleton = z.infer<typeof skeletonSchema>;
+type SkeletonCluster = z.infer<typeof skeletonClusterSchema>;
+
+const detailSubSkillSchema = z.object({
+  name: z.string().min(1),
+  concepts: z.array(conceptSchema).min(4).max(10),
+});
+type ClusterDetail = { subSkills: z.infer<typeof detailSubSkillSchema>[] };
 
 type ChatMessage = Parameters<
   typeof grok.chat.completions.create
 >[0]["messages"][number];
+type ChatTool = NonNullable<
+  Parameters<typeof grok.chat.completions.create>[0]["tools"]
+>[number];
 
-const TOOLS = [
-  {
-    type: "function" as const,
-    function: {
-      name: "emit_syllabus",
-      description:
-        "Emit the structured personalised syllabus. Must be called exactly once.",
-      parameters: SYLLABUS_INPUT_SCHEMA,
-    },
-  },
-];
+function tool(
+  name: string,
+  description: string,
+  parameters: Record<string, unknown>,
+): ChatTool {
+  return { type: "function", function: { name, description, parameters } };
+}
 
 type ToolCallResult = {
   id: string;
@@ -349,16 +355,17 @@ type ToolCallResult = {
   finishReason: string | null;
 };
 
-async function callGrok(messages: ChatMessage[]): Promise<ToolCallResult> {
+async function callGrok(
+  messages: ChatMessage[],
+  tools: ChatTool[],
+  toolName: string,
+): Promise<ToolCallResult> {
   const stream = await grok.chat.completions.create({
     model: DEFAULT_MODEL,
     max_tokens: 16000,
     messages,
-    tools: TOOLS,
-    tool_choice: {
-      type: "function",
-      function: { name: "emit_syllabus" },
-    },
+    tools,
+    tool_choice: { type: "function", function: { name: toolName } },
     stream: true,
   });
 
@@ -384,10 +391,8 @@ async function callGrok(messages: ChatMessage[]): Promise<ToolCallResult> {
   return { id, name, arguments: args, finishReason };
 }
 
-// Long grok-4 reasoning + a ~16k-token structured stream occasionally drops the
-// socket mid-response (undici surfaces it as `TypeError: terminated`). That's a
-// transient transport failure, not a bad request — retry it. Real failures (bad
-// tool call, validation) are handled by the caller and must NOT be retried here.
+// A transient mid-stream socket drop (undici `TypeError: terminated`) is a
+// transport failure, not a bad request — retry it. Real failures bubble up.
 function isTransientConnectionError(err: unknown): boolean {
   const cause = (err as { cause?: unknown } | null)?.cause;
   const text = [
@@ -407,17 +412,16 @@ function isTransientConnectionError(err: unknown): boolean {
   );
 }
 
-// 2 attempts: one retry covers a genuinely transient mid-stream drop without
-// burning extra minutes/credits when the failure is deterministic (e.g. the
-// large generation exceeding the upstream stream-duration limit).
 async function callGrokWithRetry(
   messages: ChatMessage[],
+  tools: ChatTool[],
+  toolName: string,
   maxAttempts = 2,
 ): Promise<ToolCallResult> {
   let lastErr: unknown;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      return await callGrok(messages);
+      return await callGrok(messages, tools, toolName);
     } catch (err) {
       lastErr = err;
       if (attempt === maxAttempts || !isTransientConnectionError(err)) throw err;
@@ -442,28 +446,28 @@ function formatZodErrors(err: z.ZodError): string {
     .join("\n");
 }
 
-export async function generateSyllabus(
-  input: GenerateSyllabusInput,
-): Promise<GeneratedSyllabus> {
-  const messages: ChatMessage[] = [
-    { role: "system", content: SYSTEM_PROMPT },
-    { role: "user", content: buildUserMessage(input) },
-  ];
-
-  const firstCall = await callGrokWithRetry(messages);
-
-  if (firstCall.name !== "emit_syllabus" || firstCall.arguments.length === 0) {
+// Call a tool, validate against `schema`, and retry once with the validation
+// errors fed back if the first attempt fails.
+async function callAndParse<T>(
+  label: string,
+  messages: ChatMessage[],
+  tools: ChatTool[],
+  toolName: string,
+  schema: z.ZodType<T>,
+  retryReminder: string,
+): Promise<T> {
+  const first = await callGrokWithRetry(messages, tools, toolName);
+  if (first.name !== toolName || first.arguments.length === 0) {
     throw new Error(
-      `Expected emit_syllabus tool call; got finish_reason=${firstCall.finishReason}, name=${firstCall.name || "(none)"}`,
+      `${label}: expected ${toolName} tool call; got finish_reason=${first.finishReason}, name=${first.name || "(none)"}`,
     );
   }
 
-  const firstParsed: unknown = JSON.parse(firstCall.arguments);
-  const firstResult = syllabusSchema.safeParse(firstParsed);
+  const firstResult = schema.safeParse(JSON.parse(first.arguments));
   if (firstResult.success) return firstResult.data;
 
   console.warn(
-    "[generateSyllabus] first attempt failed validation, retrying once:\n" +
+    `[${label}] first attempt failed validation, retrying once:\n` +
       formatZodErrors(firstResult.error),
   );
 
@@ -474,30 +478,130 @@ export async function generateSyllabus(
       content: null,
       tool_calls: [
         {
-          id: firstCall.id,
+          id: first.id,
           type: "function",
-          function: {
-            name: firstCall.name,
-            arguments: firstCall.arguments,
-          },
+          function: { name: first.name, arguments: first.arguments },
         },
       ],
     },
     {
       role: "tool",
-      tool_call_id: firstCall.id,
-      content: `Your previous emit_syllabus call failed Zod validation:\n${formatZodErrors(
+      tool_call_id: first.id,
+      content: `Your previous ${toolName} call failed Zod validation:\n${formatZodErrors(
         firstResult.error,
-      )}\n\nFix every issue above and call emit_syllabus again with a corrected, complete syllabus. Pay particular attention to: (a) at least one cluster of type 'soft', (b) at least one cluster of type 'domain', (c) each concept must have 4-10 entries, (d) each concept must have 2-3 resources with exactly one priority=1 primary.`,
+      )}\n\nFix every issue above and call ${toolName} again. ${retryReminder}`,
     },
   ];
 
-  const retryCall = await callGrokWithRetry(retryMessages);
-  if (retryCall.name !== "emit_syllabus" || retryCall.arguments.length === 0) {
+  const second = await callGrokWithRetry(retryMessages, tools, toolName);
+  if (second.name !== toolName || second.arguments.length === 0) {
     throw new Error(
-      `Retry: expected emit_syllabus tool call; got finish_reason=${retryCall.finishReason}, name=${retryCall.name || "(none)"}`,
+      `${label} retry: expected ${toolName} tool call; got finish_reason=${second.finishReason}`,
     );
   }
-  const retryParsed: unknown = JSON.parse(retryCall.arguments);
-  return syllabusSchema.parse(retryParsed);
+  return schema.parse(JSON.parse(second.arguments));
+}
+
+function contextLines(input: GenerateSyllabusInput): string[] {
+  return [
+    `Target role: ${input.targetRole}`,
+    input.targetCompany ? `Target company: ${input.targetCompany}` : null,
+    "",
+    "Job description:",
+    input.jobDescription,
+    "",
+    "Learner's current skills and background:",
+    input.currentSkills,
+  ].filter((line): line is string => line !== null);
+}
+
+async function generateSkeleton(
+  input: GenerateSyllabusInput,
+): Promise<SyllabusSkeleton> {
+  const messages: ChatMessage[] = [
+    { role: "system", content: SKELETON_SYSTEM_PROMPT },
+    { role: "user", content: contextLines(input).join("\n") },
+  ];
+  return callAndParse(
+    "generateSkeleton",
+    messages,
+    [tool("emit_skeleton", "Emit the syllabus structure.", SKELETON_INPUT_SCHEMA)],
+    "emit_skeleton",
+    skeletonSchema,
+    "Remember: 4-7 clusters, at least one 'soft' and one 'domain', each cluster 2-5 sub-skills with estimatedHours, and a suggestedArtefact with 3-6 acceptanceCriteria.",
+  );
+}
+
+async function generateClusterDetail(
+  input: GenerateSyllabusInput,
+  cluster: SkeletonCluster,
+): Promise<ClusterDetail> {
+  const expected = cluster.subSkills.length;
+  // Enforce exactly one entry per sub-skill so the assembly never leaves a
+  // sub-skill with empty concepts; a wrong count triggers the retry.
+  const schema = z.object({
+    subSkills: z.array(detailSubSkillSchema).length(expected),
+  });
+
+  const subSkillList = cluster.subSkills
+    .map((s, i) => `${i + 1}. ${s.name} — ${s.description}`)
+    .join("\n");
+
+  const userMessage = [
+    ...contextLines(input),
+    "",
+    `Cluster: ${cluster.name} (type: ${cluster.type})`,
+    `Cluster description: ${cluster.description}`,
+    "",
+    "Generate concepts + resources for each of these sub-skills, in this order:",
+    subSkillList,
+  ].join("\n");
+
+  const messages: ChatMessage[] = [
+    { role: "system", content: DETAIL_SYSTEM_PROMPT },
+    { role: "user", content: userMessage },
+  ];
+
+  return callAndParse(
+    `generateClusterDetail(${cluster.name})`,
+    messages,
+    [tool("emit_concepts", "Emit concepts for each sub-skill.", DETAIL_INPUT_SCHEMA)],
+    "emit_concepts",
+    schema,
+    `Remember: return EXACTLY ${expected} sub-skill entries — one per sub-skill in the given order, name echoed — each with 4-10 concepts, and 2-3 resources per concept with exactly one priority=1 and a canonical URL on every resource.`,
+  );
+}
+
+export async function generateSyllabus(
+  input: GenerateSyllabusInput,
+): Promise<GeneratedSyllabus> {
+  // Stage 1: structure.
+  const skeleton = await generateSkeleton(input);
+
+  // Stage 2: concepts + resources, one small call per cluster, in parallel.
+  const details = await Promise.all(
+    skeleton.clusters.map((cluster) => generateClusterDetail(input, cluster)),
+  );
+
+  // Assemble: merge each cluster's detail back onto its sub-skills (by order,
+  // falling back to name match).
+  const clusters = skeleton.clusters.map((cluster, ci) => {
+    const detail = details[ci];
+    const subSkills = cluster.subSkills.map((ss, si) => {
+      const match =
+        detail.subSkills[si]?.name === ss.name
+          ? detail.subSkills[si]
+          : detail.subSkills.find((d) => d.name === ss.name) ??
+            detail.subSkills[si];
+      return { ...ss, concepts: match?.concepts ?? [] };
+    });
+    return { ...cluster, subSkills };
+  });
+
+  // Final validation against the full schema — the caller's contract.
+  return syllabusSchema.parse({
+    structuralBlockers: skeleton.structuralBlockers,
+    alternativeTargetBranches: skeleton.alternativeTargetBranches,
+    clusters,
+  });
 }
