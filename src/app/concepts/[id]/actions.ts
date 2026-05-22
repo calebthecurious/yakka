@@ -17,7 +17,7 @@ import {
   generateStudyBrief as generateStudyBriefAI,
 } from "@/lib/ai/generate-study-brief";
 import { generateCompetencyCheck as generateCompetencyCheckAI } from "@/lib/ai/generate-competency-check";
-import { SONNET_MODEL } from "@/lib/ai/client";
+import { DEFAULT_MODEL } from "@/lib/ai/client";
 import { requireCurrentUserId } from "@/lib/auth";
 import {
   requireOwnedConcept,
@@ -348,7 +348,7 @@ export async function generateStudyBrief(input: {
         locations: generated.locations,
         checkQuestions: generated.checkQuestions,
         aiConfidence: generated.aiConfidence,
-        model: SONNET_MODEL,
+        model: DEFAULT_MODEL,
         generatedAt: now,
       })
       .onConflictDoUpdate({
@@ -359,7 +359,7 @@ export async function generateStudyBrief(input: {
           locations: generated.locations,
           checkQuestions: generated.checkQuestions,
           aiConfidence: generated.aiConfidence,
-          model: SONNET_MODEL,
+          model: DEFAULT_MODEL,
           generatedAt: now,
         },
       })

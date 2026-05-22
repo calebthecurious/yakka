@@ -1,6 +1,5 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import { anthropic, SONNET_MODEL } from "./client";
+import { grok, DEFAULT_MODEL } from "./client";
 
 export const studyBriefLocationSchema = z.object({
   label: z.string().min(1),
@@ -125,12 +124,22 @@ const STUDY_BRIEF_INPUT_SCHEMA = {
 
 const TOOL_NAME = "emit_study_brief";
 
-const TOOLS: Anthropic.Tool[] = [
+type ChatMessage = Parameters<
+  typeof grok.chat.completions.create
+>[0]["messages"][number];
+type ChatTool = NonNullable<
+  Parameters<typeof grok.chat.completions.create>[0]["tools"]
+>[number];
+
+const TOOLS: ChatTool[] = [
   {
-    name: TOOL_NAME,
-    description:
-      "Emit the structured study brief for this resource + concept pair. Must be called exactly once.",
-    input_schema: STUDY_BRIEF_INPUT_SCHEMA,
+    type: "function",
+    function: {
+      name: TOOL_NAME,
+      description:
+        "Emit the structured study brief for this resource + concept pair. Must be called exactly once.",
+      parameters: STUDY_BRIEF_INPUT_SCHEMA,
+    },
   },
 ];
 
@@ -151,34 +160,32 @@ function buildUserMessage(input: GenerateStudyBriefInput): string {
 }
 
 type ToolCallResult = {
-  toolUseId: string;
-  input: unknown;
-  hadToolUse: boolean;
-  stopReason: string | null;
+  id: string;
+  arguments: string | null;
+  finishReason: string | null;
 };
 
-async function callSonnet(
-  messages: Anthropic.MessageParam[],
-): Promise<ToolCallResult> {
-  const response = await anthropic.messages.create({
-    model: SONNET_MODEL,
+async function callGrok(messages: ChatMessage[]): Promise<ToolCallResult> {
+  const response = await grok.chat.completions.create({
+    model: DEFAULT_MODEL,
     max_tokens: 4000,
-    system: SYSTEM_PROMPT,
-    messages,
+    messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
     tools: TOOLS,
-    tool_choice: { type: "tool", name: TOOL_NAME },
+    tool_choice: { type: "function", function: { name: TOOL_NAME } },
   });
 
-  const toolUse = response.content.find(
-    (block): block is Anthropic.ToolUseBlock =>
-      block.type === "tool_use" && block.name === TOOL_NAME,
+  const choice = response.choices[0];
+  const toolCall = choice?.message?.tool_calls?.find(
+    (tc) => tc.type === "function" && tc.function.name === TOOL_NAME,
   );
 
   return {
-    toolUseId: toolUse?.id ?? "",
-    input: toolUse?.input ?? null,
-    hadToolUse: Boolean(toolUse),
-    stopReason: response.stop_reason,
+    id: toolCall?.id ?? "",
+    arguments:
+      toolCall && toolCall.type === "function"
+        ? toolCall.function.arguments
+        : null,
+    finishReason: choice?.finish_reason ?? null,
   };
 }
 
@@ -194,18 +201,18 @@ function formatZodErrors(err: z.ZodError): string {
 export async function generateStudyBrief(
   input: GenerateStudyBriefInput,
 ): Promise<GeneratedStudyBrief> {
-  const messages: Anthropic.MessageParam[] = [
+  const messages: ChatMessage[] = [
     { role: "user", content: buildUserMessage(input) },
   ];
 
-  const firstCall = await callSonnet(messages);
-  if (!firstCall.hadToolUse) {
+  const firstCall = await callGrok(messages);
+  if (firstCall.arguments === null) {
     throw new Error(
-      `Expected ${TOOL_NAME} tool call; got stop_reason=${firstCall.stopReason}`,
+      `Expected ${TOOL_NAME} tool call; got finish_reason=${firstCall.finishReason}`,
     );
   }
 
-  const firstResult = studyBriefSchema.safeParse(firstCall.input);
+  const firstResult = studyBriefSchema.safeParse(JSON.parse(firstCall.arguments));
   if (firstResult.success) return firstResult.data;
 
   console.warn(
@@ -213,40 +220,34 @@ export async function generateStudyBrief(
       formatZodErrors(firstResult.error),
   );
 
-  const retryMessages: Anthropic.MessageParam[] = [
+  const retryMessages: ChatMessage[] = [
     ...messages,
     {
       role: "assistant",
-      content: [
+      content: null,
+      tool_calls: [
         {
-          type: "tool_use",
-          id: firstCall.toolUseId,
-          name: TOOL_NAME,
-          input: firstCall.input,
+          id: firstCall.id,
+          type: "function",
+          function: { name: TOOL_NAME, arguments: firstCall.arguments },
         },
       ],
     },
     {
-      role: "user",
-      content: [
-        {
-          type: "tool_result",
-          tool_use_id: firstCall.toolUseId,
-          is_error: true,
-          content: `Your previous ${TOOL_NAME} call failed validation:\n${formatZodErrors(
-            firstResult.error,
-          )}\n\nFix every issue above and call ${TOOL_NAME} again. Remember: keyPoints must have 4-7 entries, checkQuestions 3-5 entries, and if aiConfidence is 'low', locations must be an empty array.`,
-        },
-      ],
+      role: "tool",
+      tool_call_id: firstCall.id,
+      content: `Your previous ${TOOL_NAME} call failed validation:\n${formatZodErrors(
+        firstResult.error,
+      )}\n\nFix every issue above and call ${TOOL_NAME} again. Remember: keyPoints must have 4-7 entries, checkQuestions 3-5 entries, and if aiConfidence is 'low', locations must be an empty array.`,
     },
   ];
 
-  const retryCall = await callSonnet(retryMessages);
-  if (!retryCall.hadToolUse) {
+  const retryCall = await callGrok(retryMessages);
+  if (retryCall.arguments === null) {
     throw new Error(
-      `Retry: expected ${TOOL_NAME} tool call; got stop_reason=${retryCall.stopReason}`,
+      `Retry: expected ${TOOL_NAME} tool call; got finish_reason=${retryCall.finishReason}`,
     );
   }
 
-  return studyBriefSchema.parse(retryCall.input);
+  return studyBriefSchema.parse(JSON.parse(retryCall.arguments));
 }

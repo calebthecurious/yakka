@@ -1,6 +1,5 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import { anthropic, SONNET_MODEL } from "./client";
+import { grok, DEFAULT_MODEL } from "./client";
 
 export const competencyQuestionSchema = z
   .object({
@@ -83,12 +82,22 @@ const COMPETENCY_CHECK_INPUT_SCHEMA = {
 
 const TOOL_NAME = "emit_competency_check";
 
-const TOOLS: Anthropic.Tool[] = [
+type ChatMessage = Parameters<
+  typeof grok.chat.completions.create
+>[0]["messages"][number];
+type ChatTool = NonNullable<
+  Parameters<typeof grok.chat.completions.create>[0]["tools"]
+>[number];
+
+const TOOLS: ChatTool[] = [
   {
-    name: TOOL_NAME,
-    description:
-      "Emit the 5-question competency check for this concept. Must be called exactly once.",
-    input_schema: COMPETENCY_CHECK_INPUT_SCHEMA,
+    type: "function",
+    function: {
+      name: TOOL_NAME,
+      description:
+        "Emit the 5-question competency check for this concept. Must be called exactly once.",
+      parameters: COMPETENCY_CHECK_INPUT_SCHEMA,
+    },
   },
 ];
 
@@ -110,34 +119,32 @@ function buildUserMessage(input: GenerateCompetencyCheckInput): string {
 }
 
 type ToolCallResult = {
-  toolUseId: string;
-  input: unknown;
-  hadToolUse: boolean;
-  stopReason: string | null;
+  id: string;
+  arguments: string | null;
+  finishReason: string | null;
 };
 
-async function callSonnet(
-  messages: Anthropic.MessageParam[],
-): Promise<ToolCallResult> {
-  const response = await anthropic.messages.create({
-    model: SONNET_MODEL,
+async function callGrok(messages: ChatMessage[]): Promise<ToolCallResult> {
+  const response = await grok.chat.completions.create({
+    model: DEFAULT_MODEL,
     max_tokens: 4000,
-    system: SYSTEM_PROMPT,
-    messages,
+    messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
     tools: TOOLS,
-    tool_choice: { type: "tool", name: TOOL_NAME },
+    tool_choice: { type: "function", function: { name: TOOL_NAME } },
   });
 
-  const toolUse = response.content.find(
-    (block): block is Anthropic.ToolUseBlock =>
-      block.type === "tool_use" && block.name === TOOL_NAME,
+  const choice = response.choices[0];
+  const toolCall = choice?.message?.tool_calls?.find(
+    (tc) => tc.type === "function" && tc.function.name === TOOL_NAME,
   );
 
   return {
-    toolUseId: toolUse?.id ?? "",
-    input: toolUse?.input ?? null,
-    hadToolUse: Boolean(toolUse),
-    stopReason: response.stop_reason,
+    id: toolCall?.id ?? "",
+    arguments:
+      toolCall && toolCall.type === "function"
+        ? toolCall.function.arguments
+        : null,
+    finishReason: choice?.finish_reason ?? null,
   };
 }
 
@@ -153,18 +160,20 @@ function formatZodErrors(err: z.ZodError): string {
 export async function generateCompetencyCheck(
   input: GenerateCompetencyCheckInput,
 ): Promise<GeneratedCompetencyCheck> {
-  const messages: Anthropic.MessageParam[] = [
+  const messages: ChatMessage[] = [
     { role: "user", content: buildUserMessage(input) },
   ];
 
-  const firstCall = await callSonnet(messages);
-  if (!firstCall.hadToolUse) {
+  const firstCall = await callGrok(messages);
+  if (firstCall.arguments === null) {
     throw new Error(
-      `Expected ${TOOL_NAME} tool call; got stop_reason=${firstCall.stopReason}`,
+      `Expected ${TOOL_NAME} tool call; got finish_reason=${firstCall.finishReason}`,
     );
   }
 
-  const firstResult = competencyCheckSchema.safeParse(firstCall.input);
+  const firstResult = competencyCheckSchema.safeParse(
+    JSON.parse(firstCall.arguments),
+  );
   if (firstResult.success) return firstResult.data;
 
   console.warn(
@@ -172,40 +181,34 @@ export async function generateCompetencyCheck(
       formatZodErrors(firstResult.error),
   );
 
-  const retryMessages: Anthropic.MessageParam[] = [
+  const retryMessages: ChatMessage[] = [
     ...messages,
     {
       role: "assistant",
-      content: [
+      content: null,
+      tool_calls: [
         {
-          type: "tool_use",
-          id: firstCall.toolUseId,
-          name: TOOL_NAME,
-          input: firstCall.input,
+          id: firstCall.id,
+          type: "function",
+          function: { name: TOOL_NAME, arguments: firstCall.arguments },
         },
       ],
     },
     {
-      role: "user",
-      content: [
-        {
-          type: "tool_result",
-          tool_use_id: firstCall.toolUseId,
-          is_error: true,
-          content: `Your previous ${TOOL_NAME} call failed validation:\n${formatZodErrors(
-            firstResult.error,
-          )}\n\nFix every issue above and call ${TOOL_NAME} again. Remember: exactly 5 questions, each with exactly 4 distinct options, a correctIndex in 0-3, and a one-sentence explanation.`,
-        },
-      ],
+      role: "tool",
+      tool_call_id: firstCall.id,
+      content: `Your previous ${TOOL_NAME} call failed validation:\n${formatZodErrors(
+        firstResult.error,
+      )}\n\nFix every issue above and call ${TOOL_NAME} again. Remember: exactly 5 questions, each with exactly 4 distinct options, a correctIndex in 0-3, and a one-sentence explanation.`,
     },
   ];
 
-  const retryCall = await callSonnet(retryMessages);
-  if (!retryCall.hadToolUse) {
+  const retryCall = await callGrok(retryMessages);
+  if (retryCall.arguments === null) {
     throw new Error(
-      `Retry: expected ${TOOL_NAME} tool call; got stop_reason=${retryCall.stopReason}`,
+      `Retry: expected ${TOOL_NAME} tool call; got finish_reason=${retryCall.finishReason}`,
     );
   }
 
-  return competencyCheckSchema.parse(retryCall.input);
+  return competencyCheckSchema.parse(JSON.parse(retryCall.arguments));
 }
