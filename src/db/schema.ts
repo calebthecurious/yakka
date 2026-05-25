@@ -354,8 +354,74 @@ export const competencyChecks = pgTable(
   (t) => [index("competency_checks_concept_id_idx").on(t.conceptId)],
 );
 
-export const syllabiRelations = relations(syllabi, ({ many }) => ({
+export type GapStrength = { requirement: string; evidence: string };
+
+export type GapInProgress = {
+  requirement: string;
+  conceptId: string | null;
+  note: string;
+};
+
+export type GapNotStarted = {
+  requirement: string;
+  conceptId: string | null;
+  isSyllabusBlindSpot: boolean;
+  note: string;
+};
+
+export type SoftSkillGap = {
+  skill: string;
+  why: string;
+  conceptId: string | null;
+};
+
+export type SignalRecommendation = {
+  action: string;
+  rationale: string;
+  effort: "low" | "medium" | "high";
+};
+
+export const gapReports = pgTable(
+  "gap_reports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    syllabusId: uuid("syllabus_id")
+      .notNull()
+      .references(() => syllabi.id, { onDelete: "cascade" }),
+    strengths: jsonb("strengths")
+      .$type<GapStrength[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    gapsInProgress: jsonb("gaps_in_progress")
+      .$type<GapInProgress[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    gapsNotStarted: jsonb("gaps_not_started")
+      .$type<GapNotStarted[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    softSkillGaps: jsonb("soft_skill_gaps")
+      .$type<SoftSkillGap[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    signalRecommendations: jsonb("signal_recommendations")
+      .$type<SignalRecommendation[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    generatedAt: timestamp("generated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    model: text("model").notNull(),
+  },
+  (t) => [
+    index("gap_reports_syllabus_id_idx").on(t.syllabusId),
+    unique("gap_reports_syllabus_id_unq").on(t.syllabusId),
+  ],
+);
+
+export const syllabiRelations = relations(syllabi, ({ one, many }) => ({
   clusters: many(skillClusters),
+  gapReport: one(gapReports),
 }));
 
 export const profilesRelations = relations(profiles, ({ many }) => ({
@@ -446,6 +512,13 @@ export const competencyChecksRelations = relations(
   }),
 );
 
+export const gapReportsRelations = relations(gapReports, ({ one }) => ({
+  syllabus: one(syllabi, {
+    fields: [gapReports.syllabusId],
+    references: [syllabi.id],
+  }),
+}));
+
 export type Syllabus = typeof syllabi.$inferSelect;
 export type NewSyllabus = typeof syllabi.$inferInsert;
 export type Profile = typeof profiles.$inferSelect;
@@ -468,3 +541,5 @@ export type StudyBrief = typeof studyBriefs.$inferSelect;
 export type NewStudyBrief = typeof studyBriefs.$inferInsert;
 export type CompetencyCheck = typeof competencyChecks.$inferSelect;
 export type NewCompetencyCheck = typeof competencyChecks.$inferInsert;
+export type GapReport = typeof gapReports.$inferSelect;
+export type NewGapReport = typeof gapReports.$inferInsert;

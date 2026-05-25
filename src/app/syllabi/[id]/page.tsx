@@ -3,8 +3,10 @@ import { connection } from "next/server";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { format } from "date-fns";
+import { Telescope } from "lucide-react";
 import { db } from "@/db";
 import { requireCurrentUserId } from "@/lib/auth";
+import { buttonVariants } from "@/components/ui/button";
 import { BlockersCard } from "./blockers-card";
 import { SyllabusTree } from "./syllabus-tree";
 import { DeleteSyllabusButton } from "./delete-syllabus-button";
@@ -134,6 +136,15 @@ export default async function SyllabusPage({ params }: PageProps) {
           {allConcepts.length} concepts ({understoodCount} understood) · ~
           {totalHours}h estimated
         </p>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href={`/syllabi/${syllabus.id}/gap`}
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+          >
+            <Telescope className="size-4" />
+            View gap analysis
+          </Link>
+        </div>
       </header>
 
       <BlockersCard
