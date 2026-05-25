@@ -121,19 +121,18 @@ Checklist before emitting — fix any "no":
 
 const DETAIL_SYSTEM_PROMPT = `${PERSONA}
 
-You are filling in ONE cluster of an already-designed syllabus. You will be given the target role/JD/current-skills for context, the cluster (name, type, description), and its sub-skills (name + description). For EACH sub-skill, produce its concepts by calling \`emit_concepts\`. Return one entry per sub-skill, in the SAME ORDER you were given, echoing each sub-skill's \`name\`. Do not produce any other text.
+You are filling in ONE sub-skill of an already-designed syllabus. You will be given the target role/JD/current-skills for context, the cluster the sub-skill belongs to (name, type, description), and the specific sub-skill (name + description). Produce that sub-skill's concepts by calling \`emit_concepts\`. Do not produce any other text.
 
 Rules:
 
-1. **Each sub-skill has 4-10 concepts.** Concepts are atomic, checkable units of understanding — things you either grasp or don't. \`name\` is concise and specific ("Backpropagation through time", not "RNN stuff"). \`description\` is 1-2 sentences on what actually understanding it means. Order by \`orderIndex\` (0 first) reflecting how a learner builds them up.
+1. **This sub-skill has 4-10 concepts.** Concepts are atomic, checkable units of understanding — things you either grasp or don't. \`name\` is concise and specific ("Backpropagation through time", not "RNN stuff"). \`description\` is 1-2 sentences on what actually understanding it means. Order by \`orderIndex\` (0 first) reflecting how a learner builds them up.
 
 2. **Each concept has 2-3 resources.** Exactly one is the primary recommendation with \`priority: 1\`; the other 1-2 are alternatives with \`priority: 2+\`. Resources must be REAL and SPECIFIC: named books with author/edition, named courses, specific talks, specific YouTube series — not "watch some videos on X". If you don't know a real resource, narrow the concept rather than inventing one.
 
 3. **Every resource MUST include a canonical \`url\`** — the page a learner would actually start from (publisher/author page for a book, playlist URL for a YouTube series, the course's own page, arXiv/DOI for a paper). Use https where available. NO Google search URLs, NO Wikipedia, NO generic homepages. If you can't confidently produce a canonical URL, swap to a resource you do know.
 
 Checklist before emitting — fix any "no":
-- [ ] One entry per sub-skill given, names echoed, same order
-- [ ] Every sub-skill has 4-10 concepts
+- [ ] 4-10 concepts for this sub-skill
 - [ ] Every concept has 2-3 resources, exactly one with priority=1
 - [ ] Every resource is real and named, with a canonical URL`;
 
@@ -268,28 +267,14 @@ const CONCEPT_ITEM_SCHEMA = {
 
 const DETAIL_INPUT_SCHEMA = {
   type: "object" as const,
-  required: ["subSkills"],
+  required: ["concepts"],
   properties: {
-    subSkills: {
+    concepts: {
       type: "array",
-      description:
-        "One entry per sub-skill you were given, in the same order, echoing each name.",
-      items: {
-        type: "object",
-        required: ["name", "concepts"],
-        properties: {
-          name: {
-            type: "string",
-            description: "Echo the sub-skill name you were given.",
-          },
-          concepts: {
-            type: "array",
-            minItems: 4,
-            maxItems: 10,
-            items: CONCEPT_ITEM_SCHEMA,
-          },
-        },
-      },
+      minItems: 4,
+      maxItems: 10,
+      description: "The 4-10 concepts for this one sub-skill.",
+      items: CONCEPT_ITEM_SCHEMA,
     },
   },
 };
@@ -327,11 +312,11 @@ const skeletonSchema = z
 type SyllabusSkeleton = z.infer<typeof skeletonSchema>;
 type SkeletonCluster = z.infer<typeof skeletonClusterSchema>;
 
-const detailSubSkillSchema = z.object({
-  name: z.string().min(1),
+// The detail stage now resolves one sub-skill at a time, so each call returns
+// just that sub-skill's concepts.
+const subSkillConceptsSchema = z.object({
   concepts: z.array(conceptSchema).min(4).max(10),
 });
-type ClusterDetail = { subSkills: z.infer<typeof detailSubSkillSchema>[] };
 
 type ChatMessage = Parameters<
   typeof grok.chat.completions.create
@@ -532,29 +517,23 @@ async function generateSkeleton(
   );
 }
 
-async function generateClusterDetail(
+type SkeletonSubSkill = z.infer<typeof skeletonSubSkillSchema>;
+
+async function generateSubSkillConcepts(
   input: GenerateSyllabusInput,
   cluster: SkeletonCluster,
-): Promise<ClusterDetail> {
-  const expected = cluster.subSkills.length;
-  // Enforce exactly one entry per sub-skill so the assembly never leaves a
-  // sub-skill with empty concepts; a wrong count triggers the retry.
-  const schema = z.object({
-    subSkills: z.array(detailSubSkillSchema).length(expected),
-  });
-
-  const subSkillList = cluster.subSkills
-    .map((s, i) => `${i + 1}. ${s.name} — ${s.description}`)
-    .join("\n");
-
+  subSkill: SkeletonSubSkill,
+): Promise<z.infer<typeof conceptSchema>[]> {
   const userMessage = [
     ...contextLines(input),
     "",
     `Cluster: ${cluster.name} (type: ${cluster.type})`,
     `Cluster description: ${cluster.description}`,
     "",
-    "Generate concepts + resources for each of these sub-skills, in this order:",
-    subSkillList,
+    `Sub-skill: ${subSkill.name}`,
+    `Sub-skill description: ${subSkill.description}`,
+    "",
+    "Generate the concepts + resources for THIS sub-skill.",
   ].join("\n");
 
   const messages: ChatMessage[] = [
@@ -562,14 +541,15 @@ async function generateClusterDetail(
     { role: "user", content: userMessage },
   ];
 
-  return callAndParse(
-    `generateClusterDetail(${cluster.name})`,
+  const { concepts } = await callAndParse(
+    `generateSubSkillConcepts(${cluster.name} / ${subSkill.name})`,
     messages,
-    [tool("emit_concepts", "Emit concepts for each sub-skill.", DETAIL_INPUT_SCHEMA)],
+    [tool("emit_concepts", "Emit concepts for this sub-skill.", DETAIL_INPUT_SCHEMA)],
     "emit_concepts",
-    schema,
-    `Remember: return EXACTLY ${expected} sub-skill entries — one per sub-skill in the given order, name echoed — each with 4-10 concepts, and 2-3 resources per concept with exactly one priority=1 and a canonical URL on every resource.`,
+    subSkillConceptsSchema,
+    "Remember: 4-10 concepts, each with 2-3 resources, exactly one priority=1, and a canonical URL on every resource.",
   );
+  return concepts;
 }
 
 export async function generateSyllabus(
@@ -578,25 +558,20 @@ export async function generateSyllabus(
   // Stage 1: structure.
   const skeleton = await generateSkeleton(input);
 
-  // Stage 2: concepts + resources, one small call per cluster, in parallel.
-  const details = await Promise.all(
-    skeleton.clusters.map((cluster) => generateClusterDetail(input, cluster)),
+  // Stage 2: concepts + resources, one small call PER SUB-SKILL, all in
+  // parallel. Per-sub-skill keeps each call bounded (4-10 concepts) so it can
+  // never overflow max_tokens the way a whole-cluster call could.
+  const clusters = await Promise.all(
+    skeleton.clusters.map(async (cluster) => {
+      const subSkills = await Promise.all(
+        cluster.subSkills.map(async (ss) => ({
+          ...ss,
+          concepts: await generateSubSkillConcepts(input, cluster, ss),
+        })),
+      );
+      return { ...cluster, subSkills };
+    }),
   );
-
-  // Assemble: merge each cluster's detail back onto its sub-skills (by order,
-  // falling back to name match).
-  const clusters = skeleton.clusters.map((cluster, ci) => {
-    const detail = details[ci];
-    const subSkills = cluster.subSkills.map((ss, si) => {
-      const match =
-        detail.subSkills[si]?.name === ss.name
-          ? detail.subSkills[si]
-          : detail.subSkills.find((d) => d.name === ss.name) ??
-            detail.subSkills[si];
-      return { ...ss, concepts: match?.concepts ?? [] };
-    });
-    return { ...cluster, subSkills };
-  });
 
   // Final validation against the full schema — the caller's contract.
   return syllabusSchema.parse({
