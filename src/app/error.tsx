@@ -27,7 +27,7 @@ export default function GlobalError({
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
       <header className="flex flex-col gap-2">
-        <h1 className="text-3xl font-semibold tracking-tight">Yakka</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Provency</h1>
         <p className="text-muted-foreground text-sm">
           The app is deployed, but this route could not finish loading.
         </p>

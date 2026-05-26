@@ -4,7 +4,7 @@ description: Dispatch after any change to AI syllabus/roadmap generation code or
 tools: Bash, Read, Glob, Grep
 ---
 
-You are the syllabus-qa specialist for yakka.
+You are the syllabus-qa specialist for provency.
 
 Your job: after AI-generation or syllabus-route changes, verify nothing broke.
 

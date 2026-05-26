@@ -46,9 +46,9 @@ export async function generateMetadata({
   const userId = await requireCurrentUserId();
   const cluster = await loadCluster(id, userId);
   if (!cluster?.suggestedArtefact) {
-    return { title: "Project not found — Yakka" };
+    return { title: "Project not found — Provency" };
   }
-  return { title: `${cluster.suggestedArtefact.title} — Yakka` };
+  return { title: `${cluster.suggestedArtefact.title} — Provency` };
 }
 
 export default async function ClusterArtefactPage({ params }: PageProps) {

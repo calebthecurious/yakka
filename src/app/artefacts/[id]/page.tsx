@@ -61,8 +61,8 @@ export async function generateMetadata({
   const { id } = await params;
   const userId = await requireCurrentUserId();
   const artefact = await loadArtefact(id, userId);
-  if (!artefact) return { title: "Artefact not found — Yakka" };
-  return { title: `${artefact.title} — Yakka` };
+  if (!artefact) return { title: "Artefact not found — Provency" };
+  return { title: `${artefact.title} — Provency` };
 }
 
 export default async function ArtefactPage({ params }: PageProps) {

@@ -47,8 +47,8 @@ export async function generateMetadata({
   const { id } = await params;
   const userId = await requireCurrentUserId();
   const syllabus = await loadSyllabus(id, userId);
-  if (!syllabus) return { title: "Syllabus not found — Yakka" };
-  return { title: `${syllabus.targetRole} — Yakka` };
+  if (!syllabus) return { title: "Syllabus not found — Provency" };
+  return { title: `${syllabus.targetRole} — Provency` };
 }
 
 export default async function SyllabusPage({ params }: PageProps) {

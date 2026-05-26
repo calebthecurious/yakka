@@ -63,8 +63,8 @@ export async function generateMetadata({
   const { id } = await params;
   const userId = await requireCurrentUserId();
   const syllabus = await loadSyllabus(id, userId);
-  if (!syllabus) return { title: "Gap analysis not found — Yakka" };
-  return { title: `Gap analysis · ${syllabus.targetRole} — Yakka` };
+  if (!syllabus) return { title: "Gap analysis not found — Provency" };
+  return { title: `Gap analysis · ${syllabus.targetRole} — Provency` };
 }
 
 const STATUS_STYLE: Record<ConceptStatus, { label: string; className: string }> =

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { SyllabusForm } from "./syllabus-form";
 
 export const metadata: Metadata = {
-  title: "New syllabus — Yakka",
+  title: "New syllabus — Provency",
 };
 
 export default function NewSyllabusPage() {
@@ -18,7 +18,7 @@ export default function NewSyllabusPage() {
         </Link>
         <h1 className="text-3xl font-semibold tracking-tight">New syllabus</h1>
         <p className="text-muted-foreground max-w-prose">
-          Paste a job description and a sketch of your current skills. Yakka
+          Paste a job description and a sketch of your current skills. Provency
           will generate a clustered syllabus — sub-skills, resources, and one
           portfolio artefact per cluster — tuned for a self-taught learner
           targeting this exact role.

@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { AuthForm } from "@/components/auth-form";
 
 export const metadata: Metadata = {
-  title: "Sign up — Yakka",
+  title: "Sign up — Provency",
 };
 
 export default function SignupPage() {

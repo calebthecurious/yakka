@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Yakka",
+  title: "Provency",
   description:
     "Personal learning OS for self-taught knowledge workers targeting specific roles.",
 };

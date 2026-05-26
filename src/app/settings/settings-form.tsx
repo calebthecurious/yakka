@@ -40,7 +40,7 @@ export function SettingsForm({
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="handle">Handle</Label>
         <div className="flex items-center gap-2">
-          <span className="text-muted-foreground text-sm">yakka.app/u/</span>
+          <span className="text-muted-foreground text-sm">provency.ai/u/</span>
           <Input
             id="handle"
             name="handle"

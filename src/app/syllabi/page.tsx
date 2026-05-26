@@ -17,7 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = {
-  title: "Syllabi — Yakka",
+  title: "Syllabi — Provency",
 };
 
 export const dynamic = "force-dynamic";
@@ -37,14 +37,14 @@ function getDatabaseErrorMessage(error: unknown): string {
     return "The database is reachable, but the expected tables are missing. Run the Drizzle migration against the production database.";
   }
 
-  return "Yakka could not read from the production database. Check the Vercel runtime logs for the underlying Postgres error.";
+  return "Provency could not read from the production database. Check the Vercel runtime logs for the underlying Postgres error.";
 }
 
 function DatabaseUnavailable({ message }: { message: string }) {
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
       <header className="flex flex-col gap-2">
-        <h1 className="text-3xl font-semibold tracking-tight">Yakka</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Provency</h1>
         <p className="text-muted-foreground text-sm">
           The app deployed, but the database is not ready for runtime requests.
         </p>
@@ -96,10 +96,10 @@ export default async function SyllabiIndexPage() {
         </div>
         <div className="flex flex-col gap-2">
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-            Welcome to Yakka
+            Welcome to Provency
           </h1>
           <p className="text-muted-foreground mx-auto max-w-md text-sm sm:text-base">
-            Paste a job description and Yakka builds you a personalised learning
+            Paste a job description and Provency builds you a personalised learning
             path — skill clusters, concepts, and resources scoped to the exact
             role you&apos;re chasing.
           </p>

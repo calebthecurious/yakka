@@ -78,7 +78,7 @@ export function StudyBrief({ brief }: { brief: StudyBriefData }) {
         <div className="border-amber-500/30 bg-amber-500/10 text-amber-200/90 flex items-start gap-2 rounded-md border px-3 py-2 text-xs leading-relaxed">
           <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
           <span>
-            Yakka isn&apos;t familiar with this specific resource — this brief is
+            Provency isn&apos;t familiar with this specific resource — this brief is
             based on the concept. Verify against the source.
           </span>
         </div>

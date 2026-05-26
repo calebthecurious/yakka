@@ -9,7 +9,7 @@ import { SettingsForm } from "./settings-form";
 import { SignOutButton } from "./sign-out-button";
 
 export const metadata: Metadata = {
-  title: "Settings — Yakka",
+  title: "Settings — Provency",
 };
 
 export const dynamic = "force-dynamic";

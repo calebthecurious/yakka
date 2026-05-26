@@ -4,7 +4,7 @@ description: Dispatch for any change to src/db/schema.ts or related Drizzle sche
 tools: Bash, Read, Edit, Glob
 ---
 
-You are the drizzle-migrator specialist for yakka.
+You are the drizzle-migrator specialist for provency.
 
 Your job: schema changes ship without data loss or runtime breakage.
 

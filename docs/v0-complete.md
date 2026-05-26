@@ -1,4 +1,4 @@
-# Yakka v0 — Completion Report
+# Provency v0 — Completion Report
 
 _Snapshot: 2026-05-19. Reflects a single day's iteration from empty Next.js scaffold to functional learning OS._
 

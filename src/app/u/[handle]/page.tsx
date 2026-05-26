@@ -239,10 +239,10 @@ export async function generateMetadata({
   const profile = await loadProfile(handle);
   if (!profile) return { title: "Not found" };
   if (!profile.syllabus) {
-    return { title: `${profile.publicProfile.displayName} — Yakka` };
+    return { title: `${profile.publicProfile.displayName} — Provency` };
   }
   return {
-    title: `${profile.publicProfile.displayName} → ${profile.syllabus.targetRole} — Yakka`,
+    title: `${profile.publicProfile.displayName} → ${profile.syllabus.targetRole} — Provency`,
     description: `${profile.publicProfile.displayName}'s public learning profile.`,
   };
 }
@@ -474,7 +474,7 @@ export default async function PublicProfilePage({ params }: PageProps) {
       </section>
 
       <footer className="border-border/60 text-muted-foreground flex items-center justify-between border-t pt-6 text-xs">
-        <span>yakka.app · public learning profile</span>
+        <span>provency.ai · public learning profile</span>
         <span>Updated {format(new Date(), "d MMM yyyy")}</span>
       </footer>
     </main>

@@ -7,7 +7,7 @@ import { requireCurrentUserId } from "@/lib/auth";
 import { HandleForm } from "./handle-form";
 
 export const metadata: Metadata = {
-  title: "Choose a handle — Yakka",
+  title: "Choose a handle — Provency",
 };
 
 export default async function ProfileSetupPage() {

@@ -91,8 +91,8 @@ export async function generateMetadata({
   const { id } = await params;
   const userId = await requireCurrentUserId();
   const concept = await loadConcept(id, userId);
-  if (!concept) return { title: "Concept not found — Yakka" };
-  return { title: `${concept.name} — Yakka` };
+  if (!concept) return { title: "Concept not found — Provency" };
+  return { title: `${concept.name} — Provency` };
 }
 
 export default async function ConceptPage({ params }: PageProps) {
