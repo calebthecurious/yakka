@@ -79,3 +79,19 @@ Prefer `mcp__gbrain__*` tools (loaded next Claude Code session restart) or `gbra
 - "What did we decide last time?" / past plans, retros → `gbrain search "<terms>"`
 
 Grep is still right for known exact strings, regex, multiline patterns, and file globs.
+
+## Deploy Configuration (configured by /setup-deploy)
+- Platform: Vercel — project `yakka` (id `prj_sxmOT3Df4BhfCrErhrxpUxjqrtsr`, org `team_BWgnO19SU4cR9mUFDRWCUBnj`), linked via `.vercel/repo.json`. `vercel` CLI installed.
+- Production URL: `https://provency.ai` — **pending custom-domain cutover in the Vercel dashboard** (not live yet).
+- Deploy trigger: automatic on push to `main` (no GitHub Actions; Vercel builds on push). Production tracks `main`.
+- Merge method: direct commits to `main` (solo workflow, no PRs).
+- Project type: Next.js 16 web app (`output: 'standalone'`).
+- Post-deploy health check: `https://yakka-two.vercel.app/login` → expect HTTP 200.
+  - The site root returns **307** (auth middleware redirects unauthenticated users to `/login`), so health-check the public `/login` page for an unambiguous 200, not `/`.
+  - **TODO:** switch the health check to `https://provency.ai/login` once the custom domain is live.
+
+### Custom deploy hooks
+- Pre-merge gate: `npx tsc --noEmit` then `npx eslint` (this project has no test runner — typecheck + lint are the gate).
+- Deploy trigger: push to `main` (Vercel auto-builds).
+- Deploy status: `vercel ls --prod` (CLI), or poll the health-check URL until it serves the new build.
+- Health check: `https://yakka-two.vercel.app/login` (200).
