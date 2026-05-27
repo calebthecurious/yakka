@@ -66,20 +66,17 @@ This project ships three specialist subagents in `.claude/agents/`. Dispatch the
 
 Rule of thumb: schema change → drizzle-migrator; prompt or output-schema change → ai-prompt-tuner; generated syllabus content or its routes → syllabus-qa; auth/redirect changes → supabase-auth-qa. Verify before shipping.
 
-## GBrain Configuration (configured 2026-05-18)
-- Mode: local-stdio
-- Engine: pglite
-- Config file: `~/.gbrain/config.json` (Windows: `C:\Users\caleb\.gbrain\config.json`)
-- Binary: `C:\Users\caleb\.bun\bin\gbrain.exe` (source: `~/gbrain`, version 0.35.7.0)
-- MCP registered: yes (user scope, stdio transport) — verified via `claude mcp list`
-- Known Windows caveats: `gbrain put` via stdin fails (`/dev/stdin` ENOENT); migration v0.12.2 (Minions) segfaults under bun on Windows. Core search / serve / put-via-MCP work.
+## GBrain Configuration (configured 2026-05-18, repaired 2026-05-27)
+- Mode: local-stdio. Engine: pglite. Brain: `C:\Users\caleb\.gbrain\brain.pglite`. Binary `C:\Users\caleb\.bun\bin\gbrain.exe` v0.35.7.0. Config `~/.gbrain/config.json`.
+- Indexed 2026-05-27: 52 markdown pages / 307 chunks (keyword search only — synced with `--no-embed`, so hybrid `gbrain query` has no vectors yet; use `gbrain search`).
+- **Footgun (the bug we fixed):** `gbrain` auto-loads `.env.local` from its working directory. Run inside this repo, it reads the app's `DATABASE_URL` (Supabase pooler) and connects to the **app's** database — which has no gbrain schema — failing with `relation "facts" does not exist`. It does NOT touch the local pglite brain in that case.
+- **Fixes in place:** (1) the `gbrain` MCP server is registered with `DATABASE_URL=` (empty) so `serve` ignores `.env.local` and uses pglite — `mcp__gbrain__*` tools work after a Claude Code restart. (2) Run the `gbrain` CLI from **outside** the repo (e.g. `cd ~ && gbrain ...`) or prefix `DATABASE_URL= gbrain ...` so it uses pglite.
+- Re-index after notable changes: `cd ~ && gbrain sync --repo "$HOME/projects/yakka" --no-embed`.
 
 ### GBrain Search Guidance
-Prefer `mcp__gbrain__*` tools (loaded next Claude Code session restart) or `gbrain` CLI over Grep when the question is semantic:
-- "Where is X handled?" / intent-based, no exact string → `gbrain search "<terms>"` or `gbrain query "<question>"`
-- "What did we decide last time?" / past plans, retros → `gbrain search "<terms>"`
-
-Grep is still right for known exact strings, regex, multiline patterns, and file globs.
+For semantic/intent questions, prefer `mcp__gbrain__*` tools (after restart) or, from outside the repo, `gbrain search "<terms>"` (keyword). Hybrid `gbrain query` needs embeddings (not generated yet). It indexes markdown only (docs, CLAUDE.md, agent-skills) — NOT `.ts`/`.tsx` source.
+- "Where is X documented / what did we decide?" → `gbrain search "<terms>"`
+- Code search (`.ts`/`.tsx`), exact strings, regex, globs → use Grep/Glob (gbrain doesn't index source).
 
 ## Deploy Configuration (configured by /setup-deploy)
 - Platform: Vercel — project `yakka` (id `prj_sxmOT3Df4BhfCrErhrxpUxjqrtsr`, org `team_BWgnO19SU4cR9mUFDRWCUBnj`), linked via `.vercel/repo.json`. `vercel` CLI installed.
