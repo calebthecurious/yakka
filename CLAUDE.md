@@ -55,6 +55,16 @@ Key routing rules:
 - Save / restore working context → `/context-save` / `/context-restore`
 - Browse or QA the app in a headless browser → `/browse`
 
+## Subagent routing
+
+This project ships three specialist subagents in `.claude/agents/`. Dispatch them via the Agent tool (each runs in a fresh context) when a change touches their domain — proactively, before shipping, not only when asked:
+
+- Edits to AI prompts or output schemas under `src/lib/ai/` → **ai-prompt-tuner** (runs prompts against sample JD fixtures, validates Grok output with the Zod schemas, reports schema/quality issues).
+- Any change to AI generation code (`src/lib/ai/`) or `/syllabi` routes → **syllabus-qa** *after* the change (typechecks, then browses the affected routes to confirm rendered output). Run it before `/ship`.
+- Any change to `src/db/schema.ts` or related Drizzle files → **drizzle-migrator** (full safe cycle: review the schema edit, generate the migration, inspect the SQL, apply, verify). Note migration 0005 lives only on Supabase, not in the Drizzle journal.
+
+Rule of thumb: schema change → drizzle-migrator; prompt or output-schema change → ai-prompt-tuner; anything that alters generated syllabus content or its routes → syllabus-qa to verify before shipping.
+
 ## GBrain Configuration (configured 2026-05-18)
 - Mode: local-stdio
 - Engine: pglite
