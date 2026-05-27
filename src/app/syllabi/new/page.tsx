@@ -6,6 +6,13 @@ export const metadata: Metadata = {
   title: "New syllabus — Provency",
 };
 
+// Syllabus generation runs inline in the `createSyllabus` server action: a
+// skeleton Grok call plus one streamed call per sub-skill (up to ~36 total) and
+// a multi-table insert. With no ceiling it runs under the platform default and
+// gets killed mid-generation ("this route could not finish loading"), leaving
+// no syllabus behind. Lift the ceiling so the action can finish.
+export const maxDuration = 300;
+
 export default function NewSyllabusPage() {
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-8 sm:px-6 sm:py-12">
