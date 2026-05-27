@@ -19,6 +19,7 @@ import {
 import { generateCompetencyCheck as generateCompetencyCheckAI } from "@/lib/ai/generate-competency-check";
 import { DEFAULT_MODEL } from "@/lib/ai/client";
 import { requireCurrentUserId } from "@/lib/auth";
+import { httpUrl } from "@/lib/url";
 import {
   requireOwnedConcept,
   requireOwnedLearningSession,
@@ -91,7 +92,7 @@ export async function updateConceptStatus(input: {
 const AddResourceInput = z.object({
   conceptId: z.string().uuid(),
   title: z.string().trim().min(1, "Title is required."),
-  url: z.string().trim().url("Valid URL is required."),
+  url: httpUrl("Valid http(s) URL is required."),
   type: ResourceType,
   notes: z
     .string()

@@ -11,6 +11,7 @@ import {
   type ArtefactProgressEntry,
 } from "@/db/schema";
 import { requireCurrentUserId } from "@/lib/auth";
+import { optionalHttpUrl } from "@/lib/url";
 import {
   getProfilePathForUser,
   requireOwnedArtefact,
@@ -96,18 +97,8 @@ const UpdateCoreInput = z.object({
   artefactId: z.string().uuid(),
   title: z.string().trim().min(1, "Title is required."),
   description: z.string().trim(),
-  url: z
-    .string()
-    .trim()
-    .url()
-    .optional()
-    .or(z.literal("").transform(() => undefined)),
-  evidenceUrl: z
-    .string()
-    .trim()
-    .url()
-    .optional()
-    .or(z.literal("").transform(() => undefined)),
+  url: optionalHttpUrl(),
+  evidenceUrl: optionalHttpUrl(),
   reflection: z.string().trim(),
   type: ArtefactType,
 });

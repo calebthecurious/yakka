@@ -7,6 +7,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { artefacts, concepts, syllabi } from "@/db/schema";
 import { requireCurrentUserId } from "@/lib/auth";
+import { optionalHttpUrl } from "@/lib/url";
 import {
   getProfilePathForUser,
   requireOwnedArtefact,
@@ -80,12 +81,7 @@ const AddArtefactInput = z.object({
   subSkillId: z.string().uuid(),
   type: ArtefactType,
   title: z.string().trim().min(1, "Title is required."),
-  url: z
-    .string()
-    .trim()
-    .url("URL must be a valid http(s) link.")
-    .optional()
-    .or(z.literal("").transform(() => undefined)),
+  url: optionalHttpUrl("URL must be a valid http(s) link."),
   description: z
     .string()
     .trim()
