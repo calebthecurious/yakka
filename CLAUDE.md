@@ -62,8 +62,9 @@ This project ships three specialist subagents in `.claude/agents/`. Dispatch the
 - Edits to AI prompts or output schemas under `src/lib/ai/` → **ai-prompt-tuner** (runs prompts against sample JD fixtures, validates Grok output with the Zod schemas, reports schema/quality issues).
 - Any change to AI generation code (`src/lib/ai/`) or `/syllabi` routes → **syllabus-qa** *after* the change (typechecks, then browses the affected routes to confirm rendered output). Run it before `/ship`.
 - Any change to `src/db/schema.ts` or related Drizzle files → **drizzle-migrator** (full safe cycle: review the schema edit, generate the migration, inspect the SQL, apply, verify). Note migration 0005 lives only on Supabase, not in the Drizzle journal.
+- Any change to auth/OAuth/session/redirect code (`src/app/auth/`, `src/lib/supabase/`, `src/lib/auth.ts`, `middleware.ts`, login/signup pages) → **supabase-auth-qa** (verifies callback open-redirect protection, session handling, route guards, and redirect-URL consistency). This app has a history of redirect-URL bugs.
 
-Rule of thumb: schema change → drizzle-migrator; prompt or output-schema change → ai-prompt-tuner; anything that alters generated syllabus content or its routes → syllabus-qa to verify before shipping.
+Rule of thumb: schema change → drizzle-migrator; prompt or output-schema change → ai-prompt-tuner; generated syllabus content or its routes → syllabus-qa; auth/redirect changes → supabase-auth-qa. Verify before shipping.
 
 ## GBrain Configuration (configured 2026-05-18)
 - Mode: local-stdio
