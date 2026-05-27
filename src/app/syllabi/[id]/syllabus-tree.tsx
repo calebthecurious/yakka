@@ -52,7 +52,7 @@ type SubSkillNode = {
   concepts: ConceptNode[];
 };
 
-type ClusterNode = {
+export type ClusterNode = {
   id: string;
   name: string;
   description: string;
@@ -283,7 +283,7 @@ function ArtefactsSection({
         </div>
       ) : (
         <p className="text-muted-foreground text-xs">
-          No artefacts yet. Log one when you've built something that
+          No artefacts yet. Log one when you&apos;ve built something that
           demonstrates this cluster.
         </p>
       )}

@@ -8,7 +8,7 @@ import { db } from "@/db";
 import { requireCurrentUserId } from "@/lib/auth";
 import { buttonVariants } from "@/components/ui/button";
 import { BlockersCard } from "./blockers-card";
-import { SyllabusTree } from "./syllabus-tree";
+import { SyllabusViews } from "./syllabus-views";
 import { DeleteSyllabusButton } from "./delete-syllabus-button";
 
 type PageProps = { params: Promise<{ id: string }> };
@@ -152,7 +152,12 @@ export default async function SyllabusPage({ params }: PageProps) {
         branches={metadata.alternativeTargetBranches}
       />
 
-      <SyllabusTree syllabusId={syllabus.id} clusters={treeData} />
+      <SyllabusViews
+        syllabusId={syllabus.id}
+        clusters={treeData}
+        targetRole={syllabus.targetRole}
+        targetCompany={syllabus.targetCompany}
+      />
 
       <footer className="border-border/60 mt-8 flex items-center justify-end border-t pt-6">
         <DeleteSyllabusButton
