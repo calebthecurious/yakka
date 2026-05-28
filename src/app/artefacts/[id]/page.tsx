@@ -13,6 +13,7 @@ import {
 import { db } from "@/db";
 import { requireCurrentUserId } from "@/lib/auth";
 import { Badge } from "@/components/ui/badge";
+import { PageContainer } from "@/components/page-container";
 import { Separator } from "@/components/ui/separator";
 import { ArtefactCoreForm } from "./artefact-core-form";
 import { CriteriaEditor } from "./criteria-editor";
@@ -91,7 +92,7 @@ export default async function ArtefactPage({ params }: PageProps) {
   const criteriaTotal = artefact.acceptanceCriteria.length;
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-8 sm:px-6 sm:py-12">
+    <PageContainer width="content" className="flex flex-col gap-8">
       <nav className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-xs">
         <Link
           href={`/syllabi/${syllabus.id}`}
@@ -198,6 +199,6 @@ export default async function ArtefactPage({ params }: PageProps) {
         verified={verified}
         title={artefact.title}
       />
-    </main>
+    </PageContainer>
   );
 }

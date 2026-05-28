@@ -24,7 +24,8 @@ export async function GET(request: Request) {
 
     if (!error) {
       // In production behind a proxy, prefer the forwarded host so the
-      // redirect points at the public URL (e.g. yakka-two.vercel.app), not
+      // redirect points at t
+      // he public URL (e.g. yakka-two.vercel.app), not
       // the internal origin.
       const forwardedHost = request.headers.get("x-forwarded-host");
       const isLocalEnv = process.env.NODE_ENV === "development";

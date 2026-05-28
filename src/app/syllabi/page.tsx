@@ -15,6 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { PageContainer } from "@/components/page-container";
 
 export const metadata: Metadata = {
   title: "Syllabi — Provency",
@@ -112,7 +113,7 @@ export default async function SyllabiIndexPage() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-4 py-8 sm:px-6 sm:py-12">
+    <PageContainer width="wide" className="flex flex-col gap-8">
       <header className="flex items-end justify-between gap-4">
         <div className="flex flex-col gap-2">
           <h1 className="text-3xl font-semibold tracking-tight">Syllabi</h1>
@@ -125,13 +126,13 @@ export default async function SyllabiIndexPage() {
         </Button>
       </header>
 
-      <ul className="flex flex-col gap-3">
+      <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {rows.map((s) => {
             const blockerCount = s.metadata?.structuralBlockers?.length ?? 0;
             return (
               <li key={s.id}>
-                <Link href={`/syllabi/${s.id}`} className="block">
-                  <Card className="hover:border-foreground/40 transition-colors">
+                <Link href={`/syllabi/${s.id}`} className="block h-full">
+                  <Card className="h-full hover:border-foreground/40 transition-colors">
                     <CardHeader>
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex flex-col gap-1">
@@ -165,7 +166,7 @@ export default async function SyllabiIndexPage() {
             );
           })}
       </ul>
-    </main>
+    </PageContainer>
   );
 }
 

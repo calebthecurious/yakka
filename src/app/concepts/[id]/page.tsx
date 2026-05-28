@@ -21,6 +21,7 @@ import { AddResourceForm } from "./add-resource-form";
 import { ResourceCard } from "./resource-card";
 import { NotesEditor } from "./notes-editor";
 import { CompetencyCheck } from "./competency-check";
+import { PageContainer } from "@/components/page-container";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -147,7 +148,7 @@ export default async function ConceptPage({ params }: PageProps) {
   const StatusIcon = statusBadge.icon;
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-8 sm:px-6 sm:py-12">
+    <PageContainer width="content" className="flex flex-col gap-8">
       <nav className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-xs">
         <Link
           href={`/syllabi/${syllabus.id}`}
@@ -181,7 +182,8 @@ export default async function ConceptPage({ params }: PageProps) {
         </p>
       </header>
 
-      <section className="flex flex-col gap-3">
+      <div className="flex flex-col gap-8 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-x-10">
+      <section className="flex flex-col gap-3 lg:col-start-1">
         <h2 className="text-sm font-medium">Status</h2>
         <StatusControls
           conceptId={concept.id}
@@ -189,9 +191,9 @@ export default async function ConceptPage({ params }: PageProps) {
         />
       </section>
 
-      <Separator />
+      <Separator className="lg:hidden" />
 
-      <section className="flex flex-col gap-6">
+      <section className="flex flex-col gap-6 lg:col-start-2 lg:row-start-1 lg:self-start lg:sticky lg:top-20">
         <h2 className="text-lg font-medium">Resources</h2>
 
         {primary ? (
@@ -253,9 +255,9 @@ export default async function ConceptPage({ params }: PageProps) {
         <AddResourceForm conceptId={concept.id} />
       </section>
 
-      <Separator />
+      <Separator className="lg:hidden" />
 
-      <section className="flex flex-col gap-3">
+      <section className="flex flex-col gap-3 lg:col-start-1">
         <div className="flex flex-col gap-1">
           <h2 className="text-lg font-medium">Check your understanding</h2>
           <p className="text-muted-foreground text-sm leading-relaxed">
@@ -272,9 +274,9 @@ export default async function ConceptPage({ params }: PageProps) {
         />
       </section>
 
-      <Separator />
+      <Separator className="lg:hidden" />
 
-      <section className="flex flex-col gap-4">
+      <section className="flex max-w-prose flex-col gap-4 lg:col-start-1">
         <NotesEditor
           conceptId={concept.id}
           initialSessionId={initialSessionId}
@@ -322,6 +324,7 @@ export default async function ConceptPage({ params }: PageProps) {
           </div>
         ) : null}
       </section>
-    </main>
+      </div>
+    </PageContainer>
   );
 }

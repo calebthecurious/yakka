@@ -7,6 +7,7 @@ import { Telescope } from "lucide-react";
 import { db } from "@/db";
 import { requireCurrentUserId } from "@/lib/auth";
 import { buttonVariants } from "@/components/ui/button";
+import { PageContainer } from "@/components/page-container";
 import { BlockersCard } from "./blockers-card";
 import { SyllabusViews } from "./syllabus-views";
 import { DeleteSyllabusButton } from "./delete-syllabus-button";
@@ -106,7 +107,7 @@ export default async function SyllabusPage({ params }: PageProps) {
   }));
 
   return (
-    <main className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-4 py-8 sm:px-6 sm:py-12">
+    <PageContainer width="wide" className="flex flex-col gap-8">
       <header className="flex flex-col gap-3">
         <div className="text-muted-foreground flex items-center gap-2 text-xs">
           <Link href="/syllabi" className="hover:text-foreground">
@@ -165,6 +166,6 @@ export default async function SyllabusPage({ params }: PageProps) {
           targetRole={syllabus.targetRole}
         />
       </footer>
-    </main>
+    </PageContainer>
   );
 }

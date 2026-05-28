@@ -42,8 +42,10 @@ function Brand() {
 
 function shell(children: React.ReactNode) {
   return (
-    <nav className="border-border/60 bg-background/80 sticky top-0 z-40 flex w-full items-center justify-between gap-2 border-b px-4 py-3 backdrop-blur sm:px-6">
-      {children}
+    <nav className="border-border/60 bg-background/80 sticky top-0 z-40 w-full border-b backdrop-blur">
+      <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-2 px-4 py-3 sm:px-6 lg:px-8">
+        {children}
+      </div>
     </nav>
   );
 }

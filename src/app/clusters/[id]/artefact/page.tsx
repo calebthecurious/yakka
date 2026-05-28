@@ -12,6 +12,7 @@ import {
 import { db } from "@/db";
 import { requireCurrentUserId } from "@/lib/auth";
 import { Badge } from "@/components/ui/badge";
+import { PageContainer } from "@/components/page-container";
 import { CommitArtefactButton } from "./commit-artefact-button";
 
 type PageProps = { params: Promise<{ id: string }> };
@@ -64,7 +65,7 @@ export default async function ClusterArtefactPage({ params }: PageProps) {
   const defaultSubSkillId = cluster.subSkills[0]?.id;
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-8 sm:px-6 sm:py-12">
+    <PageContainer width="content" className="flex flex-col gap-8">
       <nav className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-xs">
         <Link
           href={`/syllabi/${cluster.syllabus.id}`}
@@ -142,6 +143,6 @@ export default async function ClusterArtefactPage({ params }: PageProps) {
           </p>
         )}
       </section>
-    </main>
+    </PageContainer>
   );
 }

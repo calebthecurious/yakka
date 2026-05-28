@@ -254,7 +254,7 @@ export default async function PublicProfilePage({ params }: PageProps) {
   if (!profile) notFound();
   if (!profile.syllabus) {
     return (
-      <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-12 sm:px-6 sm:py-20">
+      <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-12 sm:px-6 sm:py-20 lg:px-8">
         <h1 className="text-3xl font-semibold tracking-tight">
           {profile.publicProfile.displayName}
         </h1>
@@ -273,7 +273,7 @@ export default async function PublicProfilePage({ params }: PageProps) {
       : 0;
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col gap-10 px-4 py-12 sm:gap-14 sm:px-6 sm:py-20">
+    <main className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-4 py-12 sm:gap-14 sm:px-6 sm:py-20 lg:px-8">
       <Link
         href="/syllabi"
         className="text-muted-foreground/60 hover:text-muted-foreground -mb-10 inline-flex w-fit items-center gap-1 text-xs transition-colors"
