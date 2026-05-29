@@ -68,6 +68,7 @@ export async function createSyllabus(
           userId,
           targetRole: input.targetRole,
           targetCompany: input.targetCompany ?? null,
+          roleNature: generated.roleNature,
           jobDescriptionText: input.jobDescription,
           metadata: {
             structuralBlockers: generated.structuralBlockers,
@@ -98,6 +99,7 @@ export async function createSyllabus(
               clusterId: insertedCluster.id,
               name: skill.name,
               description: skill.description,
+              orderIndex: skill.orderIndex,
               estimatedHours: skill.estimatedHours,
             })
             .returning({ id: subSkills.id });
@@ -110,6 +112,7 @@ export async function createSyllabus(
                 name: concept.name,
                 description: concept.description,
                 orderIndex: concept.orderIndex,
+                tier: concept.tier,
               })
               .returning({ id: concepts.id });
 

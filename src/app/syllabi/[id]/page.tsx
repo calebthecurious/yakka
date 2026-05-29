@@ -5,14 +5,37 @@ import type { Metadata } from "next";
 import { format } from "date-fns";
 import { Telescope } from "lucide-react";
 import { db } from "@/db";
+import type { RoleNature } from "@/db/schema";
 import { requireCurrentUserId } from "@/lib/auth";
 import { buttonVariants } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { PageContainer } from "@/components/page-container";
 import { BlockersCard } from "./blockers-card";
 import { SyllabusViews } from "./syllabus-views";
 import { DeleteSyllabusButton } from "./delete-syllabus-button";
 
 type PageProps = { params: Promise<{ id: string }> };
+
+const ROLE_NATURE_BADGE: Record<
+  RoleNature,
+  { label: string; hint: string; className: string }
+> = {
+  technical: {
+    label: "Technical role",
+    hint: "Primarily building/engineering — the mix leans technical, with a professional section for communication and interview craft.",
+    className: "bg-foreground/10 text-foreground border-foreground/20",
+  },
+  non_technical: {
+    label: "Non-technical role",
+    hint: "Primarily people/strategy/communication/operations — the mix leans professional and domain, with technical clusters only where the role needs them.",
+    className: "bg-sky-500/10 text-sky-200 border-sky-500/30",
+  },
+  hybrid: {
+    label: "Hybrid role",
+    hint: "A substantial mix of both — the syllabus balances technical and professional clusters.",
+    className: "bg-violet-500/10 text-violet-200 border-violet-500/30",
+  },
+};
 
 async function loadSyllabus(id: string, userId: string) {
   await connection();
@@ -122,15 +145,24 @@ export default async function SyllabusPage({ params }: PageProps) {
             Generated {format(syllabus.createdAt, "d MMM yyyy, HH:mm")}
           </span>
         </div>
-        <h1 className="text-3xl font-semibold tracking-tight">
-          {syllabus.targetRole}
-          {syllabus.targetCompany ? (
-            <span className="text-muted-foreground font-normal">
-              {" "}
-              · {syllabus.targetCompany}
-            </span>
-          ) : null}
-        </h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-3xl font-semibold tracking-tight">
+            {syllabus.targetRole}
+            {syllabus.targetCompany ? (
+              <span className="text-muted-foreground font-normal">
+                {" "}
+                · {syllabus.targetCompany}
+              </span>
+            ) : null}
+          </h1>
+          <Badge
+            variant="outline"
+            title={ROLE_NATURE_BADGE[syllabus.roleNature].hint}
+            className={ROLE_NATURE_BADGE[syllabus.roleNature].className}
+          >
+            {ROLE_NATURE_BADGE[syllabus.roleNature].label}
+          </Badge>
+        </div>
         <p className="text-muted-foreground text-sm">
           {clusters.length} clusters ·{" "}
           {clusters.reduce((s, c) => s + c.subSkills.length, 0)} sub-skills ·{" "}

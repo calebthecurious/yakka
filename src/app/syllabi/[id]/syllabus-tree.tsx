@@ -11,6 +11,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { groupClustersByDisplay } from "@/lib/cluster-grouping";
 import { Badge } from "@/components/ui/badge";
 import {
   Collapsible,
@@ -111,14 +112,35 @@ export function SyllabusTree({
   syllabusId: string;
   clusters: ClusterNode[];
 }) {
+  // Derive the higher-level Technical / Professional grouping from each
+  // cluster's existing `type` (see src/lib/cluster-grouping.ts). Ordering /
+  // sequencing within each group is preserved.
+  const groups = groupClustersByDisplay(clusters);
+
   return (
-    <div className="flex flex-col gap-4">
-      {clusters.map((cluster) => (
-        <ClusterSection
-          key={cluster.id}
-          syllabusId={syllabusId}
-          cluster={cluster}
-        />
+    <div className="flex flex-col gap-8">
+      {groups.map((group) => (
+        <section key={group.group} className="flex flex-col gap-4">
+          <div className="flex items-center gap-3">
+            <h3 className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+              {group.label}
+            </h3>
+            <span className="bg-border h-px flex-1" />
+            <span className="text-muted-foreground/70 text-xs tabular-nums">
+              {group.clusters.length}{" "}
+              {group.clusters.length === 1 ? "cluster" : "clusters"}
+            </span>
+          </div>
+          <div className="flex flex-col gap-4">
+            {group.clusters.map((cluster) => (
+              <ClusterSection
+                key={cluster.id}
+                syllabusId={syllabusId}
+                cluster={cluster}
+              />
+            ))}
+          </div>
+        </section>
       ))}
     </div>
   );
