@@ -42,3 +42,6 @@ next-env.d.ts
 .gstack/
 
 .vercel
+
+# scratch / generated test artifacts
+/tmp
