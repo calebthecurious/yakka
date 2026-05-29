@@ -43,6 +43,34 @@
       "when": 1779671710829,
       "tag": "0005_remarkable_proudstar",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1779933967619,
+      "tag": "0006_opposite_anita_blake",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1780013503430,
+      "tag": "0007_outgoing_stellaris",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1780018533461,
+      "tag": "0008_quick_harrier",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1780027735020,
+      "tag": "0009_careful_wallow",
+      "breakpoints": true
     }
   ]
 }

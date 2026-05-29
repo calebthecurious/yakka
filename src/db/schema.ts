@@ -32,11 +32,29 @@ export const skillClusterType = pgEnum("skill_cluster_type", [
   "meta",
 ]);
 
+/**
+ * Whether the TARGET ROLE is primarily about building/engineering ('technical'),
+ * about people/strategy/communication/operations ('non_technical'), or a
+ * substantial mix of both ('hybrid'). Classified by the generator from the JD;
+ * it shapes the cluster mix and drives the role badge on the syllabus header.
+ */
+export const roleNatureEnum = pgEnum("role_nature", [
+  "technical",
+  "non_technical",
+  "hybrid",
+]);
+
 export const conceptStatus = pgEnum("concept_status", [
   "not_started",
   "learning",
   "understood",
   "verified",
+]);
+
+export const conceptTier = pgEnum("concept_tier", [
+  "foundation",
+  "intermediate",
+  "advanced",
 ]);
 
 export const resourceType = pgEnum("resource_type", [
@@ -100,6 +118,7 @@ export const syllabi = pgTable(
     }),
     targetRole: text("target_role").notNull(),
     targetCompany: text("target_company"),
+    roleNature: roleNatureEnum("role_nature").notNull().default("technical"),
     jobDescriptionText: text("job_description_text").notNull(),
     metadata: jsonb("metadata")
       .$type<SyllabusMetadata>()
@@ -160,6 +179,7 @@ export const subSkills = pgTable(
       .references(() => skillClusters.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     description: text("description").notNull(),
+    orderIndex: integer("order_index").notNull().default(0),
     estimatedHours: integer("estimated_hours").notNull().default(0),
     subSkillStatus: subSkillStatusEnum("sub_skill_status")
       .notNull()
@@ -178,6 +198,7 @@ export const concepts = pgTable(
     name: text("name").notNull(),
     description: text("description").notNull(),
     orderIndex: integer("order_index").notNull().default(0),
+    tier: conceptTier("tier").notNull().default("intermediate"),
     status: conceptStatus("status").notNull().default("not_started"),
     understoodAt: timestamp("understood_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -354,6 +375,82 @@ export const competencyChecks = pgTable(
   (t) => [index("competency_checks_concept_id_idx").on(t.conceptId)],
 );
 
+export type ExpansionPrinciple = { name: string; explanation: string };
+export type ExpansionKeyTerm = { term: string; definition: string };
+export type ExpansionMisunderstanding = {
+  misconception: string;
+  correction: string;
+};
+
+export const conceptExpansions = pgTable(
+  "concept_expansions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    conceptId: uuid("concept_id")
+      .notNull()
+      .references(() => concepts.id, { onDelete: "cascade" }),
+    definition: text("definition").notNull(),
+    principles: jsonb("principles")
+      .$type<ExpansionPrinciple[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    keyTerms: jsonb("key_terms")
+      .$type<ExpansionKeyTerm[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    prerequisiteConceptIds: jsonb("prerequisite_concept_ids")
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    buildsOnConceptIds: jsonb("builds_on_concept_ids")
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    commonMisunderstandings: jsonb("common_misunderstandings")
+      .$type<ExpansionMisunderstanding[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    relationshipMapMermaid: text("relationship_map_mermaid"),
+    generatedAt: timestamp("generated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    model: text("model").notNull(),
+  },
+  (t) => [
+    index("concept_expansions_concept_id_idx").on(t.conceptId),
+    unique("concept_expansions_concept_id_unq").on(t.conceptId),
+  ],
+);
+
+export const conceptImportance = pgEnum("concept_importance", [
+  "core",
+  "supporting",
+  "peripheral",
+]);
+
+export const conceptRelevances = pgTable(
+  "concept_relevances",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    conceptId: uuid("concept_id")
+      .notNull()
+      .references(() => concepts.id, { onDelete: "cascade" }),
+    point: text("point").notNull(),
+    explanation: text("explanation").notNull(),
+    evidence: text("evidence").notNull(),
+    effect: text("effect").notNull(),
+    importance: conceptImportance("importance").notNull(),
+    generatedAt: timestamp("generated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    model: text("model").notNull(),
+  },
+  (t) => [
+    index("concept_relevances_concept_id_idx").on(t.conceptId),
+    unique("concept_relevances_concept_id_unq").on(t.conceptId),
+  ],
+);
+
 export type GapStrength = { requirement: string; evidence: string };
 
 export type GapInProgress = {
@@ -460,6 +557,8 @@ export const conceptsRelations = relations(concepts, ({ one, many }) => ({
   retentionCards: many(retentionCards),
   studyBriefs: many(studyBriefs),
   competencyChecks: many(competencyChecks),
+  conceptExpansion: one(conceptExpansions),
+  conceptRelevance: one(conceptRelevances),
 }));
 
 export const resourcesRelations = relations(resources, ({ one, many }) => ({
@@ -512,6 +611,26 @@ export const competencyChecksRelations = relations(
   }),
 );
 
+export const conceptExpansionsRelations = relations(
+  conceptExpansions,
+  ({ one }) => ({
+    concept: one(concepts, {
+      fields: [conceptExpansions.conceptId],
+      references: [concepts.id],
+    }),
+  }),
+);
+
+export const conceptRelevancesRelations = relations(
+  conceptRelevances,
+  ({ one }) => ({
+    concept: one(concepts, {
+      fields: [conceptRelevances.conceptId],
+      references: [concepts.id],
+    }),
+  }),
+);
+
 export const gapReportsRelations = relations(gapReports, ({ one }) => ({
   syllabus: one(syllabi, {
     fields: [gapReports.syllabusId],
@@ -543,3 +662,9 @@ export type CompetencyCheck = typeof competencyChecks.$inferSelect;
 export type NewCompetencyCheck = typeof competencyChecks.$inferInsert;
 export type GapReport = typeof gapReports.$inferSelect;
 export type NewGapReport = typeof gapReports.$inferInsert;
+export type ConceptExpansion = typeof conceptExpansions.$inferSelect;
+export type NewConceptExpansion = typeof conceptExpansions.$inferInsert;
+export type ConceptRelevance = typeof conceptRelevances.$inferSelect;
+export type NewConceptRelevance = typeof conceptRelevances.$inferInsert;
+export type ConceptImportance = "core" | "supporting" | "peripheral";
+export type RoleNature = "technical" | "non_technical" | "hybrid";
