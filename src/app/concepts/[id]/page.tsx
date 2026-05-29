@@ -21,7 +21,11 @@ import { AddResourceForm } from "./add-resource-form";
 import { ResourceCard } from "./resource-card";
 import { NotesEditor } from "./notes-editor";
 import { CompetencyCheck } from "./competency-check";
+import { ConceptExpansionSection } from "./concept-expansion";
+import { ConceptRelevanceSection } from "./concept-relevance";
 import { PageContainer } from "@/components/page-container";
+
+export const maxDuration = 300;
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -64,6 +68,11 @@ async function loadConcept(id: string, userId: string) {
           cluster: {
             with: {
               syllabus: true,
+              subSkills: {
+                with: {
+                  concepts: { columns: { id: true, name: true } },
+                },
+              },
             },
           },
         },
@@ -80,6 +89,8 @@ async function loadConcept(id: string, userId: string) {
         orderBy: (cc, { desc }) => [desc(cc.completedAt)],
         limit: 1,
       },
+      conceptExpansion: true,
+      conceptRelevance: true,
     },
   }).then((concept) =>
     concept?.subSkill.cluster.syllabus.userId === userId ? concept : null,
@@ -107,6 +118,12 @@ export default async function ConceptPage({ params }: PageProps) {
   const cluster = subSkill.cluster;
   const syllabus = cluster.syllabus;
   const lastCheck = competencyChecks[0] ?? null;
+  const expansion = concept.conceptExpansion ?? null;
+  const relevance = concept.conceptRelevance ?? null;
+  const siblingMeta = cluster.subSkills
+    .flatMap((s) => s.concepts)
+    .filter((c) => c.id !== concept.id)
+    .map((c) => ({ id: c.id, name: c.name }));
 
   const briefByResourceId = new Map(
     studyBriefs.map((b) => [
@@ -183,6 +200,26 @@ export default async function ConceptPage({ params }: PageProps) {
       </header>
 
       <div className="flex flex-col gap-8 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-x-10">
+      <div className="lg:col-start-1">
+        <ConceptRelevanceSection
+          conceptId={concept.id}
+          targetRole={syllabus.targetRole}
+          relevance={relevance}
+        />
+      </div>
+
+      <Separator className="lg:hidden" />
+
+      <div className="lg:col-start-1">
+        <ConceptExpansionSection
+          conceptId={concept.id}
+          expansion={expansion}
+          siblings={siblingMeta}
+        />
+      </div>
+
+      <Separator className="lg:hidden" />
+
       <section className="flex flex-col gap-3 lg:col-start-1">
         <h2 className="text-sm font-medium">Status</h2>
         <StatusControls

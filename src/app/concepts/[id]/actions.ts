@@ -6,17 +6,26 @@ import { z } from "zod";
 import { db } from "@/db";
 import {
   competencyChecks,
+  conceptExpansions,
+  conceptRelevances,
   concepts,
   learningSessions,
   resources,
   studyBriefs,
   type CompetencyQuestion,
+  type ConceptExpansion,
+  type ConceptRelevance,
   type StudyBrief,
 } from "@/db/schema";
 import {
   generateStudyBrief as generateStudyBriefAI,
 } from "@/lib/ai/generate-study-brief";
 import { generateCompetencyCheck as generateCompetencyCheckAI } from "@/lib/ai/generate-competency-check";
+import {
+  generateConceptExpansion as generateConceptExpansionAI,
+  type SiblingConcept,
+} from "@/lib/ai/generate-concept-expansion";
+import { generateConceptRelevance as generateConceptRelevanceAI } from "@/lib/ai/generate-concept-relevance";
 import { DEFAULT_MODEL } from "@/lib/ai/client";
 import { requireCurrentUserId } from "@/lib/auth";
 import { httpUrl } from "@/lib/url";
@@ -471,6 +480,195 @@ export async function completeCompetencyCheck(input: {
     return {
       ok: false,
       message: err instanceof Error ? err.message : "Save failed.",
+    };
+  }
+}
+
+const GenerateConceptExpansionInputSchema = z.object({
+  conceptId: z.string().uuid(),
+});
+
+export async function generateConceptExpansion(input: {
+  conceptId: string;
+}): Promise<{ ok: boolean; expansion?: ConceptExpansion; message?: string }> {
+  const parsed = GenerateConceptExpansionInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, message: "Invalid input." };
+  }
+  const { conceptId } = parsed.data;
+
+  try {
+    const userId = await requireCurrentUserId();
+    await requireOwnedConcept(conceptId, userId);
+
+    const concept = await db.query.concepts.findFirst({
+      where: (c, { eq }) => eq(c.id, conceptId),
+      with: {
+        subSkill: {
+          with: {
+            cluster: {
+              with: {
+                syllabus: { columns: { targetRole: true } },
+                subSkills: {
+                  with: {
+                    concepts: {
+                      columns: { id: true, name: true, description: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!concept) return { ok: false, message: "Concept not found." };
+
+    const cluster = concept.subSkill.cluster;
+    const siblingConcepts: SiblingConcept[] = cluster.subSkills
+      .flatMap((s) => s.concepts)
+      .filter((c) => c.id !== conceptId)
+      .map((c) => ({ id: c.id, name: c.name, description: c.description }));
+
+    const generated = await generateConceptExpansionAI({
+      conceptName: concept.name,
+      conceptDescription: concept.description,
+      clusterName: cluster.name,
+      syllabusTargetRole: cluster.syllabus.targetRole,
+      siblingConcepts,
+    });
+
+    const now = new Date();
+    const [expansion] = await db
+      .insert(conceptExpansions)
+      .values({
+        conceptId,
+        definition: generated.content.definition,
+        principles: generated.content.principles,
+        keyTerms: generated.content.keyTerms,
+        prerequisiteConceptIds: generated.content.prerequisiteConceptIds,
+        buildsOnConceptIds: generated.content.buildsOnConceptIds,
+        commonMisunderstandings: generated.content.commonMisunderstandings,
+        relationshipMapMermaid:
+          generated.content.relationshipMapMermaid.length > 0
+            ? generated.content.relationshipMapMermaid
+            : null,
+        model: generated.model,
+        generatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: conceptExpansions.conceptId,
+        set: {
+          definition: generated.content.definition,
+          principles: generated.content.principles,
+          keyTerms: generated.content.keyTerms,
+          prerequisiteConceptIds: generated.content.prerequisiteConceptIds,
+          buildsOnConceptIds: generated.content.buildsOnConceptIds,
+          commonMisunderstandings: generated.content.commonMisunderstandings,
+          relationshipMapMermaid:
+            generated.content.relationshipMapMermaid.length > 0
+              ? generated.content.relationshipMapMermaid
+              : null,
+          model: generated.model,
+          generatedAt: now,
+        },
+      })
+      .returning();
+
+    revalidatePath(`/concepts/${conceptId}`);
+    return { ok: true, expansion };
+  } catch (err) {
+    console.error("[generateConceptExpansion] failed", err);
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : "Generation failed.",
+    };
+  }
+}
+
+const GenerateConceptRelevanceInputSchema = z.object({
+  conceptId: z.string().uuid(),
+});
+
+export async function generateConceptRelevance(input: {
+  conceptId: string;
+}): Promise<{ ok: boolean; relevance?: ConceptRelevance; message?: string }> {
+  const parsed = GenerateConceptRelevanceInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, message: "Invalid input." };
+  }
+  const { conceptId } = parsed.data;
+
+  try {
+    const userId = await requireCurrentUserId();
+    await requireOwnedConcept(conceptId, userId);
+
+    const concept = await db.query.concepts.findFirst({
+      where: (c, { eq }) => eq(c.id, conceptId),
+      with: {
+        subSkill: {
+          with: {
+            cluster: {
+              with: {
+                syllabus: {
+                  columns: {
+                    targetRole: true,
+                    targetCompany: true,
+                    jobDescriptionText: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!concept) return { ok: false, message: "Concept not found." };
+
+    const cluster = concept.subSkill.cluster;
+    const generated = await generateConceptRelevanceAI({
+      conceptName: concept.name,
+      conceptDescription: concept.description,
+      clusterName: cluster.name,
+      targetRole: cluster.syllabus.targetRole,
+      targetCompany: cluster.syllabus.targetCompany,
+      jobDescription: cluster.syllabus.jobDescriptionText,
+    });
+
+    const now = new Date();
+    const [relevance] = await db
+      .insert(conceptRelevances)
+      .values({
+        conceptId,
+        point: generated.content.point,
+        explanation: generated.content.explanation,
+        evidence: generated.content.evidence,
+        effect: generated.content.effect,
+        importance: generated.content.importance,
+        model: generated.model,
+        generatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: conceptRelevances.conceptId,
+        set: {
+          point: generated.content.point,
+          explanation: generated.content.explanation,
+          evidence: generated.content.evidence,
+          effect: generated.content.effect,
+          importance: generated.content.importance,
+          model: generated.model,
+          generatedAt: now,
+        },
+      })
+      .returning();
+
+    revalidatePath(`/concepts/${conceptId}`);
+    return { ok: true, relevance };
+  } catch (err) {
+    console.error("[generateConceptRelevance] failed", err);
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : "Generation failed.",
     };
   }
 }
