@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState, useRef, useState, useTransition } from "react";
-import { useFormStatus } from "react-dom";
 import { FileUp, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -10,20 +9,15 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { createSyllabus, type CreateSyllabusState } from "./actions";
 import { extractResumeText } from "./extract-resume";
+import { GenerationLoading } from "./generation-loading";
 
 const initialState: CreateSyllabusState = { status: "idle" };
 
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" disabled={pending} className="w-full sm:w-auto">
-      {pending ? "Generating — 10-30s…" : "Generate syllabus"}
-    </Button>
-  );
-}
-
 export function SyllabusForm() {
-  const [state, action] = useActionState(createSyllabus, initialState);
+  const [state, action, isPending] = useActionState(
+    createSyllabus,
+    initialState,
+  );
   const [currentSkills, setCurrentSkills] = useState("");
   const [resumeStatus, setResumeStatus] = useState<
     | { kind: "idle" }
@@ -159,20 +153,40 @@ export function SyllabusForm() {
       </div>
 
       {state.status === "error" ? (
-        <p
+        <div
           role="alert"
-          className="border-destructive/40 bg-destructive/10 text-destructive rounded-md border px-3 py-2 text-sm"
+          className="border-destructive/40 bg-destructive/10 text-destructive flex flex-col gap-2 rounded-md border px-3 py-3 text-sm"
         >
-          {state.message}
-        </p>
+          <p className="font-medium">Something went wrong</p>
+          <p className="opacity-90">{state.message}</p>
+          <p className="opacity-90">
+            Your inputs are still here — you can try again right away.
+          </p>
+          <Button
+            type="submit"
+            variant="outline"
+            size="sm"
+            className="border-destructive/40 mt-1 w-fit"
+          >
+            Try again
+          </Button>
+        </div>
       ) : null}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-muted-foreground text-xs">
-          Grok takes 30-60 seconds. Don&apos;t refresh.
+          This usually takes 1–3 minutes. Keep the tab open.
         </p>
-        <SubmitButton />
+        <Button
+          type="submit"
+          disabled={isPending}
+          className="w-full sm:w-auto"
+        >
+          {isPending ? "Generating…" : "Generate syllabus"}
+        </Button>
       </div>
+
+      {isPending ? <GenerationLoading /> : null}
     </form>
   );
 }
