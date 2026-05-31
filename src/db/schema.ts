@@ -516,9 +516,153 @@ export const gapReports = pgTable(
   ],
 );
 
+/**
+ * Company insight — REAL, publicly-sourced intelligence about the target
+ * company, with a hard wall between verified (source-backed) facts and labelled
+ * inference. Every entry in `verifiedFacts` and every sourced `techSignals`
+ * entry MUST carry a sourceUrl that was actually retrieved by web search at
+ * generation time — nothing here is recalled from model memory. See
+ * src/lib/ai/generate-company-insight.ts for the retrieve-don't-recall pipeline.
+ */
+export type CompanyFactSourceType =
+  | "job_posting"
+  | "eng_blog"
+  | "paper"
+  | "talk"
+  | "github"
+  | "news";
+
+/** A claim backed by a real retrieved public source. No source, no fact. */
+export type CompanyVerifiedFact = {
+  claim: string;
+  sourceUrl: string;
+  sourceType: CompanyFactSourceType;
+};
+
+/** Reasoning from public facts — explicitly NOT presented as certain. */
+export type CompanyLikelyInference = {
+  inference: string;
+  basedOn: string;
+};
+
+/** A language/tool/framework the company demonstrably hires for or uses publicly. */
+export type CompanyTechSignal = {
+  item: string;
+  evidence: string;
+  sourceUrl: string | null;
+};
+
+/** Advisory note on how a finding should sharpen the syllabus (not auto-applied). */
+export type CompanyAlignmentNote = {
+  note: string;
+  affectedClusterOrConcept: string;
+};
+
+export const companyInsights = pgTable(
+  "company_insights",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    syllabusId: uuid("syllabus_id")
+      .notNull()
+      .references(() => syllabi.id, { onDelete: "cascade" }),
+    verifiedFacts: jsonb("verified_facts")
+      .$type<CompanyVerifiedFact[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    likelyInferences: jsonb("likely_inferences")
+      .$type<CompanyLikelyInference[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    techSignals: jsonb("tech_signals")
+      .$type<CompanyTechSignal[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    alignmentNotes: jsonb("alignment_notes")
+      .$type<CompanyAlignmentNote[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    generatedAt: timestamp("generated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    model: text("model").notNull(),
+  },
+  (t) => [
+    index("company_insights_syllabus_id_idx").on(t.syllabusId),
+    unique("company_insights_syllabus_id_unq").on(t.syllabusId),
+  ],
+);
+
+/**
+ * Foundations & launching point — an explicit on-ramp into a syllabus.
+ *
+ * NOTE: this is distinct from concept `tier='foundation'`, which marks
+ * difficulty WITHIN the syllabus. Here:
+ *  - assumed_baseline = knowledge the syllabus ASSUMES you already have before
+ *    you begin (true prerequisites — not covered by any concept).
+ *  - launch_step = the ordered genuine FIRST steps INTO the syllabus, which may
+ *    link to an existing foundation-tier concept via linkedConceptId.
+ * Guidance only — foundations never lock or gate later concepts.
+ */
+export const foundationItemType = pgEnum("foundation_item_type", [
+  "assumed_baseline",
+  "launch_step",
+]);
+
+/** A user's self-assessment of an assumed_baseline item. */
+export const foundationUserStatus = pgEnum("foundation_user_status", [
+  "have_it",
+  "need_it",
+  "unset",
+]);
+
+export type FoundationSuggestedResource = {
+  title: string;
+  url: string | null;
+  type: "course" | "book" | "video" | "article" | "project" | "paper";
+};
+
+export const foundationItems = pgTable(
+  "foundation_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    syllabusId: uuid("syllabus_id")
+      .notNull()
+      .references(() => syllabi.id, { onDelete: "cascade" }),
+    type: foundationItemType("type").notNull(),
+    title: text("title").notNull(),
+    description: text("description").notNull(),
+    sequenceIndex: integer("sequence_index").notNull().default(0),
+    suggestedResources: jsonb("suggested_resources")
+      .$type<FoundationSuggestedResource[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    // launch_step items can point at an existing foundation concept. Null when
+    // the step has no matching concept yet. SET NULL so deleting/regenerating a
+    // concept doesn't orphan the row.
+    linkedConceptId: uuid("linked_concept_id").references(() => concepts.id, {
+      onDelete: "set null",
+    }),
+    userStatus: foundationUserStatus("user_status").notNull().default("unset"),
+    // For assumed_baseline items: a short note on why the user's resume
+    // suggests they may already meet this. Advisory only — never auto-sets
+    // userStatus; the user still confirms. Null when no resume signal.
+    resumeSignal: text("resume_signal"),
+    generatedAt: timestamp("generated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    model: text("model").notNull(),
+  },
+  (t) => [
+    index("foundation_items_syllabus_id_idx").on(t.syllabusId),
+    index("foundation_items_syllabus_type_idx").on(t.syllabusId, t.type),
+  ],
+);
+
 export const syllabiRelations = relations(syllabi, ({ one, many }) => ({
   clusters: many(skillClusters),
   gapReport: one(gapReports),
+  companyInsight: one(companyInsights),
+  foundationItems: many(foundationItems),
 }));
 
 export const profilesRelations = relations(profiles, ({ many }) => ({
@@ -638,6 +782,27 @@ export const gapReportsRelations = relations(gapReports, ({ one }) => ({
   }),
 }));
 
+export const companyInsightsRelations = relations(
+  companyInsights,
+  ({ one }) => ({
+    syllabus: one(syllabi, {
+      fields: [companyInsights.syllabusId],
+      references: [syllabi.id],
+    }),
+  }),
+);
+
+export const foundationItemsRelations = relations(foundationItems, ({ one }) => ({
+  syllabus: one(syllabi, {
+    fields: [foundationItems.syllabusId],
+    references: [syllabi.id],
+  }),
+  linkedConcept: one(concepts, {
+    fields: [foundationItems.linkedConceptId],
+    references: [concepts.id],
+  }),
+}));
+
 export type Syllabus = typeof syllabi.$inferSelect;
 export type NewSyllabus = typeof syllabi.$inferInsert;
 export type Profile = typeof profiles.$inferSelect;
@@ -668,3 +833,9 @@ export type ConceptRelevance = typeof conceptRelevances.$inferSelect;
 export type NewConceptRelevance = typeof conceptRelevances.$inferInsert;
 export type ConceptImportance = "core" | "supporting" | "peripheral";
 export type RoleNature = "technical" | "non_technical" | "hybrid";
+export type CompanyInsight = typeof companyInsights.$inferSelect;
+export type NewCompanyInsight = typeof companyInsights.$inferInsert;
+export type FoundationItem = typeof foundationItems.$inferSelect;
+export type NewFoundationItem = typeof foundationItems.$inferInsert;
+export type FoundationItemType = "assumed_baseline" | "launch_step";
+export type FoundationUserStatus = "have_it" | "need_it" | "unset";
