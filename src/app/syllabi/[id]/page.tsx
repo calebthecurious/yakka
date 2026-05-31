@@ -3,8 +3,9 @@ import { connection } from "next/server";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { format } from "date-fns";
-import { Telescope } from "lucide-react";
+import { Building2, Telescope, Rocket, ArrowRight } from "lucide-react";
 import { db } from "@/db";
+import { cn } from "@/lib/utils";
 import type { RoleNature } from "@/db/schema";
 import { requireCurrentUserId } from "@/lib/auth";
 import { buttonVariants } from "@/components/ui/button";
@@ -89,6 +90,7 @@ export default async function SyllabusPage({ params }: PageProps) {
   const understoodCount = allConcepts.filter(
     (c) => c.status === "understood" || c.status === "verified",
   ).length;
+  const hasBegun = allConcepts.some((c) => c.status !== "not_started");
   const totalHours = clusters.reduce(
     (sum, c) =>
       sum + c.subSkills.reduce((s, sk) => s + sk.estimatedHours, 0),
@@ -177,8 +179,19 @@ export default async function SyllabusPage({ params }: PageProps) {
             <Telescope className="size-4" />
             View gap analysis
           </Link>
+          {syllabus.targetCompany ? (
+            <Link
+              href={`/syllabi/${syllabus.id}/company`}
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
+              <Building2 className="size-4" />
+              Company insight
+            </Link>
+          ) : null}
         </div>
       </header>
+
+      <StartHereBanner syllabusId={syllabus.id} hasBegun={hasBegun} />
 
       <BlockersCard
         blockers={metadata.structuralBlockers}
@@ -199,5 +212,53 @@ export default async function SyllabusPage({ params }: PageProps) {
         />
       </footer>
     </PageContainer>
+  );
+}
+
+function StartHereBanner({
+  syllabusId,
+  hasBegun,
+}: {
+  syllabusId: string;
+  hasBegun: boolean;
+}) {
+  return (
+    <Link
+      href={`/syllabi/${syllabusId}/start`}
+      className={cn(
+        "group flex items-center gap-4 rounded-lg border px-4 py-3 transition-colors",
+        hasBegun
+          ? "border-border/60 bg-card hover:border-primary/40 hover:bg-primary/[0.03]"
+          : "border-primary/40 bg-primary/[0.06] hover:bg-primary/[0.1]",
+      )}
+    >
+      <div
+        className={cn(
+          "flex size-10 shrink-0 items-center justify-center rounded-full",
+          hasBegun ? "bg-muted text-muted-foreground" : "bg-primary/15 text-primary",
+        )}
+      >
+        <Rocket className="size-5" />
+      </div>
+      <div className="flex flex-1 flex-col">
+        <span className="font-medium">
+          {hasBegun ? "Revisit your launching point" : "New here? Start with the on-ramp"}
+        </span>
+        <span className="text-muted-foreground text-sm">
+          {hasBegun
+            ? "Baselines this syllabus assumes, and the ordered first steps."
+            : "See what this syllabus assumes you know, and exactly where to begin — no guessing."}
+        </span>
+      </div>
+      <span
+        className={cn(
+          "flex shrink-0 items-center gap-1 text-sm font-medium",
+          hasBegun ? "text-muted-foreground group-hover:text-foreground" : "text-primary",
+        )}
+      >
+        Start here
+        <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+      </span>
+    </Link>
   );
 }
