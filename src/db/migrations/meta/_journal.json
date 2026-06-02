@@ -85,6 +85,13 @@
       "when": 1780208974735,
       "tag": "0011_cuddly_hobgoblin",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1780367704487,
+      "tag": "0012_credential_profile_fields",
+      "breakpoints": true
     }
   ]
 }

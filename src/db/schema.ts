@@ -102,6 +102,21 @@ export const profiles = pgTable(
       .references(() => authUsers.id, { onDelete: "cascade" }),
     handle: text("handle").unique(),
     displayName: text("display_name").notNull(),
+    // One-line, user-written summary shown under the name on the public profile.
+    // Optional and never auto-generated — honesty is the user's own words.
+    headline: text("headline"),
+    // Optional external proof links rendered on the public profile.
+    githubUrl: text("github_url"),
+    linkedinUrl: text("linkedin_url"),
+    websiteUrl: text("website_url"),
+    // Per-section public visibility controls. Artefacts/verified/readiness are
+    // always public (the credential core); these gate the softer sections so the
+    // user controls exactly what a recruiter sees. Default to showing.
+    showLearningTrail: boolean("show_learning_trail").notNull().default(true),
+    showSelfAssessed: boolean("show_self_assessed").notNull().default(true),
+    showCurrentlyDeveloping: boolean("show_currently_developing")
+      .notNull()
+      .default(true),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -119,6 +134,12 @@ export const syllabi = pgTable(
     targetRole: text("target_role").notNull(),
     targetCompany: text("target_company"),
     roleNature: roleNatureEnum("role_nature").notNull().default("technical"),
+    // Marks the ONE syllabus a user features on their public profile. At most one
+    // true per user — enforced in setFeaturedSyllabus (transactional unset-then-set),
+    // not by a DB constraint. Default false: nothing is public until the user picks.
+    isFeaturedOnProfile: boolean("is_featured_on_profile")
+      .notNull()
+      .default(false),
     jobDescriptionText: text("job_description_text").notNull(),
     metadata: jsonb("metadata")
       .$type<SyllabusMetadata>()

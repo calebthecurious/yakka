@@ -1,521 +1,925 @@
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
-import Link from "next/link";
 import type { Metadata } from "next";
-import { format, formatDistanceToNow } from "date-fns";
-import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
+import { format } from "date-fns";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import {
   Award,
+  BadgeCheck,
+  BookOpen,
   ExternalLink,
+  FileText,
   GitPullRequest,
+  Globe,
   Hammer,
   ScrollText,
+  Sprout,
+  Video,
   type LucideIcon,
 } from "lucide-react";
 import { db } from "@/db";
 import {
   artefacts,
+  competencyChecks,
   concepts,
+  gapReports,
   profiles,
+  resources,
   skillClusters,
   subSkills,
   syllabi,
 } from "@/db/schema";
+import { cn } from "@/lib/utils";
 
 export const revalidate = 60;
 
+/** A competency check counts as evidence only at/above the app's pass bar. */
+const PASS_THRESHOLD = 4;
+
 type PageProps = { params: Promise<{ handle: string }> };
 
-type ClusterType = "technical" | "domain" | "soft" | "meta";
-type Status = "not_started" | "learning" | "understood" | "verified";
-type ArtefactType = "project" | "writeup" | "certificate" | "contribution";
+type ArtefactTypeT = "project" | "writeup" | "certificate" | "contribution";
+type ResourceTypeT =
+  | "course"
+  | "book"
+  | "video"
+  | "article"
+  | "project"
+  | "paper";
 
-const ARTEFACT_META: Record<
-  ArtefactType,
-  { label: string; icon: LucideIcon }
-> = {
-  project: { label: "Project", icon: Hammer },
-  writeup: { label: "Writeup", icon: ScrollText },
-  certificate: { label: "Certificate", icon: Award },
-  contribution: { label: "Contribution", icon: GitPullRequest },
-};
-
-const CLUSTER_TYPE_STYLE: Record<ClusterType, { label: string; dot: string }> =
+const ARTEFACT_META: Record<ArtefactTypeT, { label: string; icon: LucideIcon }> =
   {
-    technical: { label: "Technical", dot: "bg-foreground/60" },
-    domain: { label: "Domain", dot: "bg-amber-400/80" },
-    soft: { label: "Soft", dot: "bg-sky-400/80" },
-    meta: { label: "Meta", dot: "bg-emerald-400/80" },
+    project: { label: "Project", icon: Hammer },
+    writeup: { label: "Writeup", icon: ScrollText },
+    certificate: { label: "Certificate", icon: Award },
+    contribution: { label: "Contribution", icon: GitPullRequest },
   };
 
-async function loadProfile(handle: string) {
+const RESOURCE_META: Record<ResourceTypeT, { label: string; icon: LucideIcon }> =
+  {
+    course: { label: "Courses", icon: BookOpen },
+    book: { label: "Books", icon: BookOpen },
+    video: { label: "Videos", icon: Video },
+    article: { label: "Articles", icon: FileText },
+    project: { label: "Projects", icon: Hammer },
+    paper: { label: "Papers", icon: ScrollText },
+  };
+
+type EvidenceLabel = string;
+
+type VerifiedConcept = {
+  id: string;
+  name: string;
+  evidence: EvidenceLabel[];
+};
+
+type ClusterGroup = { clusterName: string; concepts: VerifiedConcept[] };
+type SelfAssessedGroup = { clusterName: string; conceptNames: string[] };
+
+type ProfileArtefact = {
+  id: string;
+  type: ArtefactTypeT;
+  title: string;
+  description: string;
+  url: string | null;
+  evidenceUrl: string | null;
+  completed: boolean;
+  criteriaTotal: number;
+  criteriaDone: number;
+  demonstrates: string[];
+};
+
+type TrailType = { type: ResourceTypeT; count: number };
+type TrailNamed = { title: string; author: string | null; type: ResourceTypeT };
+
+type Developing = { label: string; note: string };
+
+type LoadedProfile = {
+  publicProfile: {
+    displayName: string;
+    handle: string;
+    headline: string | null;
+    githubUrl: string | null;
+    linkedinUrl: string | null;
+    websiteUrl: string | null;
+    showLearningTrail: boolean;
+    showSelfAssessed: boolean;
+    showCurrentlyDeveloping: boolean;
+  };
+  syllabus: { targetRole: string; targetCompany: string | null; createdAt: Date } | null;
+  readiness: {
+    verified: number;
+    inProgress: number;
+    projectsCompleted: number;
+    artefactsShipped: number;
+  };
+  artefactList: ProfileArtefact[];
+  verifiedGroups: ClusterGroup[];
+  selfAssessedGroups: SelfAssessedGroup[];
+  trail: { byType: TrailType[]; total: number; named: TrailNamed[] };
+  developing: Developing[];
+};
+
+async function loadProfile(handle: string): Promise<LoadedProfile | null> {
   await connection();
 
+  // Only public-safe profile columns. (The whole row is publicly readable, but
+  // selecting explicitly keeps the public surface obvious and auditable.)
   const [profileRow] = await db
-    .select()
+    .select({
+      id: profiles.id,
+      displayName: profiles.displayName,
+      handle: profiles.handle,
+      headline: profiles.headline,
+      githubUrl: profiles.githubUrl,
+      linkedinUrl: profiles.linkedinUrl,
+      websiteUrl: profiles.websiteUrl,
+      showLearningTrail: profiles.showLearningTrail,
+      showSelfAssessed: profiles.showSelfAssessed,
+      showCurrentlyDeveloping: profiles.showCurrentlyDeveloping,
+    })
     .from(profiles)
     .where(eq(profiles.handle, handle))
     .limit(1);
 
-  if (!profileRow) return null;
+  if (!profileRow || !profileRow.handle) return null;
 
-  const [currentSyllabus] = await db
+  const publicProfile = {
+    displayName: profileRow.displayName,
+    handle: profileRow.handle,
+    headline: profileRow.headline,
+    githubUrl: profileRow.githubUrl,
+    linkedinUrl: profileRow.linkedinUrl,
+    websiteUrl: profileRow.websiteUrl,
+    showLearningTrail: profileRow.showLearningTrail,
+    showSelfAssessed: profileRow.showSelfAssessed,
+    showCurrentlyDeveloping: profileRow.showCurrentlyDeveloping,
+  };
+
+  const empty: LoadedProfile = {
+    publicProfile,
+    syllabus: null,
+    readiness: { verified: 0, inProgress: 0, projectsCompleted: 0, artefactsShipped: 0 },
+    artefactList: [],
+    verifiedGroups: [],
+    selfAssessedGroups: [],
+    trail: { byType: [], total: 0, named: [] },
+    developing: [],
+  };
+
+  // The ONE featured syllabus. If the user hasn't chosen one yet, fall back to
+  // their most recent so the page still renders. Never read any other syllabus.
+  const [featured] = await db
     .select()
     .from(syllabi)
-    .where(eq(syllabi.userId, profileRow.id))
-    .orderBy(desc(syllabi.createdAt))
+    .where(and(eq(syllabi.userId, profileRow.id), eq(syllabi.isFeaturedOnProfile, true)))
     .limit(1);
 
-  if (!currentSyllabus) {
-    return {
-      publicProfile: profileRow,
-      syllabus: null,
-      clusters: [],
-      totals: { total: 0, understood: 0, verified: 0 },
-      recentUnderstood: [],
-      verifiedArtefacts: [],
-    };
+  let syllabus = featured;
+  if (!syllabus) {
+    [syllabus] = await db
+      .select()
+      .from(syllabi)
+      .where(eq(syllabi.userId, profileRow.id))
+      .orderBy(desc(syllabi.createdAt))
+      .limit(1);
   }
+  if (!syllabus) return empty;
 
   const clusterRows = await db
-    .select()
+    .select({
+      id: skillClusters.id,
+      name: skillClusters.name,
+      orderIndex: skillClusters.orderIndex,
+    })
     .from(skillClusters)
-    .where(eq(skillClusters.syllabusId, currentSyllabus.id))
+    .where(eq(skillClusters.syllabusId, syllabus.id))
     .orderBy(skillClusters.orderIndex);
 
   const clusterIds = clusterRows.map((c) => c.id);
-  if (clusterIds.length === 0) {
-    return {
-      publicProfile: profileRow,
-      syllabus: currentSyllabus,
-      clusters: [],
-      totals: { total: 0, understood: 0, verified: 0 },
-      recentUnderstood: [],
-      verifiedArtefacts: [],
-    };
-  }
+  const clusterName = new Map(clusterRows.map((c) => [c.id, c.name]));
 
-  const subSkillRows = await db
-    .select()
-    .from(subSkills)
-    .where(inArray(subSkills.clusterId, clusterIds));
+  const subSkillRows = clusterIds.length
+    ? await db
+        .select({ id: subSkills.id, clusterId: subSkills.clusterId })
+        .from(subSkills)
+        .where(inArray(subSkills.clusterId, clusterIds))
+    : [];
 
   const subSkillIds = subSkillRows.map((s) => s.id);
-  const conceptRows =
-    subSkillIds.length === 0
-      ? []
-      : await db
-          .select()
-          .from(concepts)
-          .where(inArray(concepts.subSkillId, subSkillIds));
+  const subSkillToCluster = new Map(subSkillRows.map((s) => [s.id, s.clusterId]));
 
-  const subSkillToCluster = new Map(
-    subSkillRows.map((s) => [s.id, s.clusterId]),
-  );
+  const conceptRows = subSkillIds.length
+    ? await db
+        .select({
+          id: concepts.id,
+          name: concepts.name,
+          status: concepts.status,
+          subSkillId: concepts.subSkillId,
+        })
+        .from(concepts)
+        .where(inArray(concepts.subSkillId, subSkillIds))
+    : [];
 
-  const perCluster = clusterRows.map((c) => {
-    const inCluster = conceptRows.filter(
-      (concept) => subSkillToCluster.get(concept.subSkillId) === c.id,
-    );
-    const understood = inCluster.filter(
-      (concept) =>
-        concept.status === "understood" || concept.status === "verified",
-    ).length;
-    return {
-      id: c.id,
-      name: c.name,
-      type: c.type as ClusterType,
-      weight: c.weight,
-      total: inCluster.length,
-      understood,
-    };
+  const conceptIds = conceptRows.map((c) => c.id);
+
+  // Evidence source 1: passed competency checks (completed, score >= threshold).
+  const checkRows = conceptIds.length
+    ? await db
+        .select({
+          conceptId: competencyChecks.conceptId,
+          score: competencyChecks.score,
+          completedAt: competencyChecks.completedAt,
+        })
+        .from(competencyChecks)
+        .where(inArray(competencyChecks.conceptId, conceptIds))
+    : [];
+
+  const bestPassScore = new Map<string, number>();
+  for (const r of checkRows) {
+    if (r.completedAt == null || r.score == null) continue;
+    if (r.score < PASS_THRESHOLD) continue;
+    const prev = bestPassScore.get(r.conceptId) ?? 0;
+    if (r.score > prev) bestPassScore.set(r.conceptId, r.score);
+  }
+
+  // Artefacts (public-safe columns only — no reflection, no progress log).
+  const artefactRows = subSkillIds.length
+    ? await db
+        .select({
+          id: artefacts.id,
+          type: artefacts.type,
+          title: artefacts.title,
+          description: artefacts.description,
+          url: artefacts.url,
+          evidenceUrl: artefacts.evidenceUrl,
+          acceptanceCriteria: artefacts.acceptanceCriteria,
+          demonstratedConceptIds: artefacts.demonstratedConceptIds,
+          verifiedAt: artefacts.verifiedAt,
+          subSkillId: artefacts.subSkillId,
+          createdAt: artefacts.createdAt,
+        })
+        .from(artefacts)
+        .where(inArray(artefacts.subSkillId, subSkillIds))
+    : [];
+
+  const conceptName = new Map(conceptRows.map((c) => [c.id, c.name]));
+
+  // Evidence source 2: concepts demonstrated by a *completed* artefact.
+  const demonstratedBy = new Map<string, string[]>(); // conceptId -> artefact titles
+  for (const a of artefactRows) {
+    if (a.verifiedAt == null) continue;
+    for (const cid of a.demonstratedConceptIds) {
+      if (!conceptName.has(cid)) continue; // ignore stale/foreign ids
+      const list = demonstratedBy.get(cid) ?? [];
+      list.push(a.title);
+      demonstratedBy.set(cid, list);
+    }
+  }
+
+  // Partition "done" concepts into evidence-backed (verified) vs self-assessed.
+  const verifiedByCluster = new Map<string, VerifiedConcept[]>();
+  const selfByCluster = new Map<string, string[]>();
+
+  for (const c of conceptRows) {
+    if (c.status !== "understood" && c.status !== "verified") continue;
+    const cid = subSkillToCluster.get(c.subSkillId);
+    const cname = cid ? (clusterName.get(cid) ?? "Other") : "Other";
+
+    const evidence: EvidenceLabel[] = [];
+    const pass = bestPassScore.get(c.id);
+    if (pass != null) evidence.push(`Competency check passed · ${pass}/5`);
+    for (const title of demonstratedBy.get(c.id) ?? []) {
+      evidence.push(`Demonstrated in “${title}”`);
+    }
+
+    if (evidence.length > 0) {
+      const list = verifiedByCluster.get(cname) ?? [];
+      list.push({ id: c.id, name: c.name, evidence });
+      verifiedByCluster.set(cname, list);
+    } else {
+      const list = selfByCluster.get(cname) ?? [];
+      list.push(c.name);
+      selfByCluster.set(cname, list);
+    }
+  }
+
+  // Preserve cluster order from the syllabus.
+  const orderedClusterNames = clusterRows.map((c) => c.name);
+  const verifiedGroups: ClusterGroup[] = orderedClusterNames
+    .map((name) => ({ clusterName: name, concepts: verifiedByCluster.get(name) ?? [] }))
+    .filter((g) => g.concepts.length > 0);
+  const selfAssessedGroups: SelfAssessedGroup[] = orderedClusterNames
+    .map((name) => ({ clusterName: name, conceptNames: selfByCluster.get(name) ?? [] }))
+    .filter((g) => g.conceptNames.length > 0);
+
+  const verifiedCount = verifiedGroups.reduce((n, g) => n + g.concepts.length, 0);
+  const inProgressCount = conceptRows.filter((c) => c.status === "learning").length;
+
+  // Artefacts list: completed first, then most recent. Lead signal. Sort the
+  // raw rows (which carry the timestamps) before projecting to the public shape.
+  const sortedArtefacts = [...artefactRows].sort((a, b) => {
+    const aDone = a.verifiedAt != null;
+    const bDone = b.verifiedAt != null;
+    if (aDone !== bDone) return aDone ? -1 : 1;
+    const at = (a.verifiedAt ?? a.createdAt).getTime();
+    const bt = (b.verifiedAt ?? b.createdAt).getTime();
+    return bt - at;
   });
+  const artefactList: ProfileArtefact[] = sortedArtefacts.map((a) => ({
+    id: a.id,
+    type: a.type as ArtefactTypeT,
+    title: a.title,
+    description: a.description,
+    url: a.url,
+    evidenceUrl: a.evidenceUrl,
+    completed: a.verifiedAt != null,
+    criteriaTotal: a.acceptanceCriteria.length,
+    criteriaDone: a.acceptanceCriteria.filter((c) => c.done).length,
+    demonstrates: a.demonstratedConceptIds
+      .map((id) => conceptName.get(id))
+      .filter((n): n is string => Boolean(n)),
+  }));
 
-  const understoodCount = conceptRows.filter(
-    (c) => c.status === "understood" || c.status === "verified",
+  const projectsCompleted = artefactRows.filter(
+    (a) => a.type === "project" && a.verifiedAt != null,
   ).length;
-  const verifiedCount = conceptRows.filter(
-    (c) => c.status === "verified",
+  const artefactsShipped = artefactRows.filter(
+    (a) => Boolean(a.url) || Boolean(a.evidenceUrl),
   ).length;
 
-  const recentUnderstood =
-    subSkillIds.length === 0
-      ? []
-      : await db
-          .select({
-            id: concepts.id,
-            name: concepts.name,
-            status: concepts.status,
-            understoodAt: concepts.understoodAt,
-            subSkillId: concepts.subSkillId,
-          })
-          .from(concepts)
-          .where(
-            isNotNull(concepts.understoodAt),
-          )
-          .orderBy(desc(concepts.understoodAt))
-          .limit(20)
-          .then((rows) =>
-            rows
-              .filter((r) => subSkillIds.includes(r.subSkillId))
-              .slice(0, 5)
-              .map((r) => {
-                const subSkill = subSkillRows.find(
-                  (s) => s.id === r.subSkillId,
-                );
-                const cluster = subSkill
-                  ? clusterRows.find((c) => c.id === subSkill.clusterId)
-                  : undefined;
-                return {
-                  id: r.id,
-                  name: r.name,
-                  status: r.status as Status,
-                  understoodAt: r.understoodAt!,
-                  subSkillName: subSkill?.name ?? "",
-                  clusterName: cluster?.name ?? "",
-                };
-              }),
-          );
+  // Learning trail — resources consumed. Titles/authors are public works; notes
+  // are NEVER selected. Counts by type + a few notable named completed resources.
+  const resourceRows = conceptIds.length
+    ? await db
+        .select({
+          type: resources.type,
+          title: resources.title,
+          author: resources.author,
+          status: resources.status,
+        })
+        .from(resources)
+        .where(inArray(resources.conceptId, conceptIds))
+    : [];
 
-  const verifiedArtefacts =
-    subSkillIds.length === 0
-      ? []
-      : await db
-          .select({
-            id: artefacts.id,
-            type: artefacts.type,
-            title: artefacts.title,
-            url: artefacts.url,
-            description: artefacts.description,
-            verifiedAt: artefacts.verifiedAt,
-            subSkillId: artefacts.subSkillId,
-          })
-          .from(artefacts)
-          .where(
-            and(
-              inArray(artefacts.subSkillId, subSkillIds),
-              isNotNull(artefacts.verifiedAt),
-            ),
-          )
-          .orderBy(desc(artefacts.verifiedAt))
-          .then((rows) =>
-            rows.map((r) => {
-              const subSkill = subSkillRows.find((s) => s.id === r.subSkillId);
-              const cluster = subSkill
-                ? clusterRows.find((c) => c.id === subSkill.clusterId)
-                : undefined;
-              return {
-                id: r.id,
-                type: r.type as ArtefactType,
-                title: r.title,
-                url: r.url,
-                description: r.description,
-                verifiedAt: r.verifiedAt!,
-                clusterName: cluster?.name ?? "",
-                clusterType: (cluster?.type ?? "technical") as ClusterType,
-                subSkillName: subSkill?.name ?? "",
-              };
-            }),
-          );
+  const completedResources = resourceRows.filter((r) => r.status === "completed");
+  const byTypeMap = new Map<ResourceTypeT, number>();
+  for (const r of completedResources) {
+    const t = r.type as ResourceTypeT;
+    byTypeMap.set(t, (byTypeMap.get(t) ?? 0) + 1);
+  }
+  const trailByType: TrailType[] = [...byTypeMap.entries()].map(([type, count]) => ({
+    type,
+    count,
+  }));
+  const trailNamed: TrailNamed[] = completedResources
+    .slice(0, 8)
+    .map((r) => ({ title: r.title, author: r.author, type: r.type as ResourceTypeT }));
+
+  // Currently developing — prefer the gap report's in-progress framing; else
+  // fall back to in-progress concepts. Honest, positive.
+  const [gap] = await db
+    .select({ gapsInProgress: gapReports.gapsInProgress })
+    .from(gapReports)
+    .where(eq(gapReports.syllabusId, syllabus.id))
+    .limit(1);
+
+  let developing: Developing[] = [];
+  if (gap && gap.gapsInProgress.length > 0) {
+    developing = gap.gapsInProgress
+      .slice(0, 6)
+      .map((g) => ({ label: g.requirement, note: g.note }));
+  } else {
+    developing = conceptRows
+      .filter((c) => c.status === "learning")
+      .slice(0, 6)
+      .map((c) => {
+        const cid = subSkillToCluster.get(c.subSkillId);
+        return { label: c.name, note: cid ? (clusterName.get(cid) ?? "") : "" };
+      });
+  }
 
   return {
-    publicProfile: profileRow,
-    syllabus: currentSyllabus,
-    clusters: perCluster,
-    totals: {
-      total: conceptRows.length,
-      understood: understoodCount,
-      verified: verifiedCount,
+    publicProfile,
+    syllabus: {
+      targetRole: syllabus.targetRole,
+      targetCompany: syllabus.targetCompany,
+      createdAt: syllabus.createdAt,
     },
-    recentUnderstood,
-    verifiedArtefacts,
+    readiness: {
+      verified: verifiedCount,
+      inProgress: inProgressCount,
+      projectsCompleted,
+      artefactsShipped,
+    },
+    artefactList,
+    verifiedGroups,
+    selfAssessedGroups,
+    trail: { byType: trailByType, total: completedResources.length, named: trailNamed },
+    developing,
   };
 }
 
-export async function generateMetadata({
-  params,
-}: PageProps): Promise<Metadata> {
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { handle } = await params;
   const profile = await loadProfile(handle);
   if (!profile) return { title: "Not found" };
-  if (!profile.syllabus) {
-    return { title: `${profile.publicProfile.displayName} — Provency` };
-  }
+  const name = profile.publicProfile.displayName;
+  if (!profile.syllabus) return { title: `${name} — Provency` };
   return {
-    title: `${profile.publicProfile.displayName} → ${profile.syllabus.targetRole} — Provency`,
-    description: `${profile.publicProfile.displayName}'s public learning profile.`,
+    title: `${name} → ${profile.syllabus.targetRole} — Provency`,
+    description:
+      profile.publicProfile.headline ??
+      `${name}'s role-readiness profile for ${profile.syllabus.targetRole}.`,
   };
 }
 
 export default async function PublicProfilePage({ params }: PageProps) {
   const { handle } = await params;
-
   const profile = await loadProfile(handle);
   if (!profile) notFound();
-  if (!profile.syllabus) {
-    return (
-      <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-12 sm:px-6 sm:py-20 lg:px-8">
-        <h1 className="text-3xl font-semibold tracking-tight">
-          {profile.publicProfile.displayName}
-        </h1>
-        <p className="text-muted-foreground">
-          No syllabus generated yet.
-        </p>
-      </main>
-    );
-  }
 
-  const { publicProfile, syllabus, clusters, totals, recentUnderstood, verifiedArtefacts } =
-    profile;
-  const percent =
-    totals.total > 0
-      ? Math.round((totals.understood / totals.total) * 100)
-      : 0;
+  const {
+    publicProfile: p,
+    syllabus,
+    readiness,
+    artefactList,
+    verifiedGroups,
+    selfAssessedGroups,
+    trail,
+    developing,
+  } = profile;
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-4 py-12 sm:gap-14 sm:px-6 sm:py-20 lg:px-8">
-      <Link
-        href="/syllabi"
-        className="text-muted-foreground/60 hover:text-muted-foreground -mb-10 inline-flex w-fit items-center gap-1 text-xs transition-colors"
-      >
-        ← Back to syllabi
-      </Link>
-
-      <header className="flex flex-col gap-3">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          {publicProfile.displayName}
-        </h1>
-        <p className="text-muted-foreground text-sm sm:text-base">
-          Public learning profile.
-        </p>
-        <div className="border-border/60 mt-3 flex flex-col gap-1 border-l-2 pl-4">
-          <span className="text-muted-foreground text-xs uppercase tracking-wide">
-            Currently working toward
-          </span>
-          <p className="text-lg font-medium">
-            {syllabus.targetRole}
-            {syllabus.targetCompany ? (
-              <span className="text-muted-foreground font-normal">
-                {" "}
-                · {syllabus.targetCompany}
-              </span>
-            ) : null}
-          </p>
-          <span className="text-muted-foreground text-xs">
-            Syllabus generated {format(syllabus.createdAt, "MMMM yyyy")}
-          </span>
+    <main className="mx-auto flex w-full max-w-4xl flex-col gap-16 px-5 py-14 sm:px-6 sm:py-20">
+      {/* 1. Header */}
+      <header className="flex flex-col gap-5">
+        <div className="flex flex-col gap-3">
+          <h1 className="font-serif text-4xl font-normal tracking-tight sm:text-5xl">
+            {p.displayName}
+          </h1>
+          {p.headline ? (
+            <p className="text-foreground/80 max-w-2xl text-lg text-pretty">
+              {p.headline}
+            </p>
+          ) : null}
         </div>
+
+        {syllabus ? (
+          <div className="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+            <span className="text-muted-foreground/70">Working toward</span>
+            <span className="text-foreground font-medium">
+              {syllabus.targetRole}
+            </span>
+            {syllabus.targetCompany ? (
+              <span>· {syllabus.targetCompany}</span>
+            ) : null}
+            <span className="text-muted-foreground/50">
+              · since {format(syllabus.createdAt, "MMM yyyy")}
+            </span>
+          </div>
+        ) : null}
+
+        <ExternalLinks
+          github={p.githubUrl}
+          linkedin={p.linkedinUrl}
+          website={p.websiteUrl}
+        />
       </header>
 
-      <section className="flex flex-col gap-4">
-        <h2 className="text-muted-foreground text-xs font-medium uppercase tracking-wider">
-          Progress
-        </h2>
-        <div className="grid grid-cols-3 gap-px overflow-hidden rounded-lg bg-border">
-          <Stat
-            value={totals.understood}
-            of={totals.total}
-            label="Understood"
-          />
-          <Stat
-            value={totals.verified}
-            of={totals.total}
-            label="Verified"
-            muted
-          />
-          <Stat value={percent} suffix="%" label="Of syllabus" muted />
-        </div>
-        <div className="bg-muted h-1 w-full overflow-hidden rounded-full">
-          <div
-            className="bg-foreground/70 h-full transition-all"
-            style={{ width: `${percent}%` }}
-          />
-        </div>
-      </section>
+      {!syllabus ? (
+        <p className="text-muted-foreground text-sm">
+          No syllabus featured yet.
+        </p>
+      ) : (
+        <>
+          {/* 2. Readiness snapshot — honest counts, no fabricated % */}
+          <section className="flex flex-col gap-4">
+            <SectionLabel>Readiness snapshot</SectionLabel>
+            <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl bg-border sm:grid-cols-4">
+              <Stat value={readiness.verified} label="Verified competencies" />
+              <Stat value={readiness.inProgress} label="In progress" />
+              <Stat value={readiness.projectsCompleted} label="Projects completed" />
+              <Stat value={readiness.artefactsShipped} label="Artefacts shipped" />
+            </div>
+            <p className="text-muted-foreground/70 text-xs">
+              Counts, not a score. &ldquo;Verified&rdquo; means backed by a passed
+              competency check or a completed project — not self-marked.
+            </p>
+          </section>
 
-      <section className="flex flex-col gap-4">
-        <h2 className="text-muted-foreground text-xs font-medium uppercase tracking-wider">
-          By cluster
-        </h2>
-        <ul className="flex flex-col gap-3">
-          {clusters.map((cluster) => {
-            const style = CLUSTER_TYPE_STYLE[cluster.type];
-            const pct =
-              cluster.total > 0
-                ? (cluster.understood / cluster.total) * 100
-                : 0;
-            return (
-              <li
-                key={cluster.id}
-                className="flex flex-col gap-2"
-              >
-                <div className="flex items-baseline justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-2.5">
-                    <span
-                      className={`size-1.5 shrink-0 rounded-full ${style.dot}`}
-                      aria-hidden
-                    />
-                    <span className="truncate text-sm font-medium">
-                      {cluster.name}
-                    </span>
-                    <span className="text-muted-foreground shrink-0 text-[10px] uppercase tracking-wide">
-                      {style.label}
-                    </span>
+          {/* 3. Artefacts & projects — strongest signal, leads */}
+          <section className="flex flex-col gap-5">
+            <div className="flex flex-col gap-1">
+              <SectionTitle>Artefacts &amp; projects</SectionTitle>
+              <p className="text-muted-foreground text-sm">
+                The work itself — built, shipped, and linked. The clearest proof
+                of what they can do.
+              </p>
+            </div>
+            {artefactList.length === 0 ? (
+              <EmptyNote>
+                No artefacts published yet. Projects, writeups, and contributions
+                appear here as they&apos;re built.
+              </EmptyNote>
+            ) : (
+              <div className="grid grid-cols-1 gap-4">
+                {artefactList.map((a) => (
+                  <ArtefactCard key={a.id} artefact={a} />
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* 4. Verified competencies — evidence-backed */}
+          <section className="flex flex-col gap-5">
+            <div className="flex flex-col gap-1">
+              <SectionTitle>
+                <BadgeCheck
+                  className="inline size-5 text-emerald-300 align-[-3px]"
+                  aria-hidden
+                />{" "}
+                Verified competencies
+              </SectionTitle>
+              <p className="text-muted-foreground text-sm">
+                Each one is backed by a passed competency check or demonstrated in
+                a completed project.
+              </p>
+            </div>
+            {verifiedGroups.length === 0 ? (
+              <EmptyNote>
+                Nothing verified yet. Competencies move here once they&apos;re
+                proven by a passed check or a completed project.
+              </EmptyNote>
+            ) : (
+              <div className="flex flex-col gap-6">
+                {verifiedGroups.map((g) => (
+                  <div key={g.clusterName} className="flex flex-col gap-3">
+                    <h3 className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
+                      {g.clusterName}
+                    </h3>
+                    <ul className="flex flex-col gap-2.5">
+                      {g.concepts.map((c) => (
+                        <li
+                          key={c.id}
+                          className="border-border/60 bg-card/40 flex flex-col gap-1.5 rounded-lg border px-4 py-3"
+                        >
+                          <div className="flex items-center gap-2">
+                            <BadgeCheck
+                              className="size-4 shrink-0 text-emerald-300"
+                              aria-hidden
+                            />
+                            <span className="text-sm font-medium">{c.name}</span>
+                          </div>
+                          <ul className="ml-6 flex flex-col gap-0.5">
+                            {c.evidence.map((e) => (
+                              <li
+                                key={e}
+                                className="text-muted-foreground text-xs"
+                              >
+                                {e}
+                              </li>
+                            ))}
+                          </ul>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                  <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
-                    {cluster.understood} / {cluster.total}
-                  </span>
-                </div>
-                <div className="bg-muted/60 h-0.5 w-full overflow-hidden rounded-full">
-                  <div
-                    className="bg-foreground/50 h-full transition-all"
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      </section>
+                ))}
+              </div>
+            )}
+          </section>
 
-      <section className="flex flex-col gap-4">
-        <h2 className="text-muted-foreground text-xs font-medium uppercase tracking-wider">
-          Recent activity
-        </h2>
-        {recentUnderstood.length === 0 ? (
-          <p className="text-muted-foreground text-sm">No activity yet.</p>
-        ) : (
-          <ol className="flex flex-col gap-2">
-            {recentUnderstood.map((c) => (
-              <li
-                key={c.id}
-                className="flex items-baseline justify-between gap-3 text-sm"
-              >
-                <div className="flex min-w-0 flex-col">
-                  <span className="truncate font-medium">{c.name}</span>
-                  <span className="text-muted-foreground truncate text-xs">
-                    {c.clusterName} · {c.subSkillName}
-                  </span>
-                </div>
-                <span
-                  className="text-muted-foreground shrink-0 text-xs"
-                  title={format(c.understoodAt, "d MMM yyyy, HH:mm")}
-                >
-                  {formatDistanceToNow(c.understoodAt, { addSuffix: true })}
-                </span>
-              </li>
-            ))}
-          </ol>
-        )}
-      </section>
-
-      <section className="flex flex-col gap-4">
-        <h2 className="text-muted-foreground text-xs font-medium uppercase tracking-wider">
-          Verified artefacts
-        </h2>
-        {verifiedArtefacts.length === 0 ? (
-          <div className="border-border/60 bg-card/30 rounded-md border border-dashed px-5 py-8 text-center">
-            <p className="text-muted-foreground text-sm">
-              No verified artefacts yet.
-            </p>
-            <p className="text-muted-foreground mt-1 text-xs">
-              Projects, writeups, and contributions will appear here as they're
-              verified.
-            </p>
-          </div>
-        ) : (
-          <ul className="flex flex-col gap-3">
-            {verifiedArtefacts.map((a) => {
-              const meta = ARTEFACT_META[a.type];
-              const Icon = meta.icon;
-              return (
-                <li
-                  key={a.id}
-                  className="border-border/60 bg-card/40 flex flex-col gap-2 rounded-md border px-4 py-3"
-                >
-                  <div className="flex items-start gap-3">
-                    <Icon className="text-muted-foreground mt-0.5 size-4 shrink-0" />
-                    <div className="flex flex-1 flex-col gap-1">
-                      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                        <span className="text-muted-foreground text-[10px] uppercase tracking-wide">
-                          {meta.label}
+          {/* 5. Self-assessed — clearly labelled, lower weight */}
+          {p.showSelfAssessed && selfAssessedGroups.length > 0 ? (
+            <section className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1">
+                <SectionTitle muted>Self-assessed understanding</SectionTitle>
+                <p className="text-muted-foreground text-sm">
+                  Marked understood by {p.displayName.split(" ")[0]}, but not yet
+                  backed by a competency check or project. Shown honestly,
+                  separate from verified work.
+                </p>
+              </div>
+              <div className="flex flex-col gap-5">
+                {selfAssessedGroups.map((g) => (
+                  <div key={g.clusterName} className="flex flex-col gap-2">
+                    <h3 className="text-muted-foreground/70 text-xs font-medium tracking-wider uppercase">
+                      {g.clusterName}
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      {g.conceptNames.map((name) => (
+                        <span
+                          key={name}
+                          className="border-border/50 text-muted-foreground rounded-full border border-dashed px-2.5 py-1 text-xs"
+                        >
+                          {name}
                         </span>
-                        {a.url ? (
-                          <a
-                            href={a.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="flex items-center gap-1 text-sm font-medium underline-offset-4 hover:underline"
-                          >
-                            {a.title}
-                            <ExternalLink className="size-3" />
-                          </a>
-                        ) : (
-                          <span className="text-sm font-medium">
-                            {a.title}
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-muted-foreground text-xs">
-                        {a.clusterName} · {a.subSkillName}
-                      </span>
-                      {a.description ? (
-                        <p className="text-foreground/85 mt-1 text-xs leading-relaxed">
-                          {a.description}
-                        </p>
-                      ) : null}
+                      ))}
                     </div>
                   </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
-      <footer className="border-border/60 text-muted-foreground flex items-center justify-between border-t pt-6 text-xs">
-        <span>provency.ai · public learning profile</span>
+          {/* 6. Learning trail */}
+          {p.showLearningTrail && trail.total > 0 ? (
+            <section className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1">
+                <SectionTitle>Learning trail</SectionTitle>
+                <p className="text-muted-foreground text-sm">
+                  How the work was done — {trail.total} resource
+                  {trail.total === 1 ? "" : "s"} worked through.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {trail.byType.map((t) => {
+                  const meta = RESOURCE_META[t.type];
+                  const Icon = meta.icon;
+                  return (
+                    <span
+                      key={t.type}
+                      className="border-border/60 bg-card/40 text-muted-foreground flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs"
+                    >
+                      <Icon className="size-3.5" aria-hidden />
+                      <span className="text-foreground font-medium tabular-nums">
+                        {t.count}
+                      </span>
+                      {meta.label}
+                    </span>
+                  );
+                })}
+              </div>
+              {trail.named.length > 0 ? (
+                <ul className="mt-1 flex flex-col gap-1.5">
+                  {trail.named.map((r) => (
+                    <li
+                      key={`${r.title}-${r.author ?? ""}`}
+                      className="text-muted-foreground flex items-baseline gap-2 text-sm"
+                    >
+                      <span className="bg-foreground/30 mt-1.5 size-1 shrink-0 rounded-full" />
+                      <span>
+                        <span className="text-foreground/90">{r.title}</span>
+                        {r.author ? (
+                          <span className="text-muted-foreground/70">
+                            {" "}
+                            · {r.author}
+                          </span>
+                        ) : null}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </section>
+          ) : null}
+
+          {/* 7. Currently developing */}
+          {p.showCurrentlyDeveloping && developing.length > 0 ? (
+            <section className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1">
+                <SectionTitle>
+                  <Sprout
+                    className="inline size-4 text-sky-300 align-[-2px]"
+                    aria-hidden
+                  />{" "}
+                  Currently developing
+                </SectionTitle>
+                <p className="text-muted-foreground text-sm">
+                  Honest about what&apos;s still in progress.
+                </p>
+              </div>
+              <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {developing.map((d) => (
+                  <li
+                    key={d.label}
+                    className="border-border/50 flex flex-col gap-0.5 rounded-lg border px-4 py-3"
+                  >
+                    <span className="text-sm font-medium">{d.label}</span>
+                    {d.note ? (
+                      <span className="text-muted-foreground text-xs">
+                        {d.note}
+                      </span>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+        </>
+      )}
+
+      <footer className="border-border/50 text-muted-foreground/70 flex items-center justify-between border-t pt-6 text-xs">
+        <span>provency.ai · role-readiness profile</span>
         <span>Updated {format(new Date(), "d MMM yyyy")}</span>
       </footer>
     </main>
   );
 }
 
-function Stat({
-  value,
-  of,
-  label,
-  suffix,
+/* ───────────────────────────── components ───────────────────────────── */
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <h2 className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
+      {children}
+    </h2>
+  );
+}
+
+function SectionTitle({
+  children,
   muted = false,
 }: {
-  value: number;
-  of?: number;
-  label: string;
-  suffix?: string;
+  children: React.ReactNode;
   muted?: boolean;
 }) {
   return (
-    <div className="bg-background flex flex-col gap-1 px-3 py-4 sm:px-4 sm:py-5">
-      <div className="flex flex-wrap items-baseline gap-x-1">
-        <span
-          className={`text-2xl font-semibold tabular-nums sm:text-3xl ${muted ? "text-foreground/80" : "text-foreground"}`}
-        >
-          {value}
-        </span>
-        {of !== undefined ? (
-          <span className="text-muted-foreground text-xs tabular-nums sm:text-sm">
-            / {of}
-          </span>
-        ) : null}
-        {suffix ? (
-          <span className="text-muted-foreground text-xs sm:text-sm">
-            {suffix}
-          </span>
-        ) : null}
-      </div>
-      <span className="text-muted-foreground text-[10px] uppercase tracking-wider sm:text-[11px]">
+    <h2
+      className={cn(
+        "text-xl font-semibold tracking-tight sm:text-2xl",
+        muted && "text-foreground/70",
+      )}
+    >
+      {children}
+    </h2>
+  );
+}
+
+function EmptyNote({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="border-border/60 bg-card/20 rounded-lg border border-dashed px-5 py-8 text-center">
+      <p className="text-muted-foreground text-sm text-balance">{children}</p>
+    </div>
+  );
+}
+
+function Stat({ value, label }: { value: number; label: string }) {
+  return (
+    <div className="bg-background flex flex-col gap-1 px-4 py-5">
+      <span className="font-serif text-3xl font-normal tabular-nums sm:text-4xl">
+        {value}
+      </span>
+      <span className="text-muted-foreground text-xs leading-tight text-pretty">
         {label}
       </span>
     </div>
+  );
+}
+
+function ArtefactCard({ artefact: a }: { artefact: ProfileArtefact }) {
+  const meta = ARTEFACT_META[a.type];
+  const Icon = meta.icon;
+  return (
+    <article className="border-border/60 bg-card/40 flex flex-col gap-3 rounded-xl border p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <span className="bg-background/60 ring-border/60 flex size-9 items-center justify-center rounded-lg ring-1">
+            <Icon className="text-muted-foreground size-4" aria-hidden />
+          </span>
+          <div className="flex flex-col">
+            <span className="text-muted-foreground text-[10px] tracking-wide uppercase">
+              {meta.label}
+            </span>
+            <h3 className="font-medium tracking-tight">{a.title}</h3>
+          </div>
+        </div>
+        {a.completed ? (
+          <span className="flex shrink-0 items-center gap-1 rounded-full bg-emerald-400/10 px-2 py-0.5 text-[11px] font-medium text-emerald-300">
+            <BadgeCheck className="size-3" aria-hidden />
+            Completed
+          </span>
+        ) : (
+          <span className="text-muted-foreground/70 shrink-0 rounded-full border border-border/50 px-2 py-0.5 text-[11px]">
+            In progress
+          </span>
+        )}
+      </div>
+
+      {a.description ? (
+        <p className="text-foreground/85 text-sm leading-relaxed">
+          {a.description}
+        </p>
+      ) : null}
+
+      {a.demonstrates.length > 0 ? (
+        <div className="flex flex-col gap-1.5">
+          <span className="text-muted-foreground/70 text-[11px] tracking-wide uppercase">
+            Demonstrates
+          </span>
+          <div className="flex flex-wrap gap-1.5">
+            {a.demonstrates.map((name) => (
+              <span
+                key={name}
+                className="border-border/60 bg-background/40 rounded-full border px-2.5 py-0.5 text-xs"
+              >
+                {name}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        {a.url ? (
+          <a
+            href={a.url}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-1 text-sm font-medium underline-offset-4 hover:underline"
+          >
+            View work
+            <ExternalLink className="size-3.5" aria-hidden />
+          </a>
+        ) : null}
+        {a.evidenceUrl ? (
+          <a
+            href={a.evidenceUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="text-muted-foreground flex items-center gap-1 text-sm underline-offset-4 hover:underline"
+          >
+            Evidence
+            <ExternalLink className="size-3.5" aria-hidden />
+          </a>
+        ) : null}
+        {a.criteriaTotal > 0 ? (
+          <span className="text-muted-foreground text-xs tabular-nums">
+            {a.criteriaDone}/{a.criteriaTotal} acceptance criteria met
+          </span>
+        ) : null}
+      </div>
+    </article>
+  );
+}
+
+function ExternalLinks({
+  github,
+  linkedin,
+  website,
+}: {
+  github: string | null;
+  linkedin: string | null;
+  website: string | null;
+}) {
+  if (!github && !linkedin && !website) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {github ? (
+        <LinkChip href={github} label="GitHub">
+          <GithubMark />
+        </LinkChip>
+      ) : null}
+      {linkedin ? (
+        <LinkChip href={linkedin} label="LinkedIn">
+          <LinkedinMark />
+        </LinkChip>
+      ) : null}
+      {website ? (
+        <LinkChip href={website} label="Website">
+          <Globe className="size-3.5" aria-hidden />
+        </LinkChip>
+      ) : null}
+    </div>
+  );
+}
+
+function LinkChip({
+  href,
+  label,
+  children,
+}: {
+  href: string;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="border-border/60 bg-card/40 text-muted-foreground hover:text-foreground hover:border-foreground/20 flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors"
+    >
+      {children}
+      {label}
+    </a>
+  );
+}
+
+/* Brand marks (Simple Icons paths) — inline so there's no icon-font dependency. */
+function GithubMark() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-3.5" fill="currentColor" aria-hidden>
+      <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
+    </svg>
+  );
+}
+
+function LinkedinMark() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-3.5" fill="currentColor" aria-hidden>
+      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.225 0z" />
+    </svg>
   );
 }
