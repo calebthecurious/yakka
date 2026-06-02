@@ -56,9 +56,19 @@ export function Nav({ user }: { user: NavUser | null }) {
   // Public profile pages render their own full-bleed chrome.
   if (pathname.startsWith("/u/")) return null;
 
-  // Logged out, or mid handle-selection: brand only, no distractions.
+  // Logged out, or mid handle-selection: brand + a quiet log-in link.
   if (!user) {
-    return shell(<Brand />);
+    return shell(
+      <>
+        <Brand />
+        <Link
+          href="/login"
+          className="text-muted-foreground hover:text-foreground text-sm transition-colors"
+        >
+          Log in
+        </Link>
+      </>,
+    );
   }
 
   return shell(

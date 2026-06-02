@@ -45,3 +45,6 @@ next-env.d.ts
 
 # scratch / generated test artifacts
 /tmp
+
+# local agent tooling (ui-ux-pro-max skill install, etc.) — not app code
+.claude/skills/

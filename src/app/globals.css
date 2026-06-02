@@ -74,6 +74,19 @@
   --radius-xl: calc(var(--radius) + 4px);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-serif: var(--font-instrument-serif), Georgia, "Times New Roman", serif;
+}
+
+/* Slow, organic drift for the landing hero gradient ribbon. Gated behind
+   motion-safe at the call site so reduced-motion users get a static ribbon. */
+@keyframes wave-drift {
+  0%,
+  100% {
+    transform: translate3d(-2%, 0, 0) scale(1.02);
+  }
+  50% {
+    transform: translate3d(2%, -5%, 0) scale(1.06);
+  }
 }
 
 @layer base {

@@ -12,8 +12,10 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getEnv } from "@/lib/env";
 
-// Exact public paths.
-const PUBLIC_PATHS = new Set(["/login", "/signup"]);
+// Exact public paths. "/" is the marketing landing page — public so logged-out
+// visitors see it instead of being bounced to /login. (The redirect TARGETS
+// below are unchanged; we only widen the allowlist.)
+const PUBLIC_PATHS = new Set(["/", "/login", "/signup"]);
 // Public path prefixes: /auth/* (OAuth callback etc.) and /u/* (public profiles).
 const PUBLIC_PREFIXES = ["/auth/", "/u/"];
 const PROFILE_SETUP_PATH = "/profile/setup";
