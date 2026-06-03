@@ -92,6 +92,20 @@
       "when": 1780367704487,
       "tag": "0012_credential_profile_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1780388504802,
+      "tag": "0013_cluster_artefact_target",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1780448053881,
+      "tag": "0014_project_scaffolding",
+      "breakpoints": true
     }
   ]
 }
