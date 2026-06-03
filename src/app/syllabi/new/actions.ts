@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import {
@@ -9,7 +10,6 @@ import {
   skillClusters,
   subSkills,
   syllabi,
-  type SuggestedArtefact,
 } from "@/db/schema";
 import { generateSyllabus } from "@/lib/ai/generate-syllabus";
 import { requireCurrentUserId } from "@/lib/auth";
@@ -88,9 +88,23 @@ export async function createSyllabus(
             type: cluster.type,
             orderIndex: cluster.orderIndex,
             weight: cluster.weight,
-            suggestedArtefact: cluster.suggestedArtefact satisfies SuggestedArtefact,
+            isArtefactBearing: cluster.isArtefactBearing,
+            suggestedArtefact: cluster.suggestedArtefact,
+            // demonstratesConceptIds resolved below, once concept IDs exist.
+            artefactTarget: cluster.artefactTarget
+              ? {
+                  title: cluster.artefactTarget.title,
+                  description: cluster.artefactTarget.description,
+                  employerValue: cluster.artefactTarget.employerValue,
+                  demonstratesConceptIds: [],
+                }
+              : null,
           })
           .returning({ id: skillClusters.id });
+
+        // Concept name → DB id, for resolving the artefactTarget's demonstrated
+        // concepts. Names are unique within a cluster; match case-insensitively.
+        const conceptNameToId = new Map<string, string>();
 
         for (const skill of cluster.subSkills) {
           const [insertedSubSkill] = await tx
@@ -116,6 +130,11 @@ export async function createSyllabus(
               })
               .returning({ id: concepts.id });
 
+            conceptNameToId.set(
+              concept.name.trim().toLowerCase(),
+              insertedConcept.id,
+            );
+
             if (concept.suggestedResources.length > 0) {
               await tx.insert(resources).values(
                 concept.suggestedResources.map((r) => ({
@@ -130,6 +149,38 @@ export async function createSyllabus(
               );
             }
           }
+        }
+
+        // Resolve the artefactTarget's demonstrated concept NAMES to real IDs.
+        // Names that don't match a concept in this cluster are dropped (the
+        // model is told to copy verbatim, but we never persist a dangling id).
+        // Backstop: if the model appended a tier tag like " (foundation)", strip
+        // it and retry, so a stray annotation doesn't lose the whole link.
+        if (cluster.artefactTarget) {
+          const stripTier = (s: string) =>
+            s.replace(/\s*\((?:foundation|intermediate|advanced)\)\s*$/i, "");
+          const resolve = (name: string) => {
+            const norm = name.trim().toLowerCase();
+            return (
+              conceptNameToId.get(norm) ??
+              conceptNameToId.get(stripTier(norm).trim())
+            );
+          };
+          const demonstratesConceptIds = cluster.artefactTarget.demonstratesConcepts
+            .map((name) => resolve(name))
+            .filter((id): id is string => Boolean(id));
+
+          await tx
+            .update(skillClusters)
+            .set({
+              artefactTarget: {
+                title: cluster.artefactTarget.title,
+                description: cluster.artefactTarget.description,
+                employerValue: cluster.artefactTarget.employerValue,
+                demonstratesConceptIds,
+              },
+            })
+            .where(eq(skillClusters.id, insertedCluster.id));
         }
       }
 

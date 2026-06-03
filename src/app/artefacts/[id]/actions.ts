@@ -68,6 +68,12 @@ export async function commitSuggestedArtefact(input: {
       done: false,
     }));
 
+    // Seed the demonstrated concepts from the cluster's artefactTarget so the
+    // committed project starts as the defined employer-valuable artefact — not
+    // an unrelated problem. Legacy clusters (no artefactTarget) seed empty.
+    const demonstratedConceptIds =
+      cluster.artefactTarget?.demonstratesConceptIds ?? [];
+
     const [inserted] = await db
       .insert(artefacts)
       .values({
@@ -76,6 +82,7 @@ export async function commitSuggestedArtefact(input: {
         title: cluster.suggestedArtefact.title,
         description: cluster.suggestedArtefact.description,
         acceptanceCriteria: criteriaSeed,
+        demonstratedConceptIds,
       })
       .returning({ id: artefacts.id });
 

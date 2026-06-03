@@ -87,6 +87,8 @@ type ProfileArtefact = {
   criteriaTotal: number;
   criteriaDone: number;
   demonstrates: string[];
+  /** Why an employer values this artefact, from its cluster's artefactTarget. */
+  employerValue: string | null;
 };
 
 type TrailType = { type: ResourceTypeT; count: number };
@@ -191,6 +193,7 @@ async function loadProfile(handle: string): Promise<LoadedProfile | null> {
       id: skillClusters.id,
       name: skillClusters.name,
       orderIndex: skillClusters.orderIndex,
+      artefactTarget: skillClusters.artefactTarget,
     })
     .from(skillClusters)
     .where(eq(skillClusters.syllabusId, syllabus.id))
@@ -198,6 +201,10 @@ async function loadProfile(handle: string): Promise<LoadedProfile | null> {
 
   const clusterIds = clusterRows.map((c) => c.id);
   const clusterName = new Map(clusterRows.map((c) => [c.id, c.name]));
+  // clusterId → the artefact's employer-value framing (null if none).
+  const clusterEmployerValue = new Map(
+    clusterRows.map((c) => [c.id, c.artefactTarget?.employerValue ?? null]),
+  );
 
   const subSkillRows = clusterIds.length
     ? await db
@@ -339,6 +346,8 @@ async function loadProfile(handle: string): Promise<LoadedProfile | null> {
     demonstrates: a.demonstratedConceptIds
       .map((id) => conceptName.get(id))
       .filter((n): n is string => Boolean(n)),
+    employerValue:
+      clusterEmployerValue.get(subSkillToCluster.get(a.subSkillId) ?? "") ?? null,
   }));
 
   const projectsCompleted = artefactRows.filter(
@@ -800,6 +809,15 @@ function ArtefactCard({ artefact: a }: { artefact: ProfileArtefact }) {
       {a.description ? (
         <p className="text-foreground/85 text-sm leading-relaxed">
           {a.description}
+        </p>
+      ) : null}
+
+      {a.employerValue ? (
+        <p className="border-foreground/10 text-foreground/75 border-l-2 pl-3 text-xs leading-relaxed">
+          <span className="text-muted-foreground/70 font-medium">
+            Why an employer values this:{" "}
+          </span>
+          {a.employerValue}
         </p>
       ) : null}
 

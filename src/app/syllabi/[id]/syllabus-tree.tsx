@@ -8,6 +8,8 @@ import {
   Network,
   MessagesSquare,
   Compass,
+  Target,
+  BadgeCheck,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -59,11 +61,14 @@ export type ClusterNode = {
   description: string;
   type: ClusterType;
   weight: number;
+  isArtefactBearing: boolean;
   suggestedArtefact: {
     type: ArtefactType;
     title: string;
     description: string;
   } | null;
+  /** Employer-value framing for the bearing cluster's artefact (null if none). */
+  artefactTarget: { employerValue: string } | null;
   subSkills: SubSkillNode[];
   artefacts: ArtefactNode[];
 };
@@ -208,33 +213,44 @@ function ClusterSection({
 
       <CollapsibleContent>
         <div className="border-border/40 flex flex-col gap-4 border-t px-4 py-4">
-          {cluster.suggestedArtefact ? (
+          {cluster.isArtefactBearing && cluster.suggestedArtefact ? (
             <Link
               href={`/clusters/${cluster.id}/artefact`}
-              className="border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary/50 block rounded-md border px-3 py-2 transition-colors"
+              className="border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary/50 block rounded-md border px-3 py-2.5 transition-colors"
             >
               <div className="flex items-center gap-2">
+                <Target className="text-primary/80 size-3.5 shrink-0" />
                 <Badge className="text-[10px]">
                   {ARTEFACT_LABEL[cluster.suggestedArtefact.type]}
                 </Badge>
                 <span className="text-sm font-medium">
                   {cluster.suggestedArtefact.title}
                 </span>
-                <Badge
-                  variant="outline"
-                  className="text-muted-foreground border-foreground/15 text-[10px]"
-                >
-                  Suggested
-                </Badge>
               </div>
               <p className="text-muted-foreground mt-1.5 text-xs">
                 {cluster.suggestedArtefact.description}
               </p>
+              {cluster.artefactTarget?.employerValue ? (
+                <p className="text-foreground/80 mt-2 text-xs leading-relaxed">
+                  <span className="text-muted-foreground/70 font-medium">
+                    Why this matters to an employer:{" "}
+                  </span>
+                  {cluster.artefactTarget.employerValue}
+                </p>
+              ) : null}
               <p className="text-primary/80 mt-2 text-xs">
-                View details & commit to this project →
+                View details &amp; build this artefact →
               </p>
             </Link>
-          ) : null}
+          ) : (
+            <div className="border-border/60 bg-muted/20 text-muted-foreground flex items-start gap-2 rounded-md border px-3 py-2 text-xs">
+              <BadgeCheck className="mt-0.5 size-3.5 shrink-0" />
+              <span>
+                Proven by competency checks and defended understanding — no
+                build artefact for this cluster.
+              </span>
+            </div>
+          )}
 
           <ArtefactsSection
             syllabusId={syllabusId}

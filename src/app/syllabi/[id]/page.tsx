@@ -103,7 +103,11 @@ export default async function SyllabusPage({ params }: PageProps) {
     description: cluster.description,
     type: cluster.type,
     weight: cluster.weight,
+    isArtefactBearing: cluster.isArtefactBearing,
     suggestedArtefact: cluster.suggestedArtefact,
+    artefactTarget: cluster.artefactTarget
+      ? { employerValue: cluster.artefactTarget.employerValue }
+      : null,
     subSkills: cluster.subSkills.map((skill) => ({
       id: skill.id,
       name: skill.name,

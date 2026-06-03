@@ -45,14 +45,49 @@ export const suggestedArtefactSchema = z.object({
   acceptanceCriteria: z.array(z.string().min(1)).min(3).max(6),
 });
 
-export const clusterSchema = z.object({
-  name: z.string().min(1),
+/**
+ * The employer-value + concept-link facet of an artefact-bearing cluster's
+ * artefact. `demonstratesConcepts` holds concept NAMES (the generator has no DB
+ * IDs yet); persistence resolves them to concept IDs.
+ */
+export const clusterArtefactTargetSchema = z.object({
+  title: z.string().min(1),
   description: z.string().min(1),
-  type: z.enum(["technical", "domain", "soft", "meta"]),
-  weight: z.number().int().min(1).max(5),
-  orderIndex: z.number().int().nonnegative(),
-  subSkills: z.array(subSkillSchema).min(2).max(5),
-  suggestedArtefact: suggestedArtefactSchema,
+  employerValue: z.string().min(1),
+  demonstratesConcepts: z.array(z.string().min(1)).min(1),
+});
+
+export const clusterSchema = z
+  .object({
+    name: z.string().min(1),
+    description: z.string().min(1),
+    type: z.enum(["technical", "domain", "soft", "meta"]),
+    weight: z.number().int().min(1).max(5),
+    orderIndex: z.number().int().nonnegative(),
+    subSkills: z.array(subSkillSchema).min(2).max(5),
+    // Honest gate: true only for clusters that genuinely produce an
+    // employer-valuable buildable artefact. Non-bearing clusters carry neither
+    // a suggestedArtefact nor an artefactTarget.
+    isArtefactBearing: z.boolean(),
+    suggestedArtefact: suggestedArtefactSchema.nullable(),
+    artefactTarget: clusterArtefactTargetSchema.nullable(),
+  })
+  .refine(
+    (c) =>
+      c.isArtefactBearing
+        ? c.suggestedArtefact !== null && c.artefactTarget !== null
+        : c.suggestedArtefact === null && c.artefactTarget === null,
+    "Artefact-bearing clusters must have both suggestedArtefact and artefactTarget; non-bearing clusters must have neither.",
+  );
+
+/** Stage-3 output: one employer-valuable artefact for an artefact-bearing cluster. */
+const clusterArtefactSchema = z.object({
+  type: z.enum(["project", "writeup", "certificate", "contribution"]),
+  title: z.string().min(1),
+  description: z.string().min(1),
+  employerValue: z.string().min(1),
+  acceptanceCriteria: z.array(z.string().min(1)).min(3).max(6),
+  demonstratesConcepts: z.array(z.string().min(1)).min(1).max(10),
 });
 
 export const syllabusSchema = z
@@ -144,7 +179,10 @@ Rules:
 
 8. **Each cluster has 2-5 sub-skills.** For each: a specific \`name\`, a 1-2 sentence \`description\` of what mastering it means, realistic \`estimatedHours\` for a self-taught learner starting from the candidate's actual current skills (usually 20-80 hours per sub-skill), AND an \`orderIndex\` (0 first) that reflects a sensible foundations-first order WITHIN the cluster. Do NOT include concepts — those come later.
 
-9. **One concrete portfolio artefact per cluster**, specific enough that a hiring manager for this exact role (not a generic engineering manager) would recognize the relevance. Pick the type that fits: project, writeup, certificate, contribution. Include \`acceptanceCriteria\`: 3-6 concrete, checkable, single-sentence "done" bullets, measurable where possible ("Detector achieves AUC ≥ 0.85 on held-out test set"), not soft ones like "code is clean".
+9. **Mark each cluster \`isArtefactBearing\` — and DON'T artefact everything.** Set \`isArtefactBearing: true\` ONLY for clusters that genuinely produce a substantial, employer-valuable artefact someone BUILDS or PRODUCES (implementing, designing, engineering, analysing real data, shipping a working thing). Set \`isArtefactBearing: false\` for clusters proven by competency checks and defended understanding rather than by building — soft-skill/communication/collaboration clusters, pure-knowledge or theory clusters, and regulatory/compliance/domain-RECALL clusters. Forcing an artefact onto these creates contrived busywork employers don't value.
+   - Strong signal from \`type\`: 'technical' clusters are usually artefact-bearing; 'soft' clusters are usually NOT; 'meta' clusters are usually NOT; 'domain' clusters depend — applied domain work (building/analysing) is bearing, pure field-knowledge recall is not.
+   - **Aim for the artefact-bearing clusters to collectively produce a SMALL SET — roughly 3-6 — of substantial, distinct, employer-valuable artefacts, NOT an artefact for every cluster.** Quality and employer-relevance over quantity. A few genuinely valuable artefacts beat many padded ones. If marking a cluster bearing would only yield a thin or contrived artefact, mark it false instead.
+   You are NOT writing the artefact here — only the true/false decision. The artefact itself (with its concrete employer-value framing) is generated later, once concepts exist.
 
 Checklist before emitting — fix any "no":
 - [ ] \`roleNature\` is set ('technical' | 'non_technical' | 'hybrid') from what the JD actually does
@@ -156,7 +194,9 @@ Checklist before emitting — fix any "no":
 - [ ] At least one cluster type='soft'
 - [ ] At least one cluster type='domain'
 - [ ] Every cluster has 2-5 sub-skills, each with estimatedHours and orderIndex
-- [ ] Every cluster has a suggestedArtefact with 3-6 acceptanceCriteria
+- [ ] Every cluster has an explicit isArtefactBearing true/false decision
+- [ ] Artefact-bearing clusters are the build-to-prove ones; soft/pure-knowledge/regulatory-recall clusters are isArtefactBearing=false
+- [ ] The bearing clusters collectively imply roughly 3-6 substantial, distinct artefacts — not one per cluster
 - [ ] The cluster at orderIndex 0 is a sensible STARTING POINT for someone beginning this journey`;
 
 const DETAIL_SYSTEM_PROMPT = `${PERSONA}
@@ -200,9 +240,40 @@ Checklist before emitting — fix any "no":
 - [ ] Every concept has 2-3 resources, exactly one with priority=1
 - [ ] Every resource is real and named, with a canonical URL`;
 
-const ARTEFACT_SCHEMA = {
+const ARTEFACT_SYSTEM_PROMPT = `${PERSONA}
+
+You are defining the ONE substantial, employer-valuable artefact that a single artefact-bearing cluster should produce. You'll be given the target role/JD/current-skills, the cluster (name, type, description), and the full list of that cluster's concept names. Produce the artefact by calling \`emit_artefact\`. Do not produce any other text.
+
+This cluster was already judged artefact-bearing — your job is NOT to second-guess that, it's to define an artefact a hiring manager for THIS exact role would actually value.
+
+Rules:
+
+1. **The artefact must be a real, buildable thing tied to THIS cluster and THIS role.** Pick the \`type\` that fits (project / writeup / certificate / contribution; most build-to-prove clusters are 'project'). \`title\` is specific (not "A portfolio project"). \`description\` says concretely what gets built.
+
+2. **\`employerValue\` is the whole point — make it concrete and role-specific.** State WHY an employer hiring for THIS role would value the ability this artefact proves, tied to the actual JD work. Name the specific skill the artefact evidences and the responsibility it maps to. Good: "a working accessibility-first iOS prototype demonstrates exactly the participant-facing UI skills the role requires". Bad (reject your own draft if it reads like this): "a great portfolio piece", "shows strong engineering", "impresses recruiters". If you couldn't say it to the hiring manager as a reason to advance the candidate, rewrite it.
+
+3. **\`acceptanceCriteria\`: 3-6 concrete, checkable, single-sentence "done" bullets**, measurable where possible ("Streams 1k channels at <10ms detection latency"), not soft ("code is clean").
+
+4. **\`demonstratesConcepts\`: the concept NAMES, copied verbatim from the provided list, that building this artefact most directly demonstrates.** Pick the 3-8 the artefact genuinely exercises — not every concept in the cluster. Only use names from the list; do not invent or rephrase them.
+
+Checklist before emitting — fix any "no":
+- [ ] The artefact is specific to this cluster and this role, not generic
+- [ ] employerValue names a concrete role-specific ability and ties to the JD (not "good portfolio piece")
+- [ ] 3-6 checkable acceptanceCriteria, measurable where possible
+- [ ] demonstratesConcepts are 3-8 names copied verbatim from the provided concept list`;
+
+// Stage-3 tool schema: the single employer-valuable artefact for ONE
+// artefact-bearing cluster, generated after that cluster's concepts exist.
+const ARTEFACT_TARGET_SCHEMA = {
   type: "object" as const,
-  required: ["type", "title", "description", "acceptanceCriteria"],
+  required: [
+    "type",
+    "title",
+    "description",
+    "employerValue",
+    "acceptanceCriteria",
+    "demonstratesConcepts",
+  ],
   properties: {
     type: {
       type: "string",
@@ -210,11 +281,25 @@ const ARTEFACT_SCHEMA = {
     },
     title: { type: "string" },
     description: { type: "string" },
+    employerValue: {
+      type: "string",
+      description:
+        "WHY an employer hiring for THIS specific role would value the ability this artefact demonstrates. Concrete and role-specific, tied to the actual JD work — e.g. 'a working accessibility-first iOS prototype demonstrates exactly the participant-facing UI skills the role requires'. NOT a generic 'good portfolio piece'.",
+    },
     acceptanceCriteria: {
       type: "array",
       minItems: 3,
       maxItems: 6,
-      description: "3-6 concrete, checkable 'done' bullets, single sentences.",
+      description:
+        "3-6 concrete, checkable 'done' bullets, single sentences, measurable where possible (e.g. 'Detector achieves AUC >= 0.85 on held-out test set').",
+      items: { type: "string" },
+    },
+    demonstratesConcepts: {
+      type: "array",
+      minItems: 1,
+      maxItems: 10,
+      description:
+        "The concept NAMES (copied verbatim from the provided concept list for this cluster) that building this artefact most directly demonstrates. Only use names from the list — do not invent concepts.",
       items: { type: "string" },
     },
   },
@@ -268,7 +353,7 @@ const SKELETON_INPUT_SCHEMA = {
           "weight",
           "orderIndex",
           "subSkills",
-          "suggestedArtefact",
+          "isArtefactBearing",
         ],
         properties: {
           name: { type: "string" },
@@ -279,6 +364,11 @@ const SKELETON_INPUT_SCHEMA = {
           },
           weight: { type: "integer", minimum: 1, maximum: 5 },
           orderIndex: { type: "integer", minimum: 0 },
+          isArtefactBearing: {
+            type: "boolean",
+            description:
+              "True ONLY if this cluster genuinely produces a substantial, employer-valuable BUILT artefact. False for soft-skill, pure-knowledge, and regulatory/recall clusters (proven by competency checks, not building). Don't artefact everything — aim for roughly 3-6 bearing clusters total across the syllabus, quality over quantity.",
+          },
           subSkills: {
             type: "array",
             minItems: 2,
@@ -306,7 +396,6 @@ const SKELETON_INPUT_SCHEMA = {
               },
             },
           },
-          suggestedArtefact: ARTEFACT_SCHEMA,
         },
       },
     },
@@ -399,7 +488,9 @@ const skeletonClusterSchema = z.object({
   weight: z.number().int().min(1).max(5),
   orderIndex: z.number().int().nonnegative(),
   subSkills: z.array(skeletonSubSkillSchema).min(2).max(5),
-  suggestedArtefact: suggestedArtefactSchema,
+  // Decided at the skeleton stage; the actual artefact is generated later
+  // (stage 3) only for bearing clusters, once their concepts exist.
+  isArtefactBearing: z.boolean(),
 });
 const skeletonSchema = z
   .object({
@@ -620,7 +711,7 @@ async function generateSkeleton(
     [tool("emit_skeleton", "Emit the syllabus structure.", SKELETON_INPUT_SCHEMA)],
     "emit_skeleton",
     skeletonSchema,
-    "Remember: set roleNature first and make the cluster type mix match it (non_technical roles must NOT be flooded with engineering clusters); 4-7 clusters traceable to JD text, ordered foundations-first via cluster orderIndex; at least one 'soft' and one 'domain'; each cluster 2-5 sub-skills with both orderIndex and estimatedHours; and a suggestedArtefact with 3-6 acceptanceCriteria.",
+    "Remember: set roleNature first and make the cluster type mix match it (non_technical roles must NOT be flooded with engineering clusters); 4-7 clusters traceable to JD text, ordered foundations-first via cluster orderIndex; at least one 'soft' and one 'domain'; each cluster 2-5 sub-skills with both orderIndex and estimatedHours; and an explicit isArtefactBearing true/false per cluster (true only for build-to-prove clusters, aiming for roughly 3-6 bearing clusters total — soft/pure-knowledge/regulatory-recall clusters are false).",
   );
 }
 
@@ -659,6 +750,52 @@ async function generateSubSkillConcepts(
   return concepts;
 }
 
+// Stage 3: for ONE artefact-bearing cluster (after its concepts exist), define
+// the employer-valuable artefact and which concepts it demonstrates. Runs only
+// for bearing clusters; non-bearing clusters skip this entirely.
+async function generateClusterArtefact(
+  input: GenerateSyllabusInput,
+  cluster: { name: string; type: string; description: string },
+  clusterConcepts: { name: string; tier: string }[],
+): Promise<z.infer<typeof clusterArtefactSchema>> {
+  // Names only — NO tier suffix. The model copies these verbatim into
+  // demonstratesConcepts, and anything extra (e.g. a "(foundation)" tag) breaks
+  // the name→ID match in persistence.
+  const conceptList = clusterConcepts.map((c) => `- ${c.name}`).join("\n");
+
+  const userMessage = [
+    ...contextLines(input),
+    "",
+    `Cluster: ${cluster.name} (type: ${cluster.type})`,
+    `Cluster description: ${cluster.description}`,
+    "",
+    "Concepts in this cluster (use these EXACT names for demonstratesConcepts):",
+    conceptList,
+    "",
+    "Define the one employer-valuable artefact this cluster should produce.",
+  ].join("\n");
+
+  const messages: ChatMessage[] = [
+    { role: "system", content: ARTEFACT_SYSTEM_PROMPT },
+    { role: "user", content: userMessage },
+  ];
+
+  return callAndParse(
+    `generateClusterArtefact(${cluster.name})`,
+    messages,
+    [
+      tool(
+        "emit_artefact",
+        "Emit the cluster's employer-valuable artefact.",
+        ARTEFACT_TARGET_SCHEMA,
+      ),
+    ],
+    "emit_artefact",
+    clusterArtefactSchema,
+    "Remember: employerValue must be concrete and role-specific (tie it to the JD; never 'good portfolio piece'); 3-6 checkable acceptanceCriteria; and demonstratesConcepts must be 3-8 concept names copied VERBATIM from the provided list.",
+  );
+}
+
 export async function generateSyllabus(
   input: GenerateSyllabusInput,
 ): Promise<GeneratedSyllabus> {
@@ -676,7 +813,43 @@ export async function generateSyllabus(
           concepts: await generateSubSkillConcepts(input, cluster, ss),
         })),
       );
-      return { ...cluster, subSkills };
+
+      // Stage 3 (bearing clusters only): define the employer-valuable artefact
+      // now that the cluster's concepts exist. One generated object splits into
+      // the buildable spec (suggestedArtefact) and the employer-value + concept
+      // facet (artefactTarget) — same artefact, two stored shapes.
+      let suggestedArtefact: z.infer<typeof suggestedArtefactSchema> | null = null;
+      let artefactTarget: z.infer<typeof clusterArtefactTargetSchema> | null = null;
+      if (cluster.isArtefactBearing) {
+        const clusterConcepts = subSkills
+          .flatMap((s) => s.concepts)
+          .map((c) => ({ name: c.name, tier: c.tier }));
+        const art = await generateClusterArtefact(input, cluster, clusterConcepts);
+        suggestedArtefact = {
+          type: art.type,
+          title: art.title,
+          description: art.description,
+          acceptanceCriteria: art.acceptanceCriteria,
+        };
+        artefactTarget = {
+          title: art.title,
+          description: art.description,
+          employerValue: art.employerValue,
+          demonstratesConcepts: art.demonstratesConcepts,
+        };
+      }
+
+      return {
+        name: cluster.name,
+        description: cluster.description,
+        type: cluster.type,
+        weight: cluster.weight,
+        orderIndex: cluster.orderIndex,
+        subSkills,
+        isArtefactBearing: cluster.isArtefactBearing,
+        suggestedArtefact,
+        artefactTarget,
+      };
     }),
   );
 
