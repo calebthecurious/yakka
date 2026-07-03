@@ -110,6 +110,15 @@ const ARTEFACT_LABEL: Record<ArtefactType, string> = {
   contribution: "Contribution",
 };
 
+/** Small uppercase section label inside a cluster (parallel structure). */
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="text-muted-foreground/70 text-[10px] font-medium tracking-wider uppercase">
+      {children}
+    </span>
+  );
+}
+
 export function SyllabusTree({
   syllabusId,
   clusters,
@@ -123,11 +132,11 @@ export function SyllabusTree({
   const groups = groupClustersByDisplay(clusters);
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-10">
       {groups.map((group) => (
         <section key={group.group} className="flex flex-col gap-4">
           <div className="flex items-center gap-3">
-            <h3 className="text-muted-foreground text-xs font-semibold uppercase tracking-wider">
+            <h3 className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
               {group.label}
             </h3>
             <span className="bg-border h-px flex-1" />
@@ -136,7 +145,7 @@ export function SyllabusTree({
               {group.clusters.length === 1 ? "cluster" : "clusters"}
             </span>
           </div>
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-5">
             {group.clusters.map((cluster) => (
               <ClusterSection
                 key={cluster.id}
@@ -178,17 +187,19 @@ function ClusterSection({
         style.border,
       )}
     >
-      <CollapsibleTrigger className="hover:bg-muted/30 flex w-full items-start gap-3 px-4 py-3 text-left transition-colors">
+      <CollapsibleTrigger className="hover:bg-muted/30 flex w-full items-center gap-3 px-4 py-3 text-left transition-colors">
         <ChevronRight
           className={cn(
-            "text-muted-foreground mt-1 size-4 shrink-0 transition-transform",
+            "text-muted-foreground size-4 shrink-0 transition-transform",
             open && "rotate-90",
           )}
         />
-        <Icon className="text-muted-foreground mt-0.5 size-4 shrink-0" />
-        <div className="flex flex-1 flex-col gap-1">
+        <Icon className="text-muted-foreground size-4 shrink-0" />
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-medium">{cluster.name}</span>
+            <span className="text-base font-semibold tracking-tight">
+              {cluster.name}
+            </span>
             <Badge variant="outline" className={cn("text-[10px]", style.badge)}>
               {style.label}
             </Badge>
@@ -196,13 +207,15 @@ function ClusterSection({
               Weight {cluster.weight}/5
             </Badge>
           </div>
-          <p className="text-muted-foreground text-sm">{cluster.description}</p>
+          <p className="text-muted-foreground line-clamp-1 text-xs">
+            {cluster.description}
+          </p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1 text-xs">
-          <span className="text-muted-foreground">
-            {understood} / {allConcepts.length} understood
+          <span className="text-muted-foreground tabular-nums">
+            {understood} / {allConcepts.length}
           </span>
-          <div className="bg-muted h-1 w-24 overflow-hidden rounded-full">
+          <div className="bg-muted h-1 w-20 overflow-hidden rounded-full">
             <div
               className="bg-foreground/60 h-full transition-all"
               style={{ width: `${progressPct}%` }}
@@ -212,43 +225,16 @@ function ClusterSection({
       </CollapsibleTrigger>
 
       <CollapsibleContent>
-        <div className="border-border/40 flex flex-col gap-4 border-t px-4 py-4">
+        <div className="border-border/40 flex flex-col gap-5 border-t px-4 py-4">
           {cluster.isArtefactBearing && cluster.suggestedArtefact ? (
-            <Link
-              href={`/clusters/${cluster.id}/artefact`}
-              className="border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary/50 block rounded-md border px-3 py-2.5 transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <Target className="text-primary/80 size-3.5 shrink-0" />
-                <Badge className="text-[10px]">
-                  {ARTEFACT_LABEL[cluster.suggestedArtefact.type]}
-                </Badge>
-                <span className="text-sm font-medium">
-                  {cluster.suggestedArtefact.title}
-                </span>
-              </div>
-              <p className="text-muted-foreground mt-1.5 text-xs">
-                {cluster.suggestedArtefact.description}
-              </p>
-              {cluster.artefactTarget?.employerValue ? (
-                <p className="text-foreground/80 mt-2 text-xs leading-relaxed">
-                  <span className="text-muted-foreground/70 font-medium">
-                    Why this matters to an employer:{" "}
-                  </span>
-                  {cluster.artefactTarget.employerValue}
-                </p>
-              ) : null}
-              <p className="text-primary/80 mt-2 text-xs">
-                View details &amp; build this artefact →
-              </p>
-            </Link>
+            <ProjectCard
+              clusterId={cluster.id}
+              artefact={cluster.suggestedArtefact}
+            />
           ) : (
-            <div className="border-border/60 bg-muted/20 text-muted-foreground flex items-start gap-2 rounded-md border px-3 py-2 text-xs">
-              <BadgeCheck className="mt-0.5 size-3.5 shrink-0" />
-              <span>
-                Proven by competency checks and defended understanding — no
-                build artefact for this cluster.
-              </span>
+            <div className="border-border/60 bg-muted/20 text-muted-foreground flex items-center gap-2 rounded-md border px-3 py-2 text-xs">
+              <BadgeCheck className="size-3.5 shrink-0" />
+              <span>Proven by competency checks — no build artefact here.</span>
             </div>
           )}
 
@@ -261,15 +247,67 @@ function ClusterSection({
             }))}
           />
 
-          <ul className="flex flex-col gap-2">
-            {cluster.subSkills.map((skill) => (
-              <SubSkillSection
-                key={skill.id}
-                syllabusId={syllabusId}
-                skill={skill}
-              />
-            ))}
-          </ul>
+          <div className="flex flex-col gap-2">
+            <SectionLabel>Sub-skills · {cluster.subSkills.length}</SectionLabel>
+            <div className="border-border/50 divide-border/30 flex flex-col divide-y overflow-hidden rounded-md border">
+              {cluster.subSkills.map((skill) => (
+                <SubSkillSection
+                  key={skill.id}
+                  syllabusId={syllabusId}
+                  skill={skill}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+/**
+ * Compact, collapsed-by-default project card. Just the title row when closed;
+ * expand reveals a one-line summary + the link to the full detail page. The full
+ * problem statement and "why this matters" live on the detail page, not here.
+ */
+function ProjectCard({
+  clusterId,
+  artefact,
+}: {
+  clusterId: string;
+  artefact: { type: ArtefactType; title: string; description: string };
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Collapsible
+      open={open}
+      onOpenChange={setOpen}
+      className="border-primary/30 bg-primary/5 overflow-hidden rounded-md border"
+    >
+      <CollapsibleTrigger className="hover:bg-primary/10 flex w-full items-center gap-2 px-3 py-2 text-left transition-colors">
+        <Target className="text-primary/80 size-3.5 shrink-0" />
+        <Badge className="shrink-0 text-[10px]">
+          {ARTEFACT_LABEL[artefact.type]}
+        </Badge>
+        <span className="truncate text-sm font-medium">{artefact.title}</span>
+        <ChevronRight
+          className={cn(
+            "text-muted-foreground ml-auto size-3.5 shrink-0 transition-transform",
+            open && "rotate-90",
+          )}
+        />
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="flex flex-col gap-1.5 px-3 pb-2.5">
+          <p className="text-muted-foreground line-clamp-1 text-xs">
+            {artefact.description}
+          </p>
+          <Link
+            href={`/clusters/${clusterId}/artefact`}
+            className="text-primary/90 hover:text-primary text-xs font-medium"
+          >
+            View details &amp; build →
+          </Link>
         </div>
       </CollapsibleContent>
     </Collapsible>
@@ -288,22 +326,19 @@ function ArtefactsSection({
   const verifiedCount = artefacts.filter((a) => a.verified).length;
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <h4 className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
-          Your artefacts{" "}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <SectionLabel>Your artefacts</SectionLabel>
           {artefacts.length > 0 ? (
-            <span className="text-muted-foreground/70 normal-case">
-              · {verifiedCount} verified / {artefacts.length} total
-            </span>
+            <Badge variant="secondary" className="text-[10px] tabular-nums">
+              {verifiedCount}/{artefacts.length} verified
+            </Badge>
           ) : null}
-        </h4>
-        <ArtefactForm
-          syllabusId={syllabusId}
-          subSkillOptions={subSkillOptions}
-        />
+        </div>
+        <ArtefactForm syllabusId={syllabusId} subSkillOptions={subSkillOptions} />
       </div>
       {artefacts.length > 0 ? (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-1.5">
           {artefacts.map((a) => (
             <ArtefactRow
               key={a.id}
@@ -320,7 +355,7 @@ function ArtefactsSection({
           ))}
         </div>
       ) : (
-        <p className="text-muted-foreground text-xs">
+        <p className="text-muted-foreground/80 text-xs">
           No artefacts yet. Log one when you&apos;ve built something that
           demonstrates this cluster.
         </p>
@@ -342,35 +377,38 @@ function SubSkillSection({
   ).length;
 
   return (
-    <li>
-      <Collapsible
-        open={open}
-        onOpenChange={setOpen}
-        className="border-border/60 bg-background/40 rounded-md border"
-      >
-        <CollapsibleTrigger className="hover:bg-muted/20 flex w-full items-start gap-2 px-3 py-2 text-left transition-colors">
-          <ChevronRight
-            className={cn(
-              "text-muted-foreground mt-0.5 size-3.5 shrink-0 transition-transform",
-              open && "rotate-90",
-            )}
-          />
-          <div className="flex flex-1 flex-col gap-0.5">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-medium">{skill.name}</span>
-              <span className="text-muted-foreground text-xs">
-                ~{skill.estimatedHours}h
-              </span>
-            </div>
-            <p className="text-muted-foreground text-xs">{skill.description}</p>
-          </div>
-          <span className="text-muted-foreground shrink-0 text-xs">
-            {understood} / {skill.concepts.length}
-          </span>
-        </CollapsibleTrigger>
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger className="hover:bg-muted/20 flex w-full items-center gap-2 px-3 py-2 text-left transition-colors">
+        <ChevronRight
+          className={cn(
+            "text-muted-foreground size-3.5 shrink-0 transition-transform",
+            open && "rotate-90",
+          )}
+        />
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="truncate text-sm font-medium">{skill.name}</span>
+          {!open && skill.description ? (
+            <p className="text-muted-foreground line-clamp-1 text-xs">
+              {skill.description}
+            </p>
+          ) : null}
+        </div>
+        <span className="text-muted-foreground/80 shrink-0 text-xs tabular-nums">
+          ~{skill.estimatedHours}h
+        </span>
+        <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
+          {understood}/{skill.concepts.length}
+        </span>
+      </CollapsibleTrigger>
 
-        <CollapsibleContent>
-          <ul className="border-border/40 flex flex-col gap-0.5 border-t px-2 py-2">
+      <CollapsibleContent>
+        <div className="border-border/30 border-t px-3 py-2">
+          {skill.description ? (
+            <p className="text-muted-foreground mb-2 ml-[22px] text-xs leading-relaxed">
+              {skill.description}
+            </p>
+          ) : null}
+          <ul className="flex flex-col gap-0.5">
             {skill.concepts.map((concept) => (
               <ConceptRow
                 key={concept.id}
@@ -382,8 +420,8 @@ function SubSkillSection({
               />
             ))}
           </ul>
-        </CollapsibleContent>
-      </Collapsible>
-    </li>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }

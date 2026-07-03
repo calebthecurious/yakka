@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useOptimistic, useTransition } from "react";
+import { useOptimistic, useState, useTransition } from "react";
 import {
+  ChevronRight,
   Hammer,
   ScrollText,
   Award,
@@ -14,6 +15,11 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { deleteArtefact, toggleArtefactVerification } from "./actions";
 
 type ArtefactType = "project" | "writeup" | "certificate" | "contribution";
@@ -53,7 +59,12 @@ export function ArtefactRow({
     boolean
   >(verified, (_prev, next) => next);
   const [isPending, startTransition] = useTransition();
+  const [open, setOpen] = useState(false);
   const Icon = TYPE_META[type].icon;
+
+  // Full text (description + reflection) lives behind expansion; the row stays
+  // compact by default.
+  const hasDetail = Boolean(description || reflection);
 
   function handleToggle() {
     const next = !optimisticVerified;
@@ -77,85 +88,109 @@ export function ArtefactRow({
   }
 
   return (
-    <div
+    <Collapsible
+      open={open}
+      onOpenChange={setOpen}
       className={cn(
-        "border-border/60 bg-card/40 flex flex-col gap-2 rounded-md border px-3 py-2.5",
+        "border-border/60 bg-card/40 rounded-md border",
         optimisticVerified && "border-emerald-500/30 bg-emerald-500/5",
         isPending && "opacity-70",
       )}
     >
-      <div className="flex items-start gap-3">
-        <Icon className="text-muted-foreground mt-0.5 size-3.5 shrink-0" />
-        <div className="flex flex-1 flex-col gap-1">
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-            <Badge variant="outline" className="text-[10px] uppercase">
-              {TYPE_META[type].label}
-            </Badge>
-            <Link
-              href={`/artefacts/${artefactId}`}
-              className="text-sm font-medium underline-offset-4 hover:underline"
-            >
-              {title}
-            </Link>
-            {url ? (
-              <a
-                href={url}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                aria-label="Open artefact URL in new tab"
-                className="text-muted-foreground hover:text-foreground inline-flex items-center"
-              >
-                <ExternalLink className="size-3" />
-              </a>
-            ) : null}
-            {optimisticVerified ? (
-              <Badge
-                variant="outline"
-                className="border-emerald-500/30 bg-emerald-500/10 text-[10px] text-emerald-200"
-              >
-                <ShieldCheck className="mr-1 size-2.5" />
-                Verified
-              </Badge>
-            ) : null}
-          </div>
-          <p className="text-muted-foreground text-xs">
-            Demonstrates: <span className="text-foreground/80">{subSkillName}</span>
-          </p>
-          {description ? (
-            <p className="text-foreground/85 text-xs leading-relaxed">
-              {description}
-            </p>
-          ) : null}
-          {reflection ? (
-            <p className="text-muted-foreground border-l-foreground/20 mt-1 border-l-2 pl-2 text-xs leading-relaxed italic">
-              {reflection}
-            </p>
-          ) : null}
+      <div className="flex items-center gap-2 px-3 py-2">
+        {hasDetail ? (
+          <CollapsibleTrigger
+            aria-label={open ? "Hide details" : "Show details"}
+            className="text-muted-foreground hover:text-foreground -ml-1 shrink-0 rounded p-0.5 transition-colors"
+          >
+            <ChevronRight
+              className={cn("size-3.5 transition-transform", open && "rotate-90")}
+            />
+          </CollapsibleTrigger>
+        ) : (
+          <span className="size-3.5 shrink-0" aria-hidden />
+        )}
+        <Icon className="text-muted-foreground size-3.5 shrink-0" />
+        <Badge variant="outline" className="shrink-0 text-[10px] uppercase">
+          {TYPE_META[type].label}
+        </Badge>
+        <Link
+          href={`/artefacts/${artefactId}`}
+          className="truncate text-sm font-medium underline-offset-4 hover:underline"
+        >
+          {title}
+        </Link>
+        {url ? (
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Open artefact URL in new tab"
+            className="text-muted-foreground hover:text-foreground inline-flex shrink-0 items-center"
+          >
+            <ExternalLink className="size-3" />
+          </a>
+        ) : null}
+        {optimisticVerified ? (
+          <Badge
+            variant="outline"
+            className="shrink-0 border-emerald-500/30 bg-emerald-500/10 text-[10px] text-emerald-200"
+          >
+            <ShieldCheck className="mr-1 size-2.5" />
+            Verified
+          </Badge>
+        ) : (
+          <Badge
+            variant="secondary"
+            className="text-muted-foreground shrink-0 text-[10px]"
+          >
+            Self-logged
+          </Badge>
+        )}
+        <div className="ml-auto flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={handleToggle}
+            className={cn(
+              "rounded-md border px-2 py-0.5 text-[10px] font-medium tracking-wide uppercase transition-colors",
+              optimisticVerified
+                ? "border-border bg-muted/40 text-muted-foreground hover:text-foreground"
+                : "border-emerald-500/30 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20",
+            )}
+          >
+            {optimisticVerified ? "Unverify" : "Verify"}
+          </button>
+          <button
+            type="button"
+            onClick={handleDelete}
+            className="text-muted-foreground hover:text-destructive rounded-md p-1 transition-colors"
+            aria-label="Delete artefact"
+          >
+            <Trash2 className="size-3.5" />
+          </button>
         </div>
       </div>
-      <div className="flex items-center justify-end gap-2">
-        <button
-          type="button"
-          onClick={handleToggle}
-          className={cn(
-            "rounded-md border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide transition-colors",
-            optimisticVerified
-              ? "border-border bg-muted/40 text-muted-foreground hover:text-foreground"
-              : "border-emerald-500/30 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20",
-          )}
-        >
-          {optimisticVerified ? "Unverify" : "Mark verified"}
-        </button>
-        <button
-          type="button"
-          onClick={handleDelete}
-          className="text-muted-foreground hover:text-destructive rounded-md p-1 transition-colors"
-          aria-label="Delete artefact"
-        >
-          <Trash2 className="size-3.5" />
-        </button>
-      </div>
-    </div>
+
+      {hasDetail ? (
+        <CollapsibleContent>
+          <div className="border-border/40 ml-[26px] flex flex-col gap-1.5 border-t px-3 py-2">
+            <p className="text-muted-foreground text-xs">
+              Demonstrates:{" "}
+              <span className="text-foreground/80">{subSkillName}</span>
+            </p>
+            {description ? (
+              <p className="text-foreground/85 text-xs leading-relaxed">
+                {description}
+              </p>
+            ) : null}
+            {reflection ? (
+              <p className="text-muted-foreground border-l-foreground/20 border-l-2 pl-2 text-xs leading-relaxed italic">
+                {reflection}
+              </p>
+            ) : null}
+          </div>
+        </CollapsibleContent>
+      ) : null}
+    </Collapsible>
   );
 }

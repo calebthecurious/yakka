@@ -1,10 +1,8 @@
 import { notFound } from "next/navigation";
-import { connection } from "next/server";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { format } from "date-fns";
 import { Building2, Telescope, Rocket, ArrowRight } from "lucide-react";
-import { db } from "@/db";
 import { cn } from "@/lib/utils";
 import type { RoleNature } from "@/db/schema";
 import { requireCurrentUserId } from "@/lib/auth";
@@ -14,6 +12,7 @@ import { PageContainer } from "@/components/page-container";
 import { BlockersCard } from "./blockers-card";
 import { SyllabusViews } from "./syllabus-views";
 import { DeleteSyllabusButton } from "./delete-syllabus-button";
+import { loadSyllabus, getReadinessForSyllabus } from "./queries";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -37,34 +36,6 @@ const ROLE_NATURE_BADGE: Record<
     className: "bg-violet-500/10 text-violet-200 border-violet-500/30",
   },
 };
-
-async function loadSyllabus(id: string, userId: string) {
-  await connection();
-
-  return db.query.syllabi.findFirst({
-    where: (s, { and, eq }) => and(eq(s.id, id), eq(s.userId, userId)),
-    with: {
-      clusters: {
-        orderBy: (c, { asc }) => [asc(c.orderIndex)],
-        with: {
-          subSkills: {
-            with: {
-              concepts: {
-                orderBy: (c, { asc }) => [asc(c.orderIndex)],
-                with: {
-                  resources: true,
-                },
-              },
-              artefacts: {
-                orderBy: (a, { desc }) => [desc(a.createdAt)],
-              },
-            },
-          },
-        },
-      },
-    },
-  });
-}
 
 export async function generateMetadata({
   params,
@@ -135,8 +106,23 @@ export default async function SyllabusPage({ params }: PageProps) {
     ),
   }));
 
+  // TEMPORARY: raw readiness ledger dump for ground-truth verification. Remove
+  // once the ledger UI is built. Shown in dev, or set READINESS_DEBUG=1 to view
+  // in any environment (owner-scoped page, so only the owner ever sees it).
+  const showReadinessDebug =
+    process.env.NODE_ENV !== "production" ||
+    process.env.READINESS_DEBUG === "1";
+  const readinessLedger = showReadinessDebug
+    ? await getReadinessForSyllabus(syllabus.id, userId)
+    : null;
+
   return (
     <PageContainer width="wide" className="flex flex-col gap-8">
+      {showReadinessDebug ? (
+        <pre className="overflow-x-auto rounded border border-border bg-black/40 p-3 text-xs text-foreground">
+          {JSON.stringify(readinessLedger, null, 2)}
+        </pre>
+      ) : null}
       <header className="flex flex-col gap-3">
         <div className="text-muted-foreground flex items-center gap-2 text-xs">
           <Link href="/syllabi" className="hover:text-foreground">
