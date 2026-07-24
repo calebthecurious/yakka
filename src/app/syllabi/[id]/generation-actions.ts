@@ -83,3 +83,32 @@ export async function retryClusterArtefactUnit(
   revalidatePath(`/syllabi/${syllabusId}`);
   after(() => runSyllabusGeneration(syllabusId));
 }
+
+/**
+ * Recover a syllabus whose SKELETON permanently failed. A failed skeleton flips
+ * the whole syllabus to 'failed' (there is no structure to resume into), so unit
+ * retries don't apply — this resets it to a fresh 'generating' state and re-runs
+ * the worker from the skeleton. The stored job description / current skills on the
+ * row are reused, so the user re-enters nothing; runSkeleton clears any partial
+ * structure on its re-run. Guarded to status='failed' so a stray call can't
+ * disturb a live or completed generation.
+ */
+export async function retrySyllabusGeneration(
+  syllabusId: string,
+): Promise<void> {
+  const userId = await requireCurrentUserId();
+  await requireOwnedSyllabus(syllabusId, userId);
+
+  await db
+    .update(syllabi)
+    .set({
+      status: "generating",
+      skeletonStatus: "pending",
+      generationError: null,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(syllabi.id, syllabusId), eq(syllabi.status, "failed")));
+
+  revalidatePath(`/syllabi/${syllabusId}`);
+  after(() => runSyllabusGeneration(syllabusId));
+}

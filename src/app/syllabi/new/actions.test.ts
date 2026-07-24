@@ -10,12 +10,9 @@ const dbMocks = vi.hoisted(() => {
 });
 vi.mock("@/db", () => ({ db: { insert: dbMocks.insert } }));
 
-// The whole point of req 1: NO generator runs on the request path.
-const aiMocks = vi.hoisted(() => ({ generateSyllabus: vi.fn() }));
-vi.mock("@/lib/ai/generate-syllabus", () => ({
-  generateSyllabus: aiMocks.generateSyllabus,
-}));
-
+// The whole point of req 1: NO generation runs on the request path. actions.ts
+// no longer imports any generator — it only schedules the worker via after() —
+// so we mock the worker and assert it's deferred, never called inline.
 const runMocks = vi.hoisted(() => ({ runSyllabusGeneration: vi.fn() }));
 vi.mock("@/lib/generation/run", () => ({
   runSyllabusGeneration: runMocks.runSyllabusGeneration,
@@ -83,9 +80,6 @@ describe("createSyllabus — resumable path persists before generation (req 1)",
       }),
     );
 
-    // No Grok / generation call happened on the request path.
-    expect(aiMocks.generateSyllabus).not.toHaveBeenCalled();
-
     // The worker is scheduled to run AFTER the response, on the new syllabus id.
     expect(serverMocks.calls).toHaveLength(1);
     await serverMocks.calls[0]();
@@ -105,6 +99,5 @@ describe("createSyllabus — resumable path persists before generation (req 1)",
 
     expect(result).toEqual({ status: "error", message: expect.any(String) });
     expect(dbMocks.insert).not.toHaveBeenCalled();
-    expect(aiMocks.generateSyllabus).not.toHaveBeenCalled();
   });
 });

@@ -57,12 +57,15 @@ multi-user product — see the "Decision trigger" in `docs/roadmap.md`.
 
 ### Resumable generation: durable resume backstop (Cron/queue)
 - **What:** The resumable worker is kicked on syllabus create (`after()`) and re-kicked on
-  every `/syllabi/[id]` load. If a generation is interrupted AND the user never revisits the
-  page, nothing resumes it — a died-mid-skeleton row can sit stuck in `running`/`generating`
-  indefinitely (`src/lib/generation/run.ts` notes "no Cron backstop"). Add a Vercel Cron (or
-  queue) that periodically scans `syllabi WHERE status = 'generating'` (the `syllabi_status_idx`
-  exists for exactly this) and re-invokes `runSyllabusGeneration`, plus a `skeleton_started_at`
-  clock so a stuck skeleton becomes stale-reclaimable like the sub-skill/artefact units already are.
+  every `/syllabi/[id]` load. A *failed* skeleton (`status = 'failed'`) is now user-recoverable
+  via the retry button on the failed-syllabus page. The remaining gap is a **died-mid-skeleton**
+  row: the instance is torn down while `skeletonStatus = 'running'`, which has no stale clock, so
+  `runSkeleton` never reclaims it and the syllabus sits stuck in `running`/`generating`
+  indefinitely if the user never revisits (`src/lib/generation/run.ts` notes "no Cron backstop").
+  Add a `skeleton_started_at` column so a stale `running` skeleton is reclaimable like the
+  sub-skill/artefact units, plus a Vercel Cron (or queue) that periodically scans
+  `syllabi WHERE status = 'generating'` (the `syllabi_status_idx` exists for exactly this) and
+  re-invokes `runSyllabusGeneration`.
 - **Why deferred:** Accepted limitation for single-user v0 — Caleb reliably revisits his own
   syllabus, and revisiting resumes. Cut from the 2026-07-23 resumable-generation cutover to keep
   that slice a pure flag-flip + dead-code removal.
