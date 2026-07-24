@@ -8,11 +8,15 @@ import {
   BookOpen as LearningIcon,
   CircleDashed,
   ShieldCheck,
+  ChevronRight,
+  Rocket,
+  ArrowRight,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { db } from "@/db";
 import { requireCurrentUserId } from "@/lib/auth";
+import { PASS_BAR } from "@/lib/readiness/model";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { StatusControls } from "./status-controls";
@@ -71,6 +75,8 @@ async function loadConcept(id: string, userId: string) {
               subSkills: {
                 with: {
                   concepts: { columns: { id: true, name: true } },
+                  // Just presence: is any artefact logged anywhere in this cluster?
+                  artefacts: { columns: { id: true } },
                 },
               },
             },
@@ -105,6 +111,54 @@ export async function generateMetadata({
   const concept = await loadConcept(id, userId);
   if (!concept) return { title: "Concept not found — Provency" };
   return { title: `${concept.name} — Provency` };
+}
+
+type NextAction = {
+  /** The single recommended action. */
+  label: string;
+  /** One-line why. */
+  detail: string;
+  /** In-page anchor ("#check") or a route ("/clusters/…/artefact"). */
+  href: string;
+  cta: string;
+};
+
+/**
+ * The one highlighted next action for this concept. A link (in-page anchor or a
+ * route) — no client state, no new interactive surface. The target section's
+ * <details> is opened by matching href, so the highlight and the section agree.
+ */
+function StartHereCard({ action }: { action: NextAction }) {
+  const isAnchor = action.href.startsWith("#");
+  const className =
+    "group border-primary/40 bg-primary/5 hover:bg-primary/10 flex items-center gap-4 rounded-lg border px-4 py-3 transition-colors";
+  const body = (
+    <>
+      <div className="bg-primary/15 text-primary flex size-10 shrink-0 items-center justify-center rounded-full">
+        <Rocket className="size-5" />
+      </div>
+      <div className="flex flex-1 flex-col">
+        <span className="text-primary/80 text-[10px] font-medium tracking-wide uppercase">
+          Start here
+        </span>
+        <span className="font-medium">{action.label}</span>
+        <span className="text-muted-foreground text-sm">{action.detail}</span>
+      </div>
+      <span className="text-primary flex shrink-0 items-center gap-1 text-sm font-medium">
+        {action.cta}
+        <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+      </span>
+    </>
+  );
+  return isAnchor ? (
+    <a href={action.href} className={className}>
+      {body}
+    </a>
+  ) : (
+    <Link href={action.href} className={className}>
+      {body}
+    </Link>
+  );
 }
 
 export default async function ConceptPage({ params }: PageProps) {
@@ -164,6 +218,62 @@ export default async function ConceptPage({ params }: PageProps) {
   const statusBadge = STATUS_BADGE[concept.status as ConceptStatus];
   const StatusIcon = statusBadge.icon;
 
+  // ── "Start here": the single highlighted next action, chosen by state. ──
+  const checkPassed = lastCheck?.score != null && lastCheck.score >= PASS_BAR;
+  const clusterHasArtefact = cluster.subSkills.some(
+    (s) => s.artefacts.length > 0,
+  );
+  const primaryDone = primary?.status === "completed";
+  const conceptUnderstood =
+    concept.status === "understood" || concept.status === "verified";
+
+  const nextAction: NextAction =
+    lastCheck == null
+      ? {
+          label: "Take the competency check",
+          detail:
+            "A short quiz across what you've studied — the honest test of whether this concept has landed.",
+          href: "#check",
+          cta: "Go to the check",
+        }
+      : checkPassed && cluster.isArtefactBearing && !clusterHasArtefact
+        ? {
+            label: "Log your artefact",
+            detail:
+              "You passed the check — build and log the project artefact that turns this into evidence.",
+            href: `/clusters/${cluster.id}/artefact`,
+            cta: "Open the project",
+          }
+        : primary && !primaryDone
+          ? {
+              label: `Study: ${primary.title}`,
+              detail: "Work through the recommended resource, then take the check.",
+              href: "#resources",
+              cta: "Go to resources",
+            }
+          : !checkPassed
+            ? {
+                label: "Retake the competency check",
+                detail: "Last attempt didn't pass — review, then try again.",
+                href: "#check",
+                cta: "Go to the check",
+              }
+            : !conceptUnderstood
+              ? {
+                  label: "Mark this concept understood",
+                  detail:
+                    "You've passed the check and evidenced it. Set the status when you're confident.",
+                  href: "#status",
+                  cta: "Go to status",
+                }
+              : {
+                  label: "You're set on this concept",
+                  detail:
+                    "Understood and evidenced. Move on to the next concept in your syllabus.",
+                  href: `/syllabi/${syllabus.id}`,
+                  cta: "Back to syllabus",
+                };
+
   return (
     <PageContainer width="content" className="flex flex-col gap-8">
       <nav className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-xs">
@@ -199,6 +309,8 @@ export default async function ConceptPage({ params }: PageProps) {
         </p>
       </header>
 
+      <StartHereCard action={nextAction} />
+
       <div className="flex flex-col gap-8 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-x-10">
       <div className="lg:col-start-1">
         <ConceptRelevanceSection
@@ -220,23 +332,35 @@ export default async function ConceptPage({ params }: PageProps) {
 
       <Separator className="lg:hidden" />
 
-      <section className="flex flex-col gap-3 lg:col-start-1">
-        <h2 className="text-sm font-medium">Status</h2>
-        <StatusControls
-          conceptId={concept.id}
-          status={concept.status as ConceptStatus}
-        />
-      </section>
+      <details
+        id="status"
+        open={nextAction.href === "#status"}
+        className="group flex scroll-mt-24 flex-col gap-3 lg:col-start-1"
+      >
+        <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-medium [&::-webkit-details-marker]:hidden">
+          <ChevronRight className="text-muted-foreground size-4 transition-transform group-open:rotate-90" />
+          Status
+        </summary>
+        <div className="pt-1">
+          <StatusControls
+            conceptId={concept.id}
+            status={concept.status as ConceptStatus}
+          />
+        </div>
+      </details>
 
       <Separator className="lg:hidden" />
 
-      <section className="flex flex-col gap-6 lg:col-start-2 lg:row-start-1 lg:self-start lg:sticky lg:top-20">
+      <section
+        id="resources"
+        className="flex scroll-mt-24 flex-col gap-6 lg:col-start-2 lg:row-start-1 lg:self-start lg:sticky lg:top-20"
+      >
         <h2 className="text-lg font-medium">Resources</h2>
 
         {primary ? (
           <div className="flex flex-col gap-2">
             <h3 className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
-              Start here
+              Recommended
             </h3>
             <ResourceCard
               resource={primary}
@@ -294,26 +418,42 @@ export default async function ConceptPage({ params }: PageProps) {
 
       <Separator className="lg:hidden" />
 
-      <section className="flex flex-col gap-3 lg:col-start-1">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-lg font-medium">Check your understanding</h2>
+      <details
+        id="check"
+        open={nextAction.href === "#check"}
+        className="group flex scroll-mt-24 flex-col gap-3 lg:col-start-1"
+      >
+        <summary className="flex cursor-pointer list-none items-center gap-2 text-lg font-medium [&::-webkit-details-marker]:hidden">
+          <ChevronRight className="text-muted-foreground size-5 transition-transform group-open:rotate-90" />
+          Check your understanding
+        </summary>
+        <div className="flex flex-col gap-3 pt-1">
           <p className="text-muted-foreground text-sm leading-relaxed">
             A short quiz across everything you&apos;ve studied for this concept.
             Passing suggests you&apos;re ready to mark it understood — the call
             stays yours.
           </p>
+          <CompetencyCheck
+            conceptId={concept.id}
+            conceptStatus={concept.status as ConceptStatus}
+            lastScore={lastCheck?.score ?? null}
+            lastCompletedAt={lastCheck?.completedAt ?? null}
+          />
         </div>
-        <CompetencyCheck
-          conceptId={concept.id}
-          conceptStatus={concept.status as ConceptStatus}
-          lastScore={lastCheck?.score ?? null}
-          lastCompletedAt={lastCheck?.completedAt ?? null}
-        />
-      </section>
+      </details>
 
       <Separator className="lg:hidden" />
 
-      <section className="flex max-w-prose flex-col gap-4 lg:col-start-1">
+      <details
+        id="notes"
+        open={nextAction.href === "#notes" || initialSessionId != null}
+        className="group flex flex-col gap-4 lg:col-start-1"
+      >
+        <summary className="flex cursor-pointer list-none items-center gap-2 text-lg font-medium [&::-webkit-details-marker]:hidden">
+          <ChevronRight className="text-muted-foreground size-5 transition-transform group-open:rotate-90" />
+          Notes &amp; sessions
+        </summary>
+        <div className="flex max-w-prose flex-col gap-4 pt-1">
         <NotesEditor
           conceptId={concept.id}
           initialSessionId={initialSessionId}
@@ -360,7 +500,8 @@ export default async function ConceptPage({ params }: PageProps) {
             </ol>
           </div>
         ) : null}
-      </section>
+        </div>
+      </details>
       </div>
     </PageContainer>
   );

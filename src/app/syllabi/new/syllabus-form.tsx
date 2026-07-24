@@ -175,7 +175,8 @@ export function SyllabusForm() {
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-muted-foreground text-xs">
-          This usually takes 1–3 minutes. Keep the tab open.
+          This usually takes 1–3 minutes. Once it starts you can leave this page —
+          generation continues in the background.
         </p>
         <Button
           type="submit"

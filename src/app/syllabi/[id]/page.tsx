@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { after } from "next/server";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { format } from "date-fns";
@@ -6,13 +7,21 @@ import { Building2, Telescope, Rocket, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { RoleNature } from "@/db/schema";
 import { requireCurrentUserId } from "@/lib/auth";
+import { runSyllabusGeneration } from "@/lib/generation/run";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PageContainer } from "@/components/page-container";
 import { BlockersCard } from "./blockers-card";
 import { SyllabusViews } from "./syllabus-views";
+import { GeneratingView } from "./generating-view";
 import { DeleteSyllabusButton } from "./delete-syllabus-button";
 import { loadSyllabus, getReadinessForSyllabus } from "./queries";
+
+// This page is the resume entry point: on load it kicks the generation worker
+// via after(), which continues after the response within this invocation's
+// budget. Give that background work the same 5-min ceiling as the other
+// generation routes so it isn't cut off mid-run.
+export const maxDuration = 300;
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -52,6 +61,46 @@ export default async function SyllabusPage({ params }: PageProps) {
   const userId = await requireCurrentUserId();
   const syllabus = await loadSyllabus(id, userId);
   if (!syllabus) notFound();
+
+  // Resumable generation (P1.5): while the syllabus is still generating — or has
+  // settled with failed units awaiting retry — show the progressive generation
+  // view (polls, fills in per cluster, reserves space, offers per-unit retry)
+  // instead of the interactive tree. The full tree renders only once every unit
+  // has completed. This page load is also the durable resume entry point.
+  const hasFailedUnit = syllabus.clusters.some(
+    (c) =>
+      c.artefactStatus === "failed" ||
+      c.subSkills.some((s) => s.generationStatus === "failed"),
+  );
+  if (syllabus.status === "generating" || hasFailedUnit) {
+    // Only a still-generating syllabus needs the worker (re)kicked; a settled
+    // partial waits for an explicit retry.
+    if (syllabus.status === "generating") {
+      after(() => runSyllabusGeneration(syllabus.id));
+    }
+    return (
+      <GeneratingView
+        syllabusId={syllabus.id}
+        targetRole={syllabus.targetRole}
+        targetCompany={syllabus.targetCompany}
+        clusters={syllabus.clusters.map((c) => ({
+          id: c.id,
+          name: c.name,
+          type: c.type,
+          isArtefactBearing: c.isArtefactBearing,
+          artefactStatus: c.artefactStatus,
+          subSkills: [...c.subSkills]
+            .sort((a, b) => a.orderIndex - b.orderIndex)
+            .map((s) => ({
+              id: s.id,
+              name: s.name,
+              generationStatus: s.generationStatus,
+              conceptCount: s.concepts.length,
+            })),
+        }))}
+      />
+    );
+  }
 
   const { metadata, clusters } = syllabus;
 
