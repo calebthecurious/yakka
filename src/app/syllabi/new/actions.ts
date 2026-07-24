@@ -1,17 +1,11 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { after } from "next/server";
 import { z } from "zod";
 import { db } from "@/db";
-import {
-  concepts,
-  resources,
-  skillClusters,
-  subSkills,
-  syllabi,
-} from "@/db/schema";
-import { generateSyllabus } from "@/lib/ai/generate-syllabus";
+import { syllabi } from "@/db/schema";
+import { runSyllabusGeneration } from "@/lib/generation/run";
 import { requireCurrentUserId } from "@/lib/auth";
 
 const FormSchema = z.object({
@@ -35,6 +29,13 @@ export type CreateSyllabusState =
   | { status: "idle" }
   | { status: "error"; message: string };
 
+/**
+ * Create a syllabus via the resumable generation path: validate input, persist a
+ * 'generating' skeleton row immediately, kick the background worker, then redirect
+ * to the syllabus page — which polls, fills in progressively, and is itself the
+ * durable resume entry point. No Grok call happens on this request, so a dropped
+ * tab or a timeout resumes from where it stopped instead of losing all work.
+ */
 export async function createSyllabus(
   _prevState: CreateSyllabusState,
   formData: FormData,
@@ -57,141 +58,39 @@ export async function createSyllabus(
 
   const input = parsed.data;
 
-  let syllabusId: string;
+  // Persist the skeleton row in 'generating' state. roleNature + blockers/branches
+  // are produced by the worker's skeleton stage; seed neutral defaults now
+  // (roleNature falls to its DB default and is overwritten when the skeleton lands).
+  let newSyllabusId: string;
   try {
-    const generated = await generateSyllabus(input);
-
-    syllabusId = await db.transaction(async (tx) => {
-      const [syllabus] = await tx
-        .insert(syllabi)
-        .values({
-          userId,
-          targetRole: input.targetRole,
-          targetCompany: input.targetCompany ?? null,
-          roleNature: generated.roleNature,
-          jobDescriptionText: input.jobDescription,
-          metadata: {
-            structuralBlockers: generated.structuralBlockers,
-            alternativeTargetBranches: generated.alternativeTargetBranches,
-            currentSkills: input.currentSkills,
-          },
-        })
-        .returning({ id: syllabi.id });
-
-      for (const cluster of generated.clusters) {
-        const [insertedCluster] = await tx
-          .insert(skillClusters)
-          .values({
-            syllabusId: syllabus.id,
-            name: cluster.name,
-            description: cluster.description,
-            type: cluster.type,
-            orderIndex: cluster.orderIndex,
-            weight: cluster.weight,
-            isArtefactBearing: cluster.isArtefactBearing,
-            suggestedArtefact: cluster.suggestedArtefact,
-            // demonstratesConceptIds resolved below, once concept IDs exist.
-            artefactTarget: cluster.artefactTarget
-              ? {
-                  title: cluster.artefactTarget.title,
-                  description: cluster.artefactTarget.description,
-                  employerValue: cluster.artefactTarget.employerValue,
-                  demonstratesConceptIds: [],
-                }
-              : null,
-          })
-          .returning({ id: skillClusters.id });
-
-        // Concept name → DB id, for resolving the artefactTarget's demonstrated
-        // concepts. Names are unique within a cluster; match case-insensitively.
-        const conceptNameToId = new Map<string, string>();
-
-        for (const skill of cluster.subSkills) {
-          const [insertedSubSkill] = await tx
-            .insert(subSkills)
-            .values({
-              clusterId: insertedCluster.id,
-              name: skill.name,
-              description: skill.description,
-              orderIndex: skill.orderIndex,
-              estimatedHours: skill.estimatedHours,
-            })
-            .returning({ id: subSkills.id });
-
-          for (const concept of skill.concepts) {
-            const [insertedConcept] = await tx
-              .insert(concepts)
-              .values({
-                subSkillId: insertedSubSkill.id,
-                name: concept.name,
-                description: concept.description,
-                orderIndex: concept.orderIndex,
-                tier: concept.tier,
-              })
-              .returning({ id: concepts.id });
-
-            conceptNameToId.set(
-              concept.name.trim().toLowerCase(),
-              insertedConcept.id,
-            );
-
-            if (concept.suggestedResources.length > 0) {
-              await tx.insert(resources).values(
-                concept.suggestedResources.map((r) => ({
-                  conceptId: insertedConcept.id,
-                  type: r.type,
-                  title: r.title,
-                  url: r.url ?? null,
-                  author: r.author ?? null,
-                  priority: r.priority,
-                  status: "planned" as const,
-                })),
-              );
-            }
-          }
-        }
-
-        // Resolve the artefactTarget's demonstrated concept NAMES to real IDs.
-        // Names that don't match a concept in this cluster are dropped (the
-        // model is told to copy verbatim, but we never persist a dangling id).
-        // Backstop: if the model appended a tier tag like " (foundation)", strip
-        // it and retry, so a stray annotation doesn't lose the whole link.
-        if (cluster.artefactTarget) {
-          const stripTier = (s: string) =>
-            s.replace(/\s*\((?:foundation|intermediate|advanced)\)\s*$/i, "");
-          const resolve = (name: string) => {
-            const norm = name.trim().toLowerCase();
-            return (
-              conceptNameToId.get(norm) ??
-              conceptNameToId.get(stripTier(norm).trim())
-            );
-          };
-          const demonstratesConceptIds = cluster.artefactTarget.demonstratesConcepts
-            .map((name) => resolve(name))
-            .filter((id): id is string => Boolean(id));
-
-          await tx
-            .update(skillClusters)
-            .set({
-              artefactTarget: {
-                title: cluster.artefactTarget.title,
-                description: cluster.artefactTarget.description,
-                employerValue: cluster.artefactTarget.employerValue,
-                demonstratesConceptIds,
-              },
-            })
-            .where(eq(skillClusters.id, insertedCluster.id));
-        }
-      }
-
-      return syllabus.id;
-    });
+    const [row] = await db
+      .insert(syllabi)
+      .values({
+        userId,
+        targetRole: input.targetRole,
+        targetCompany: input.targetCompany ?? null,
+        jobDescriptionText: input.jobDescription,
+        metadata: {
+          structuralBlockers: [],
+          alternativeTargetBranches: [],
+          currentSkills: input.currentSkills,
+        },
+        status: "generating",
+        skeletonStatus: "pending",
+      })
+      .returning({ id: syllabi.id });
+    newSyllabusId = row.id;
   } catch (err) {
-    console.error("[createSyllabus] generation failed", err);
+    console.error("[createSyllabus] skeleton insert failed", err);
     const message =
-      err instanceof Error ? err.message : "Failed to generate syllabus.";
+      err instanceof Error
+        ? err.message
+        : "Failed to start syllabus generation.";
     return { status: "error", message };
   }
 
-  redirect(`/syllabi/${syllabusId}`);
+  // Best-effort immediate kick; the page-load resume trigger is the durable
+  // backstop if this instance is torn down before the worker finishes.
+  after(() => runSyllabusGeneration(newSyllabusId));
+  redirect(`/syllabi/${newSyllabusId}`);
 }

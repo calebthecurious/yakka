@@ -82,6 +82,32 @@ export const artefactType = pgEnum("artefact_type", [
 
 export const aiConfidenceEnum = pgEnum("ai_confidence", ["high", "low"]);
 
+/**
+ * Lifecycle of a single resumable generation unit — the skeleton, a sub-skill's
+ * concepts+resources, or a cluster's stage-3 artefact. The unit's own row IS the
+ * idempotency key: a worker claims 'pending'/'failed' units, flips them to
+ * 'running', then settles 'complete' or 'failed'. See
+ * docs/resumable-generation.md.
+ */
+export const generationStatus = pgEnum("generation_status", [
+  "pending",
+  "running",
+  "complete",
+  "failed",
+]);
+
+/**
+ * Overall syllabus lifecycle. New syllabi start 'generating' and flip to 'ready'
+ * once every unit completes. 'failed' is reserved for a permanently-failed
+ * SKELETON (no structure to show); once structure exists, individual unit
+ * failures surface per-unit and never fail the whole syllabus.
+ */
+export const syllabusStatus = pgEnum("syllabus_status", [
+  "generating",
+  "ready",
+  "failed",
+]);
+
 export type SyllabusAlternativeTargetBranch = {
   role: string;
   rationale: string;
@@ -147,6 +173,18 @@ export const syllabi = pgTable(
       .default(
         sql`'{"structuralBlockers":[],"alternativeTargetBranches":[],"currentSkills":""}'::jsonb`,
       ),
+    // ── Resumable generation state (see docs/resumable-generation.md) ──
+    // Overall lifecycle. New syllabi start 'generating'; the worker flips to
+    // 'ready' when every unit completes, or 'failed' iff the skeleton itself
+    // permanently fails. EXISTING rows are backfilled to 'ready' in the migration.
+    status: syllabusStatus("status").notNull().default("generating"),
+    // Skeleton unit (1 Grok call → clusters + sub-skills). EXISTING rows →
+    // 'complete' in the migration backfill.
+    skeletonStatus: generationStatus("skeleton_status")
+      .notNull()
+      .default("pending"),
+    // Last skeleton-generation failure message; surfaced on the page, null when healthy.
+    generationError: text("generation_error"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -154,7 +192,11 @@ export const syllabi = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [index("syllabi_user_id_idx").on(t.userId)],
+  (t) => [
+    index("syllabi_user_id_idx").on(t.userId),
+    // The Cron worker scans for outstanding work by status.
+    index("syllabi_status_idx").on(t.status),
+  ],
 );
 
 export type SuggestedArtefact = {
@@ -250,6 +292,17 @@ export const skillClusters = pgTable(
       .$type<ProjectResource[]>()
       .notNull()
       .default(sql`'[]'::jsonb`),
+    // ── Resumable generation state (this cluster's stage-3 artefact) ──
+    // Only artefact-bearing clusters generate one; non-bearing clusters are set
+    // 'complete' at skeleton time so the worker never picks them up. EXISTING
+    // rows are backfilled to 'complete' in the migration.
+    artefactStatus: generationStatus("artefact_status")
+      .notNull()
+      .default("pending"),
+    artefactAttempts: integer("artefact_attempts").notNull().default(0),
+    artefactError: text("artefact_error"),
+    // Claim clock for stale-run reclaim (a unit 'running' too long is retried).
+    artefactStartedAt: timestamp("artefact_started_at", { withTimezone: true }),
   },
   (t) => [index("skill_clusters_syllabus_id_idx").on(t.syllabusId)],
 );
@@ -268,6 +321,18 @@ export const subSkills = pgTable(
     subSkillStatus: subSkillStatusEnum("sub_skill_status")
       .notNull()
       .default("not_started"),
+    // ── Resumable generation state (this sub-skill's concepts + resources) ──
+    // The unit's idempotency key: the worker claims 'pending'/'failed' units and
+    // settles 'complete'/'failed'. EXISTING rows are backfilled to 'complete'.
+    generationStatus: generationStatus("generation_status")
+      .notNull()
+      .default("pending"),
+    generationAttempts: integer("generation_attempts").notNull().default(0),
+    generationError: text("generation_error"),
+    // Claim clock for stale-run reclaim (a unit 'running' too long is retried).
+    generationStartedAt: timestamp("generation_started_at", {
+      withTimezone: true,
+    }),
   },
   (t) => [index("sub_skills_cluster_id_idx").on(t.clusterId)],
 );

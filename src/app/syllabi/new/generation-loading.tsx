@@ -51,17 +51,6 @@ export function GenerationLoading() {
     return () => clearInterval(id);
   }, []);
 
-  // The Server Action is in flight; warn before a stray click / refresh throws
-  // away ~3 minutes of generation work.
-  useEffect(() => {
-    const handler = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = "";
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, []);
-
   const progress = Math.min(
     PROGRESS_CAP,
     PROGRESS_CAP * (1 - Math.exp(-elapsed / PROGRESS_TAU)),
@@ -105,7 +94,8 @@ export function GenerationLoading() {
         </div>
 
         <p className="text-muted-foreground/70 text-xs">
-          Keep this tab open — closing it will cancel generation.
+          You can safely leave — generation continues in the background, and your
+          syllabus will be here when you get back.
         </p>
       </div>
     </div>
