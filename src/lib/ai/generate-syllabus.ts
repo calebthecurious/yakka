@@ -507,8 +507,8 @@ const skeletonSchema = z
     (s) => s.clusters.some((c) => c.type === "domain"),
     "Syllabus must include at least one cluster of type 'domain'.",
   );
-type SyllabusSkeleton = z.infer<typeof skeletonSchema>;
-type SkeletonCluster = z.infer<typeof skeletonClusterSchema>;
+export type SyllabusSkeleton = z.infer<typeof skeletonSchema>;
+export type SkeletonCluster = z.infer<typeof skeletonClusterSchema>;
 
 // The detail stage now resolves one sub-skill at a time, so each call returns
 // just that sub-skill's concepts.
@@ -698,7 +698,7 @@ function contextLines(input: GenerateSyllabusInput): string[] {
   ].filter((line): line is string => line !== null);
 }
 
-async function generateSkeleton(
+export async function generateSkeleton(
   input: GenerateSyllabusInput,
 ): Promise<SyllabusSkeleton> {
   const messages: ChatMessage[] = [
@@ -715,12 +715,14 @@ async function generateSkeleton(
   );
 }
 
-type SkeletonSubSkill = z.infer<typeof skeletonSubSkillSchema>;
+export type SkeletonSubSkill = z.infer<typeof skeletonSubSkillSchema>;
 
-async function generateSubSkillConcepts(
+export async function generateSubSkillConcepts(
   input: GenerateSyllabusInput,
-  cluster: SkeletonCluster,
-  subSkill: SkeletonSubSkill,
+  // Minimal structural context — the background worker passes plain DB rows,
+  // and the inline orchestrator's SkeletonCluster/SkeletonSubSkill satisfy these.
+  cluster: { name: string; type: string; description: string },
+  subSkill: { name: string; description: string },
 ): Promise<z.infer<typeof conceptSchema>[]> {
   const userMessage = [
     ...contextLines(input),
@@ -753,7 +755,7 @@ async function generateSubSkillConcepts(
 // Stage 3: for ONE artefact-bearing cluster (after its concepts exist), define
 // the employer-valuable artefact and which concepts it demonstrates. Runs only
 // for bearing clusters; non-bearing clusters skip this entirely.
-async function generateClusterArtefact(
+export async function generateClusterArtefact(
   input: GenerateSyllabusInput,
   cluster: { name: string; type: string; description: string },
   clusterConcepts: { name: string; tier: string }[],
