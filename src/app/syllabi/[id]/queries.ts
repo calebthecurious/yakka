@@ -85,6 +85,10 @@ export function projectReadinessInput(syllabus: LoadedSyllabus): ReadinessInput 
         concepts.push({
           id: concept.id,
           clusterId: cluster.id,
+          // Sub-skill grain: without this the ledger's `subSkillsApplied` is
+          // empty and `subSkillCoverage.complete` is false, so the tree's
+          // per-sub-skill counts would render 0/0.
+          subSkillId: subSkill.id,
           status: concept.status,
         });
         for (const check of concept.competencyChecks) {

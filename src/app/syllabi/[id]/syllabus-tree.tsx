@@ -47,11 +47,26 @@ type ConceptNode = {
   resourceCount: number;
 };
 
+/**
+ * Evidence-gated concept counts, computed server-side from the readiness ledger
+ * and passed down. This component never derives progress from `ConceptNode.status`
+ * — that field is self-declared and drives the per-concept checkbox only.
+ */
+type ProgressCounts = {
+  /** Evidence-verified concepts. */
+  done: number;
+  /** All concepts at this level. */
+  total: number;
+  /** done/total as 0–100. */
+  pct: number;
+};
+
 type SubSkillNode = {
   id: string;
   name: string;
   description: string;
   estimatedHours: number;
+  readiness: ProgressCounts;
   concepts: ConceptNode[];
 };
 
@@ -69,6 +84,7 @@ export type ClusterNode = {
   } | null;
   /** Employer-value framing for the bearing cluster's artefact (null if none). */
   artefactTarget: { employerValue: string } | null;
+  readiness: ProgressCounts;
   subSkills: SubSkillNode[];
   artefacts: ArtefactNode[];
 };
@@ -171,12 +187,7 @@ function ClusterSection({
   const style = CLUSTER_STYLE[cluster.type];
   const Icon = style.icon;
 
-  const allConcepts = cluster.subSkills.flatMap((s) => s.concepts);
-  const understood = allConcepts.filter(
-    (c) => c.status === "understood" || c.status === "verified",
-  ).length;
-  const progressPct =
-    allConcepts.length > 0 ? (understood / allConcepts.length) * 100 : 0;
+  const progress = cluster.readiness;
 
   return (
     <Collapsible
@@ -213,12 +224,12 @@ function ClusterSection({
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1 text-xs">
           <span className="text-muted-foreground tabular-nums">
-            {understood} / {allConcepts.length}
+            {progress.done} / {progress.total}
           </span>
           <div className="bg-muted h-1 w-20 overflow-hidden rounded-full">
             <div
               className="bg-foreground/60 h-full transition-all"
-              style={{ width: `${progressPct}%` }}
+              style={{ width: `${progress.pct}%` }}
             />
           </div>
         </div>
@@ -372,9 +383,7 @@ function SubSkillSection({
   skill: SubSkillNode;
 }) {
   const [open, setOpen] = useState(false);
-  const understood = skill.concepts.filter(
-    (c) => c.status === "understood" || c.status === "verified",
-  ).length;
+  const progress = skill.readiness;
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
@@ -397,7 +406,7 @@ function SubSkillSection({
           ~{skill.estimatedHours}h
         </span>
         <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
-          {understood}/{skill.concepts.length}
+          {progress.done}/{progress.total}
         </span>
       </CollapsibleTrigger>
 

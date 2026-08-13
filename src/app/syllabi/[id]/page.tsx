@@ -8,7 +8,12 @@ import { cn } from "@/lib/utils";
 import type { RoleNature } from "@/db/schema";
 import { requireCurrentUserId } from "@/lib/auth";
 import { runSyllabusGeneration } from "@/lib/generation/run";
-import { summarizeReadinessLedger } from "@/lib/readiness/summary";
+import {
+  findClusterSummary,
+  findSubSkillSummary,
+  summarizeReadinessLedger,
+  type ReadinessSummary,
+} from "@/lib/readiness/summary";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PageContainer } from "@/components/page-container";
@@ -47,6 +52,37 @@ const ROLE_NATURE_BADGE: Record<
     className: "bg-violet-500/10 text-violet-200 border-violet-500/30",
   },
 };
+
+/** Concept-grained progress counts handed to the tree. */
+type ProgressCounts = { done: number; total: number; pct: number };
+
+/**
+ * One cluster's CONCEPT counts (the artefact-target milestone excluded, so the
+ * denominator stays "concepts" as this row has always rendered it). Zeroes only
+ * when the cluster has no ledger row at all, which FK integrity should prevent.
+ */
+function clusterConceptCounts(
+  summary: ReadinessSummary,
+  clusterId: string,
+): ProgressCounts {
+  const c = findClusterSummary(summary, clusterId);
+  if (!c) return { done: 0, total: 0, pct: 0 };
+  return { done: c.concepts.done, total: c.concepts.total, pct: c.concepts.pct };
+}
+
+/**
+ * One sub-skill's concept counts. Zeroes when the ledger carries no row —
+ * which means the loader stopped supplying `subSkillId`, not that the sub-skill
+ * is empty. See `projectReadinessInput`.
+ */
+function subSkillConceptCounts(
+  summary: ReadinessSummary,
+  subSkillId: string,
+): ProgressCounts {
+  const s = findSubSkillSummary(summary, subSkillId);
+  if (!s) return { done: 0, total: 0, pct: 0 };
+  return { done: s.done, total: s.total, pct: s.pct };
+}
 
 export async function generateMetadata({
   params,
@@ -174,6 +210,11 @@ export default async function SyllabusPage({ params }: PageProps) {
     0,
   );
 
+  // The tree is a Client Component, so it cannot compute a ledger itself. Its
+  // counts are projected here, from the same `readiness` summary the header
+  // renders, and hung on the nodes it already receives — one truth, resolved
+  // server-side. A missing row can only mean the loader stopped supplying
+  // subSkillId; `readiness.subSkillCoverage.complete` is the canary for that.
   const treeData = clusters.map((cluster) => ({
     id: cluster.id,
     name: cluster.name,
@@ -185,11 +226,15 @@ export default async function SyllabusPage({ params }: PageProps) {
     artefactTarget: cluster.artefactTarget
       ? { employerValue: cluster.artefactTarget.employerValue }
       : null,
+    // Concept grain (artefact-target milestone excluded) — matches what this
+    // row has always rendered as its denominator.
+    readiness: clusterConceptCounts(readiness, cluster.id),
     subSkills: cluster.subSkills.map((skill) => ({
       id: skill.id,
       name: skill.name,
       description: skill.description,
       estimatedHours: skill.estimatedHours,
+      readiness: subSkillConceptCounts(readiness, skill.id),
       concepts: skill.concepts.map((concept) => ({
         id: concept.id,
         name: concept.name,
