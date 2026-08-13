@@ -11,11 +11,20 @@ type ClusterType = "technical" | "domain" | "soft" | "meta";
 
 type MandalaConcept = { id: string; name: string; status: Status };
 
+/**
+ * Evidence-gated concept counts for one cluster, computed server-side from the
+ * readiness ledger. `pct` arrives 0–100 (the ledger's convention) and is
+ * converted to the 0–1 fraction this file's geometry expects at the single
+ * seam below — never at a render site.
+ */
+type MandalaReadiness = { done: number; total: number; pct: number };
+
 export type MandalaCluster = {
   id: string;
   name: string;
   type: ClusterType;
   weight: number;
+  readiness: MandalaReadiness;
   concepts: MandalaConcept[];
 };
 
@@ -40,11 +49,37 @@ function nodeRadius(weight: number): number {
   return Math.min(64, Math.max(42, 38 + weight * 5));
 }
 
-function progressOf(concepts: MandalaConcept[]): { done: number; total: number; pct: number } {
-  const total = concepts.length;
-  const done = concepts.filter(
-    (c) => c.status === "understood" || c.status === "verified",
-  ).length;
+/**
+ * THE SEAM. Every progress number in this file — the centre ring, each cluster
+ * arc, both percentage labels, the reduced-motion fallback and its bars — comes
+ * through here. Progress is NOT derived from `MandalaConcept.status`: that field
+ * is self-declared and only colours the individual concept dots. These counts are
+ * evidence-gated by the ledger upstream.
+ *
+ * Returns `pct` as a 0–1 fraction because the geometry multiplies it by a
+ * circumference; the ledger's 0–100 is divided down here, once.
+ */
+function progressOf(cluster: MandalaCluster): { done: number; total: number; pct: number } {
+  const { done, total, pct } = cluster.readiness;
+  return { done, total, pct: pct / 100 };
+}
+
+/**
+ * Syllabus-wide roll-up, summed from the same per-cluster ledger counts rather
+ * than recomputed from concepts. Safe by the ledger's own tested invariant:
+ * Σ byCluster.concepts.total === concepts.total (see summary.test.ts).
+ */
+function overallProgressOf(clusters: MandalaCluster[]): {
+  done: number;
+  total: number;
+  pct: number;
+} {
+  let done = 0;
+  let total = 0;
+  for (const c of clusters) {
+    done += c.readiness.done;
+    total += c.readiness.total;
+  }
   return { done, total, pct: total > 0 ? done / total : 0 };
 }
 
@@ -116,10 +151,7 @@ export function GoalMandala({
 }) {
   const [focusedId, setFocusedId] = useState<string | null>(null);
 
-  const overall = useMemo(
-    () => progressOf(clusters.flatMap((c) => c.concepts)),
-    [clusters],
-  );
+  const overall = useMemo(() => overallProgressOf(clusters), [clusters]);
 
   return (
     <>
@@ -298,7 +330,7 @@ function RadialMandala({
           const angle = clusterAngle(i, count);
           const [x, y] = polar(CX, CY, CLUSTER_RING_R, angle);
           const r = nodeRadius(cluster.weight);
-          const prog = progressOf(cluster.concepts);
+          const prog = progressOf(cluster);
           const arcR = r + 7;
           const arcC = 2 * Math.PI * arcR;
           const isFocused = focusedId === cluster.id;
@@ -495,7 +527,7 @@ function StackedMandala({
 
       {/* cluster accordion */}
       {clusters.map((cluster) => {
-        const prog = progressOf(cluster.concepts);
+        const prog = progressOf(cluster);
         const open = focusedId === cluster.id;
         return (
           <div

@@ -28,6 +28,9 @@ export function SyllabusViews({
         name: cluster.name,
         type: cluster.type,
         weight: cluster.weight,
+        // Same ledger-derived counts the tree renders — forwarded, not recomputed,
+        // so the two views can never disagree about the same cluster.
+        readiness: cluster.readiness,
         concepts: cluster.subSkills.flatMap((skill) =>
           skill.concepts.map((concept) => ({
             id: concept.id,
