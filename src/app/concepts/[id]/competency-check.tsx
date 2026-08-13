@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PASS_BAR } from "@/lib/readiness/model";
 import { Badge } from "@/components/ui/badge";
 import type { CompetencyQuestion } from "@/db/schema";
 import {
@@ -23,7 +24,6 @@ import {
 
 type ConceptStatus = "not_started" | "learning" | "understood" | "verified";
 
-const PASS_THRESHOLD = 4;
 const OPTION_LABELS = ["A", "B", "C", "D"];
 
 type Phase = "idle" | "generating" | "quiz" | "results";
@@ -125,7 +125,7 @@ export function CompetencyCheck({
                 <span
                   className={cn(
                     "font-semibold",
-                    lastScore >= PASS_THRESHOLD
+                    lastScore >= PASS_BAR
                       ? "text-emerald-300"
                       : "text-amber-200",
                   )}
@@ -175,7 +175,7 @@ export function CompetencyCheck({
 
   // ---- RESULTS ----
   if (phase === "results") {
-    const passed = score >= PASS_THRESHOLD;
+    const passed = score >= PASS_BAR;
     const alreadyResolved =
       conceptStatus === "understood" || conceptStatus === "verified";
     return (
