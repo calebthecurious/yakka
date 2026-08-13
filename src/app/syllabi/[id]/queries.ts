@@ -115,10 +115,26 @@ export function projectReadinessInput(syllabus: LoadedSyllabus): ReadinessInput 
 }
 
 /**
+ * The ledger for a tree that has ALREADY been loaded. Pure — no DB, no second
+ * query. Use this from any server component that has called {@link loadSyllabus}
+ * already (the syllabus page does), so rendering readiness costs one deep query,
+ * not two.
+ */
+export function readinessForLoadedSyllabus(
+  syllabus: LoadedSyllabus,
+): ReadinessLedger {
+  return computeReadinessLedger(projectReadinessInput(syllabus));
+}
+
+/**
  * The honest role-readiness source of truth for a syllabus. Loads the owned tree
  * via {@link loadSyllabus} (reusing its userId scoping — never bypassing it),
  * projects it into the pure model's `ReadinessInput`, and runs
  * `computeReadinessLedger`. Returns null when the syllabus isn't found / owned.
+ *
+ * Standalone entry point for callers that do NOT already hold the tree. If you
+ * do hold it, call {@link readinessForLoadedSyllabus} instead — this one pays
+ * for a second `loadSyllabus`.
  */
 export async function getReadinessForSyllabus(
   syllabusId: string,
@@ -126,5 +142,5 @@ export async function getReadinessForSyllabus(
 ): Promise<ReadinessLedger | null> {
   const syllabus = await loadSyllabus(syllabusId, userId);
   if (!syllabus) return null;
-  return computeReadinessLedger(projectReadinessInput(syllabus));
+  return readinessForLoadedSyllabus(syllabus);
 }

@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import type { RoleNature } from "@/db/schema";
 import { requireCurrentUserId } from "@/lib/auth";
 import { runSyllabusGeneration } from "@/lib/generation/run";
+import { summarizeReadinessLedger } from "@/lib/readiness/summary";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PageContainer } from "@/components/page-container";
@@ -16,7 +17,7 @@ import { SyllabusViews } from "./syllabus-views";
 import { GeneratingView } from "./generating-view";
 import { RetryGenerationButton } from "./retry-generation-button";
 import { DeleteSyllabusButton } from "./delete-syllabus-button";
-import { loadSyllabus, getReadinessForSyllabus } from "./queries";
+import { loadSyllabus, readinessForLoadedSyllabus } from "./queries";
 
 // This page is the resume entry point: on load it kicks the generation worker
 // via after(), which continues after the response within this invocation's
@@ -156,9 +157,16 @@ export default async function SyllabusPage({ params }: PageProps) {
   const allConcepts = clusters.flatMap((c) =>
     c.subSkills.flatMap((s) => s.concepts),
   );
-  const understoodCount = allConcepts.filter(
-    (c) => c.status === "understood" || c.status === "verified",
-  ).length;
+  // Header counts come from the readiness ledger, not raw `concepts.status`.
+  // `conceptsVerified` is evidence-gated (passed check at >= PASS_BAR, or a
+  // completed artefact demonstrating the concept); self-declared understood/
+  // verified without evidence is NOT counted here. The tree below still reads
+  // raw status — that divergence is deliberate and tracked (P1.1 must-differ A).
+  const readinessLedger = readinessForLoadedSyllabus(syllabus);
+  const readiness = summarizeReadinessLedger(readinessLedger);
+  // Raw status is still the only source for "has the user touched anything?" —
+  // `learning` is invisible to the ledger, so this has no ledger equivalent
+  // (P1.1 must-differ F). Left as-is deliberately.
   const hasBegun = allConcepts.some((c) => c.status !== "not_started");
   const totalHours = clusters.reduce(
     (sum, c) =>
@@ -210,9 +218,6 @@ export default async function SyllabusPage({ params }: PageProps) {
   const showReadinessDebug =
     process.env.NODE_ENV !== "production" ||
     process.env.READINESS_DEBUG === "1";
-  const readinessLedger = showReadinessDebug
-    ? await getReadinessForSyllabus(syllabus.id, userId)
-    : null;
 
   return (
     <PageContainer width="wide" className="flex flex-col gap-8">
@@ -256,8 +261,8 @@ export default async function SyllabusPage({ params }: PageProps) {
         <p className="text-muted-foreground text-sm">
           {clusters.length} clusters ·{" "}
           {clusters.reduce((s, c) => s + c.subSkills.length, 0)} sub-skills ·{" "}
-          {allConcepts.length} concepts ({understoodCount} understood) · ~
-          {totalHours}h estimated
+          {readiness.concepts.total} concepts ({readiness.concepts.verified}{" "}
+          verified) · ~{totalHours}h estimated
         </p>
         <div className="flex flex-wrap gap-2">
           <Link
