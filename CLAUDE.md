@@ -89,7 +89,31 @@ For semantic/intent questions, prefer `mcp__gbrain__*` tools (after restart) or,
   - **TODO:** switch the health check to `https://provency.ai/login` once the custom domain is live.
 
 ### Custom deploy hooks
-- Pre-merge gate: `npx tsc --noEmit` then `npx eslint` (this project has no test runner — typecheck + lint are the gate).
+- Pre-merge gate: `npm test` (vitest), then `npx tsc --noEmit`, then `npx eslint`.
 - Deploy trigger: push to `main` (Vercel auto-builds).
 - Deploy status: `vercel ls --prod` (CLI), or poll the health-check URL until it serves the new build.
 - Health check: `https://yakka-two.vercel.app/login` (200).
+
+## Changelog
+
+### 2026-08-13 — Process: a prompt is not done until it is checked and committed
+
+**Rule.** A prompt's STOP is not complete until its real-eyes check and commit
+exist. The next prompt's precondition must cite the previous commit hash.
+
+**Why.** Amendment 1 (P1.2–P1.5) ran five prompts deep on an uncommitted working
+tree. Every prompt's precondition claimed the previous slice was "committed";
+none were. The cost: no bisectable history, no safe baseline to revert against
+for a red-then-green demo, and a late-discovered gap (P1.5b was never
+implemented — its gate was never answered) that had already been assumed
+complete by two downstream prompts. Reconstructing the slices afterwards took a
+temporary WIP commit and a hard reset.
+
+**In practice.** Cite the hash, don't assert the state: `PRECONDITION: <hash>
+is HEAD`. If `git log` does not show it, STOP and report — an unverifiable
+precondition is a failed one. Where a prompt pauses at a decision gate, that
+gate is unanswered until the user answers it; downstream prompts may not assume
+it resolved.
+
+**See also:** `WORKLOG.md` for what landed, what is deliberately still on raw
+status, and what remains open.
