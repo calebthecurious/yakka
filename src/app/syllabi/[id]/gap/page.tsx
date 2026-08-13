@@ -25,7 +25,6 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { PageContainer } from "@/components/page-container";
 import { GapReportButton } from "./gap-report-buttons";
-import { AddToSyllabusButton } from "./add-to-syllabus-button";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -437,7 +436,6 @@ export default async function GapPage({ params }: PageProps) {
                       {g.note}
                     </span>
                   ) : null}
-                  <AddToSyllabusButton />
                 </li>
               ))}
             </ul>
