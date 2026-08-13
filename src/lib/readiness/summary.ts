@@ -31,7 +31,14 @@
  *    render a concept denominator without touching raw rows.
  */
 
-import type { ReadinessLedger } from "./model";
+import type {
+  ActivitySignal,
+  ArtefactStats,
+  ConceptEvidenceEntry,
+  LearningTrail,
+  LedgerCoverage,
+  ReadinessLedger,
+} from "./model";
 
 /**
  * Percentage in [0, 100], with the divide-by-zero guard the surfaces keep
@@ -113,6 +120,23 @@ export interface ReadinessSummary {
   };
   /** Foundations signal, passed through verbatim from `ledger.foundations`. */
   foundations: { needIt: number; total: number };
+  /**
+   * Per-concept evidence provenance, for every verified concept. Render it with
+   * `formatEvidenceLabel` rather than composing a sentence at the call site.
+   */
+  evidence: ConceptEvidenceEntry[];
+  /**
+   * ARTEFACT-grain counters. Note `artefactCounts.completed` counts artefacts
+   * while `artefacts.backed` above counts artefact-bearing CLUSTERS — two
+   * completed artefacts in one cluster are 2 and 1 respectively.
+   */
+  artefactCounts: ArtefactStats;
+  /** Self-declared activity. Never evidence, never in the headline. */
+  activity: ActivitySignal;
+  /** Completed resources. Inventory, never evidence. */
+  trail: LearningTrail;
+  /** Where the input was incomplete; non-zero means a count is a floor. */
+  coverage: LedgerCoverage;
 }
 
 /**
@@ -200,6 +224,11 @@ export function summarizeReadinessLedger(
       needIt: ledger.foundations.needIt,
       total: ledger.foundations.total,
     },
+    evidence: ledger.evidence,
+    artefactCounts: ledger.artefacts,
+    activity: ledger.activity,
+    trail: ledger.trail,
+    coverage: ledger.coverage,
   };
 }
 
@@ -234,4 +263,16 @@ export function subSkillsForCluster(
   clusterId: string,
 ): SubSkillSummary[] {
   return summary.bySubSkill.filter((s) => s.clusterId === clusterId);
+}
+
+/**
+ * One concept's evidence, or null when it has none. Null means "not verified" —
+ * there are no empty evidence entries, so a null here and an absent row are the
+ * same fact.
+ */
+export function findConceptEvidence(
+  summary: ReadinessSummary,
+  conceptId: string,
+): ConceptEvidenceEntry | null {
+  return summary.evidence.find((e) => e.conceptId === conceptId) ?? null;
 }

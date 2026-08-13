@@ -47,6 +47,21 @@ export type FoundationItemType = "assumed_baseline" | "launch_step";
 /** Mirrors `foundation_user_status` in src/db/schema.ts. */
 export type FoundationUserStatus = "have_it" | "need_it" | "unset";
 
+/** Mirrors `artefact_type` in src/db/schema.ts. */
+export type ArtefactType = "project" | "writeup" | "certificate" | "contribution";
+
+/** Mirrors `resource_type` in src/db/schema.ts. */
+export type ResourceType =
+  | "course"
+  | "book"
+  | "video"
+  | "article"
+  | "project"
+  | "paper";
+
+/** Mirrors `resource_status` in src/db/schema.ts. */
+export type ResourceStatus = "planned" | "consuming" | "completed" | "abandoned";
+
 /* ── Input shapes ───────────────────────────────────────────────────────────
  * Minimal plain projections of the loaded tree. The loader is responsible for
  * resolving each artefact/concept to its parent cluster id (artefacts attach at
@@ -93,11 +108,42 @@ export interface ArtefactInput {
   /** Parent cluster id (resolved by the loader from sub_skill → cluster). */
   clusterId: string;
   /** `artefacts.verifiedAt`. Non-null = completed/backed. The ONLY artefact
-   * "done" signal — there is no artefact status enum. */
+   * "done" signal — there is no artefact status enum. A pasted URL is NOT a
+   * completion signal; see {@link isCompletedProject}. */
   verifiedAt: Date | string | null;
   /** `artefacts.demonstratedConceptIds`. May contain stale/foreign ids; they
    * are harmless because verification is evaluated per real concept. */
   demonstratedConceptIds: string[];
+  /**
+   * `artefacts.title`. OPTIONAL: needed only to render evidence provenance
+   * ("Demonstrated in …"). Absent → the evidence entry carries a null title and
+   * {@link formatEvidenceLabel} falls back to a generic phrase.
+   */
+  title?: string | null;
+  /**
+   * `artefacts.type`. OPTIONAL: needed only to count completed PROJECTS.
+   * Absent → the artefact is counted in `coverage.artefactsWithoutType` and
+   * never counted as a project, rather than silently assumed to be one.
+   */
+  type?: ArtefactType | null;
+  /**
+   * `artefacts.acceptanceCriteria`. OPTIONAL. Absent is indistinguishable from
+   * an artefact that genuinely has none — both yield 0/0, which is correct.
+   */
+  acceptanceCriteria?: { done: boolean }[];
+}
+
+/**
+ * A resource attached to a concept. Feeds the learning trail only — resources
+ * are NEVER evidence and can never move the headline. Notes are deliberately
+ * absent from this shape: they are private and must not reach a public surface.
+ */
+export interface ResourceInput {
+  conceptId: string;
+  type: ResourceType;
+  status: ResourceStatus;
+  title?: string | null;
+  author?: string | null;
 }
 
 export interface FoundationItemInput {
@@ -111,6 +157,9 @@ export interface ReadinessInput {
   competencyChecks: CompetencyCheckInput[];
   artefacts: ArtefactInput[];
   foundationItems: FoundationItemInput[];
+  /** OPTIONAL. Absent behaves exactly like "no completed resources": an empty
+   * trail. Loaders that don't render a trail can omit it entirely. */
+  resources?: ResourceInput[];
 }
 
 /* ── Output shape: the full ReadinessLedger ────────────────────────────────── */
@@ -217,11 +266,85 @@ export interface FoundationsSignal {
   total: number;
 }
 
+/* ── Evidence provenance ────────────────────────────────────────────────────
+ * WHY a concept is verified, not just that it is. The public profile renders
+ * this next to each verified competency, so it is derived HERE, under test,
+ * rather than rebuilt inline by whichever surface happens to need it. */
+
+/** One piece of backing evidence for one concept. */
+export type ConceptEvidence =
+  | { kind: "competency_check"; score: number; outOf: number }
+  | { kind: "artefact"; artefactId: string; artefactTitle: string | null };
+
+/** All evidence for one concept. Emitted ONLY for concepts that are verified;
+ * a concept with no evidence has no entry (never an empty one). */
+export interface ConceptEvidenceEntry {
+  conceptId: string;
+  clusterId: string;
+  /** Competency-check evidence first, then artefacts in input order. */
+  evidence: ConceptEvidence[];
+}
+
+/** Artefact counters at ARTEFACT grain. Distinct from
+ * `breakdown.artefactsBacked`/`artefactsTargeted`, which count artefact-bearing
+ * CLUSTERS (one milestone each) — two completed artefacts in one cluster are
+ * 2 here and 1 there. Different units, both correct, never interchangeable. */
+export interface ArtefactStats {
+  /** Artefacts with `verifiedAt != null`. A pasted URL is not a completion. */
+  completed: number;
+  /** Completed artefacts whose type is 'project'. */
+  projectsCompleted: number;
+  /** Every artefact supplied, completed or not. */
+  total: number;
+}
+
+/** Self-declared activity. NOT evidence and never in the headline — exposed so
+ * a surface can say "in progress" honestly instead of inventing a number. */
+export interface ActivitySignal {
+  /** Concepts the user marked `learning`. */
+  conceptsInProgress: number;
+}
+
+export interface TrailByType {
+  type: ResourceType;
+  count: number;
+}
+
+export interface TrailNamedResource {
+  title: string | null;
+  author: string | null;
+  type: ResourceType;
+}
+
+/** Resources actually worked through. Inventory, never evidence. */
+export interface LearningTrail {
+  total: number;
+  /** Counts per resource type, in first-seen order. */
+  byType: TrailByType[];
+  /** Up to {@link TRAIL_NAMED_LIMIT} named completed resources, input order. */
+  named: TrailNamedResource[];
+}
+
+/** Where the input was incomplete. Non-zero means a derived count is a floor,
+ * not a total — surfaces should prefer failing loudly over rendering it. */
+export interface LedgerCoverage {
+  /** Concepts with no `subSkillId`; they appear in no sub-skill row. */
+  conceptsWithoutSubSkill: number;
+  /** Artefacts with no `type`; they can never count as a completed project. */
+  artefactsWithoutType: number;
+}
+
 export interface ReadinessLedger {
   headline: ReadinessHeadline;
   breakdown: ReadinessBreakdown;
   selfAssessed: SelfAssessedCounts;
   foundations: FoundationsSignal;
+  /** Per-concept provenance for every verified concept. */
+  evidence: ConceptEvidenceEntry[];
+  artefacts: ArtefactStats;
+  activity: ActivitySignal;
+  trail: LearningTrail;
+  coverage: LedgerCoverage;
 }
 
 /* ── Rule predicates (pure) ─────────────────────────────────────────────────
@@ -247,6 +370,75 @@ export function isSelfDeclaredDone(status: ConceptStatus): boolean {
   return status === "understood" || status === "verified";
 }
 
+/**
+ * A concept is "in progress" iff the user marked it `learning`. Purely
+ * self-declared: it is never evidence, never in the headline, and deliberately
+ * has no evidence-gated counterpart — "I am working on this" is a claim only
+ * the learner can make.
+ */
+export function isConceptInProgress(status: ConceptStatus): boolean {
+  return status === "learning";
+}
+
+/**
+ * A completed PROJECT: type 'project' AND actually verified. An artefact with a
+ * pasted URL but no `verifiedAt` is not completed — the public profile
+ * previously counted links as "shipped", which this rule replaces.
+ */
+export function isCompletedProject(artefact: ArtefactInput): boolean {
+  return artefact.type === "project" && isArtefactBacked(artefact.verifiedAt);
+}
+
+/**
+ * The highest PASSING score among a concept's checks, or null when none pass.
+ * Failing and unfinished attempts are invisible — a learner is represented by
+ * their best passing result, never penalised for having tried.
+ */
+export function bestPassingScore(
+  checks: { score: number | null; completedAt: Date | string | null }[],
+): number | null {
+  let best: number | null = null;
+  for (const c of checks) {
+    if (!isCompetencyPass(c.score, c.completedAt)) continue;
+    if (c.score != null && (best == null || c.score > best)) best = c.score;
+  }
+  return best;
+}
+
+/** Acceptance-criteria progress for one artefact. 0/0 when it has none. */
+export function criteriaProgress(criteria: { done: boolean }[] | undefined): {
+  done: number;
+  total: number;
+} {
+  const list = criteria ?? [];
+  return { done: list.filter((c) => c.done).length, total: list.length };
+}
+
+/** A resource counts toward the trail iff the learner finished it. */
+export function isResourceCompleted(status: ResourceStatus): boolean {
+  return status === "completed";
+}
+
+/** How many named resources the trail exposes. */
+export const TRAIL_NAMED_LIMIT = 8;
+
+/** Out of how many a competency check is scored. */
+export const COMPETENCY_CHECK_OUT_OF = 5;
+
+/**
+ * The canonical human label for one piece of evidence. Kept beside the rule
+ * that produces it so wording and semantics can never drift apart; a surface
+ * renders what this returns rather than composing its own sentence.
+ */
+export function formatEvidenceLabel(evidence: ConceptEvidence): string {
+  if (evidence.kind === "competency_check") {
+    return `Competency check passed · ${evidence.score}/${evidence.outOf}`;
+  }
+  return evidence.artefactTitle == null
+    ? "Demonstrated in a completed artefact"
+    : `Demonstrated in “${evidence.artefactTitle}”`;
+}
+
 /* ── The pure reducer ───────────────────────────────────────────────────────── */
 
 /**
@@ -266,19 +458,31 @@ export function computeReadinessLedger(input: ReadinessInput): ReadinessLedger {
   const weightByCluster = new Map<string, number>();
   for (const c of input.clusters) weightByCluster.set(c.id, c.weight);
 
-  // Evidence source 1 — passed competency checks, keyed by concept.
+  // Evidence source 1 — passed competency checks, keyed by concept. The best
+  // passing score is retained so provenance can name it.
   const passedConceptIds = new Set<string>();
+  const checksByConcept = new Map<string, CompetencyCheckInput[]>();
   for (const ck of input.competencyChecks) {
+    const list = checksByConcept.get(ck.conceptId) ?? [];
+    list.push(ck);
+    checksByConcept.set(ck.conceptId, list);
     if (isCompetencyPass(ck.score, ck.completedAt)) {
       passedConceptIds.add(ck.conceptId);
     }
   }
 
   // Evidence source 2 — concepts demonstrated by a backed (completed) artefact.
+  // The backing artefacts are retained so provenance can name them.
   const demonstratedConceptIds = new Set<string>();
+  const backingArtefacts = new Map<string, ArtefactInput[]>();
   for (const a of input.artefacts) {
     if (!isArtefactBacked(a.verifiedAt)) continue;
-    for (const cid of a.demonstratedConceptIds) demonstratedConceptIds.add(cid);
+    for (const cid of a.demonstratedConceptIds) {
+      demonstratedConceptIds.add(cid);
+      const list = backingArtefacts.get(cid) ?? [];
+      list.push(a);
+      backingArtefacts.set(cid, list);
+    }
   }
 
   const conceptIsVerified = (conceptId: string): boolean =>
@@ -345,6 +549,8 @@ export function computeReadinessLedger(input: ReadinessInput): ReadinessLedger {
   let conceptsVerified = 0;
   let selfAssessedConcepts = 0;
   let conceptsWithoutSubSkill = 0;
+  let conceptsInProgress = 0;
+  const evidenceEntries: ConceptEvidenceEntry[] = [];
   for (const concept of input.concepts) {
     const entry = ensure(concept.clusterId);
     entry.total += 1;
@@ -358,10 +564,36 @@ export function computeReadinessLedger(input: ReadinessInput): ReadinessLedger {
       entry.completed += 1;
       entry.conceptsVerified += 1;
       conceptsVerified += 1;
+
+      // Provenance, derived from the SAME verdict that just counted it — the
+      // evidence list can never disagree with the verified count.
+      const items: ConceptEvidence[] = [];
+      const best = bestPassingScore(checksByConcept.get(concept.id) ?? []);
+      if (best != null) {
+        items.push({
+          kind: "competency_check",
+          score: best,
+          outOf: COMPETENCY_CHECK_OUT_OF,
+        });
+      }
+      for (const a of backingArtefacts.get(concept.id) ?? []) {
+        items.push({
+          kind: "artefact",
+          artefactId: a.id,
+          artefactTitle: a.title ?? null,
+        });
+      }
+      evidenceEntries.push({
+        conceptId: concept.id,
+        clusterId: concept.clusterId,
+        evidence: items,
+      });
     } else if (selfAssessed) {
       entry.conceptsSelfAssessed += 1;
       selfAssessedConcepts += 1;
     }
+
+    if (isConceptInProgress(concept.status)) conceptsInProgress += 1;
 
     if (concept.subSkillId != null) {
       const sub = ensureSub(concept.subSkillId, concept.clusterId);
@@ -398,6 +630,34 @@ export function computeReadinessLedger(input: ReadinessInput): ReadinessLedger {
   const selfAssessedArtefacts = input.artefacts.filter(
     (a) => !isArtefactBacked(a.verifiedAt),
   ).length;
+
+  // Artefact-grain counters (NOT the cluster-grain milestone counters above).
+  let artefactsCompleted = 0;
+  let projectsCompleted = 0;
+  let artefactsWithoutType = 0;
+  for (const a of input.artefacts) {
+    if (isArtefactBacked(a.verifiedAt)) artefactsCompleted += 1;
+    if (isCompletedProject(a)) projectsCompleted += 1;
+    if (a.type == null) artefactsWithoutType += 1;
+  }
+
+  // Learning trail — completed resources only. Inventory, never evidence.
+  const completedResources = (input.resources ?? []).filter((r) =>
+    isResourceCompleted(r.status),
+  );
+  const trailCounts = new Map<ResourceType, number>();
+  for (const r of completedResources) {
+    trailCounts.set(r.type, (trailCounts.get(r.type) ?? 0) + 1);
+  }
+  const trail: LearningTrail = {
+    total: completedResources.length,
+    byType: [...trailCounts.entries()].map(([type, count]) => ({ type, count })),
+    named: completedResources.slice(0, TRAIL_NAMED_LIMIT).map((r) => ({
+      title: r.title ?? null,
+      author: r.author ?? null,
+      type: r.type,
+    })),
+  };
 
   // Weighted roll-up over every accumulated cluster (preserves insertion order:
   // declared clusters first, any orphans last).
@@ -459,5 +719,14 @@ export function computeReadinessLedger(input: ReadinessInput): ReadinessLedger {
       artefacts: selfAssessedArtefacts,
     },
     foundations: { needIt, total: baselines.length },
+    evidence: evidenceEntries,
+    artefacts: {
+      completed: artefactsCompleted,
+      projectsCompleted,
+      total: input.artefacts.length,
+    },
+    activity: { conceptsInProgress },
+    trail,
+    coverage: { conceptsWithoutSubSkill, artefactsWithoutType },
   };
 }
