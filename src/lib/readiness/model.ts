@@ -67,6 +67,14 @@ export interface ConceptInput {
   id: string;
   /** Parent cluster id (resolved by the loader). */
   clusterId: string;
+  /**
+   * Parent sub-skill id. OPTIONAL: the ledger's headline and cluster roll-up
+   * do not need it, so a loader that omits it still produces a correct ledger —
+   * it simply produces no sub-skill roll-up. Concepts without one are counted
+   * in `breakdown.conceptsWithoutSubSkill` so the gap is visible rather than
+   * silently yielding empty sub-skill rows.
+   */
+  subSkillId?: string | null;
   /** Raw self-declared `concepts.status`. Used ONLY to detect self-assessment;
    * never trusted as verification evidence. */
   status: ConceptStatus;
@@ -129,6 +137,37 @@ export interface ClusterWeightContribution {
   weightedTotal: number;
   /** weight * milestonesCompleted. */
   weightedCompleted: number;
+  /* ── Concept-only split of the two milestone counters above. Lets a surface
+   * render a concept-grained denominator (what the tree/mandala show today)
+   * without re-deriving anything from raw rows, and makes the milestone
+   * identity checkable: milestonesTotal === conceptsTotal + artefactTargeted. */
+  /** Concept milestones in this cluster, EXCLUDING the artefact target. */
+  conceptsTotal: number;
+  /** Evidence-verified concepts in this cluster. */
+  conceptsVerified: number;
+  /** Self-declared-done concepts here with no backing evidence. */
+  conceptsSelfAssessed: number;
+  /** 1 when this cluster defines an artefact-target milestone, else 0. */
+  artefactTargeted: number;
+  /** 1 when that target is backed by a completed artefact, else 0. */
+  artefactBacked: number;
+}
+
+/**
+ * One sub-skill's concept roll-up. Sub-skills carry CONCEPT milestones only —
+ * the artefact-target milestone is defined per artefact-bearing CLUSTER, not
+ * per sub-skill, so it is deliberately absent here. That is why these totals
+ * sum to their cluster's `conceptsTotal`, never its `milestonesTotal`.
+ *
+ * Present only for concepts whose loader supplied a `subSkillId`.
+ */
+export interface SubSkillContribution {
+  subSkillId: string;
+  /** Parent cluster, so a consumer can group without a second lookup. */
+  clusterId: string;
+  conceptsTotal: number;
+  conceptsVerified: number;
+  conceptsSelfAssessed: number;
 }
 
 export interface ReadinessBreakdown {
@@ -145,6 +184,19 @@ export interface ReadinessBreakdown {
   /** Per-cluster contributions; Σ weightedCompleted / Σ weightedTotal equals the
    * headline exactly. */
   clusterWeightsApplied: ClusterWeightContribution[];
+  /**
+   * Per-sub-skill concept roll-ups, in first-seen order. Empty when the loader
+   * supplies no `subSkillId` — see `conceptsWithoutSubSkill`. Σ conceptsTotal
+   * over a cluster's rows equals that cluster's `conceptsTotal` MINUS its
+   * share of `conceptsWithoutSubSkill`.
+   */
+  subSkillsApplied: SubSkillContribution[];
+  /**
+   * Concepts that carried no `subSkillId` and so appear in no sub-skill row.
+   * 0 once the loader populates it; non-zero means sub-skill roll-ups are
+   * incomplete and a consumer should not treat them as exhaustive.
+   */
+  conceptsWithoutSubSkill: number;
 }
 
 /** Self-declared, NOT evidence-backed. Surfaced apart from the headline, never
@@ -204,6 +256,11 @@ export function isSelfDeclaredDone(status: ConceptStatus): boolean {
  *  - headline.weightedCompleted === Σ clusterWeightsApplied[].weightedCompleted
  *  - headline.weightedTotal     === Σ clusterWeightsApplied[].weightedTotal
  *  - Σ clusterWeightsApplied[].milestonesTotal === conceptsTotal + artefactsTargeted
+ *  - per cluster: milestonesTotal     === conceptsTotal + artefactTargeted
+ *  - per cluster: milestonesCompleted === conceptsVerified + artefactBacked
+ *  - Σ subSkillsApplied[].conceptsTotal + conceptsWithoutSubSkill === conceptsTotal
+ *  - per cluster: Σ its subSkillsApplied[].conceptsTotal <= its conceptsTotal
+ *    (equal once every concept carries a subSkillId)
  */
 export function computeReadinessLedger(input: ReadinessInput): ReadinessLedger {
   const weightByCluster = new Map<string, number>();
@@ -230,29 +287,89 @@ export function computeReadinessLedger(input: ReadinessInput): ReadinessLedger {
   // Per-cluster accumulator. Seed every known cluster so the audit array is
   // complete even for clusters with zero milestones. Unknown cluster ids (which
   // FK integrity should prevent) fall back to weight 0.
-  type Acc = { weight: number; total: number; completed: number };
+  type Acc = {
+    weight: number;
+    total: number;
+    completed: number;
+    conceptsTotal: number;
+    conceptsVerified: number;
+    conceptsSelfAssessed: number;
+    artefactTargeted: number;
+    artefactBacked: number;
+  };
   const acc = new Map<string, Acc>();
   const ensure = (clusterId: string): Acc => {
     let entry = acc.get(clusterId);
     if (!entry) {
-      entry = { weight: weightByCluster.get(clusterId) ?? 0, total: 0, completed: 0 };
+      entry = {
+        weight: weightByCluster.get(clusterId) ?? 0,
+        total: 0,
+        completed: 0,
+        conceptsTotal: 0,
+        conceptsVerified: 0,
+        conceptsSelfAssessed: 0,
+        artefactTargeted: 0,
+        artefactBacked: 0,
+      };
       acc.set(clusterId, entry);
     }
     return entry;
   };
   for (const c of input.clusters) ensure(c.id);
 
+  // Sub-skill accumulator, filled from the SAME concept pass as the cluster one
+  // below — there is no second traversal and no second verification rule, so the
+  // two grains cannot disagree.
+  type SubAcc = {
+    clusterId: string;
+    conceptsTotal: number;
+    conceptsVerified: number;
+    conceptsSelfAssessed: number;
+  };
+  const subAcc = new Map<string, SubAcc>();
+  const ensureSub = (subSkillId: string, clusterId: string): SubAcc => {
+    let entry = subAcc.get(subSkillId);
+    if (!entry) {
+      entry = {
+        clusterId,
+        conceptsTotal: 0,
+        conceptsVerified: 0,
+        conceptsSelfAssessed: 0,
+      };
+      subAcc.set(subSkillId, entry);
+    }
+    return entry;
+  };
+
   // Concept milestones — one per concept, completed iff evidence-verified.
   let conceptsVerified = 0;
   let selfAssessedConcepts = 0;
+  let conceptsWithoutSubSkill = 0;
   for (const concept of input.concepts) {
     const entry = ensure(concept.clusterId);
     entry.total += 1;
-    if (conceptIsVerified(concept.id)) {
+    entry.conceptsTotal += 1;
+
+    // Evaluated once; both grains and both totals below read this same verdict.
+    const verified = conceptIsVerified(concept.id);
+    const selfAssessed = !verified && isSelfDeclaredDone(concept.status);
+
+    if (verified) {
       entry.completed += 1;
+      entry.conceptsVerified += 1;
       conceptsVerified += 1;
-    } else if (isSelfDeclaredDone(concept.status)) {
+    } else if (selfAssessed) {
+      entry.conceptsSelfAssessed += 1;
       selfAssessedConcepts += 1;
+    }
+
+    if (concept.subSkillId != null) {
+      const sub = ensureSub(concept.subSkillId, concept.clusterId);
+      sub.conceptsTotal += 1;
+      if (verified) sub.conceptsVerified += 1;
+      else if (selfAssessed) sub.conceptsSelfAssessed += 1;
+    } else {
+      conceptsWithoutSubSkill += 1;
     }
   }
 
@@ -270,9 +387,11 @@ export function computeReadinessLedger(input: ReadinessInput): ReadinessLedger {
     artefactsTargeted += 1;
     const entry = ensure(c.id);
     entry.total += 1;
+    entry.artefactTargeted = 1;
     if (clusterHasBackedArtefact.has(c.id)) {
       artefactsBacked += 1;
       entry.completed += 1;
+      entry.artefactBacked = 1;
     }
   }
 
@@ -297,6 +416,22 @@ export function computeReadinessLedger(input: ReadinessInput): ReadinessLedger {
       milestonesCompleted: entry.completed,
       weightedTotal: wTotal,
       weightedCompleted: wCompleted,
+      conceptsTotal: entry.conceptsTotal,
+      conceptsVerified: entry.conceptsVerified,
+      conceptsSelfAssessed: entry.conceptsSelfAssessed,
+      artefactTargeted: entry.artefactTargeted,
+      artefactBacked: entry.artefactBacked,
+    });
+  }
+
+  const subSkillsApplied: SubSkillContribution[] = [];
+  for (const [subSkillId, entry] of subAcc) {
+    subSkillsApplied.push({
+      subSkillId,
+      clusterId: entry.clusterId,
+      conceptsTotal: entry.conceptsTotal,
+      conceptsVerified: entry.conceptsVerified,
+      conceptsSelfAssessed: entry.conceptsSelfAssessed,
     });
   }
 
@@ -316,6 +451,8 @@ export function computeReadinessLedger(input: ReadinessInput): ReadinessLedger {
       artefactsBacked,
       artefactsTargeted,
       clusterWeightsApplied,
+      subSkillsApplied,
+      conceptsWithoutSubSkill,
     },
     selfAssessed: {
       concepts: selfAssessedConcepts,
