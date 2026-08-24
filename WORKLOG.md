@@ -5,6 +5,42 @@ range and anything a future reader would otherwise have to rediscover.
 
 ---
 
+## 2026-08-24 (later) — CTA hardened under adversarial review; taxonomy doc (7.1)
+
+**Commits:** `6d2af15`, `daf9ee5`, `590d56e`
+
+A 10-agent adversarial review of the concept-CTA slice (`4c7a7a3`) ran after it
+landed; every finding was independently re-verified with executed repros against
+the real reducer. Two survived, both fixed:
+
+- **`590d56e` — false `done`.** With every concept verified but a bearing
+  cluster's artefact target unbacked, the CTA said "verified the whole
+  syllabus" while the headline read 66.7% — the terminal branch consulted only
+  the concept-grain half of the milestone set. The selector now takes
+  `unbackedBearingClusterIds` (pure helper over `clusterWeightsApplied`);
+  cross-cluster attach_evidence exists; `done` is provably headline-100%. Also
+  fixed the second repro: a foreign-cluster artefact backing a concept no
+  longer suppresses the own-cluster nudge. Tests 156 → 162, both repros locked.
+- **`daf9ee5` — `loadSyllabus` now orders subSkills.** conceptStates' documented
+  "display order" was unenforced at sub-skill grain; the move_on pick was
+  nondeterministic. One-line orderBy, matching foundations-actions precedent.
+- **`6d2af15` — `docs/verification-taxonomy.md` (Amendment 7.1).** The evidence
+  ladder (in-progress → self-assessed → check-passed → artefact-verified →
+  RESERVED client-attested → RESERVED employer-verified), what each rung
+  requires, what a surface may say. Registers the 7.2 unproctored positioning;
+  leaves the UI-qualifier sub-decision open.
+
+Observed, not fixed (cosmetic, pre-existing): `/u/` `loadProfile`'s flat
+`conceptRows` query has no ORDER BY, so verified concepts within a cluster
+group render in arbitrary order. All counts are order-insensitive; only the
+list order wobbles.
+
+YC recon (9.1, 2026-08-24): Fall 2026 regular deadline passed 27 Jul; the
+**W2027 deadline is still unannounced**; YC now takes **Early Decision**
+applications for post-F2026 batches ("select 'A batch after Fall 2026'") —
+i.e. the application can be submitted before the deadline even exists. Keep
+watching ycombinator.com/apply.
+
 ## 2026-08-24 — Amendment 1 closed: concept CTA + /u/ route refactor (P1.5b)
 
 **Commits:** `4c7a7a3`, `8ba6629` (on top of the nine unpushed commits ending
