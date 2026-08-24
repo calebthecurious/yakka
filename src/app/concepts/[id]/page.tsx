@@ -9,14 +9,18 @@ import {
   CircleDashed,
   ShieldCheck,
   ChevronRight,
-  Rocket,
-  ArrowRight,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { db } from "@/db";
 import { requireCurrentUserId } from "@/lib/auth";
-import { PASS_BAR } from "@/lib/readiness/model";
+import {
+  findNextUnverifiedConcept,
+  selectConceptCta,
+  type ConceptCta,
+} from "@/lib/readiness/concept-cta";
+import { loadSyllabus, readinessForLoadedSyllabus } from "../../syllabi/[id]/queries";
+import { ConceptCtaCard } from "./concept-cta";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { StatusControls } from "./status-controls";
@@ -113,54 +117,6 @@ export async function generateMetadata({
   return { title: `${concept.name} — Provency` };
 }
 
-type NextAction = {
-  /** The single recommended action. */
-  label: string;
-  /** One-line why. */
-  detail: string;
-  /** In-page anchor ("#check") or a route ("/clusters/…/artefact"). */
-  href: string;
-  cta: string;
-};
-
-/**
- * The one highlighted next action for this concept. A link (in-page anchor or a
- * route) — no client state, no new interactive surface. The target section's
- * <details> is opened by matching href, so the highlight and the section agree.
- */
-function StartHereCard({ action }: { action: NextAction }) {
-  const isAnchor = action.href.startsWith("#");
-  const className =
-    "group border-primary/40 bg-primary/5 hover:bg-primary/10 flex items-center gap-4 rounded-lg border px-4 py-3 transition-colors";
-  const body = (
-    <>
-      <div className="bg-primary/15 text-primary flex size-10 shrink-0 items-center justify-center rounded-full">
-        <Rocket className="size-5" />
-      </div>
-      <div className="flex flex-1 flex-col">
-        <span className="text-primary/80 text-[10px] font-medium tracking-wide uppercase">
-          Start here
-        </span>
-        <span className="font-medium">{action.label}</span>
-        <span className="text-muted-foreground text-sm">{action.detail}</span>
-      </div>
-      <span className="text-primary flex shrink-0 items-center gap-1 text-sm font-medium">
-        {action.cta}
-        <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
-      </span>
-    </>
-  );
-  return isAnchor ? (
-    <a href={action.href} className={className}>
-      {body}
-    </a>
-  ) : (
-    <Link href={action.href} className={className}>
-      {body}
-    </Link>
-  );
-}
-
 export default async function ConceptPage({ params }: PageProps) {
   const { id } = await params;
   const userId = await requireCurrentUserId();
@@ -218,61 +174,47 @@ export default async function ConceptPage({ params }: PageProps) {
   const statusBadge = STATUS_BADGE[concept.status as ConceptStatus];
   const StatusIcon = statusBadge.icon;
 
-  // ── "Start here": the single highlighted next action, chosen by state. ──
-  const checkPassed = lastCheck?.score != null && lastCheck.score >= PASS_BAR;
-  const clusterHasArtefact = cluster.subSkills.some(
-    (s) => s.artefacts.length > 0,
-  );
-  const primaryDone = primary?.status === "completed";
-  const conceptUnderstood =
-    concept.status === "understood" || concept.status === "verified";
+  // ── "Start here": the single next step, selected from the LEDGER. ──
+  // Raw `concepts.status` is deliberately not consulted: self-declaration moves
+  // no ledger number, so it does not decide what to do next either. The one
+  // non-ledger input is whether the recommended resource is finished — a per-row
+  // fact about one resource, read here and passed in.
+  const ledgerTree = await loadSyllabus(syllabus.id, userId);
+  const ledger = ledgerTree ? readinessForLoadedSyllabus(ledgerTree) : null;
+  const conceptState =
+    ledger?.conceptStates.find((c) => c.conceptId === concept.id) ?? null;
+  const clusterContribution =
+    ledger?.breakdown.clusterWeightsApplied.find(
+      (c) => c.clusterId === cluster.id,
+    ) ?? null;
+  const nextConceptId =
+    ledger && conceptState
+      ? findNextUnverifiedConcept(ledger, concept.id)
+      : null;
 
-  const nextAction: NextAction =
-    lastCheck == null
-      ? {
-          label: "Take the competency check",
-          detail:
-            "A short quiz across what you've studied — the honest test of whether this concept has landed.",
-          href: "#check",
-          cta: "Go to the check",
-        }
-      : checkPassed && cluster.isArtefactBearing && !clusterHasArtefact
-        ? {
-            label: "Log your artefact",
-            detail:
-              "You passed the check — build and log the project artefact that turns this into evidence.",
-            href: `/clusters/${cluster.id}/artefact`,
-            cta: "Open the project",
-          }
-        : primary && !primaryDone
-          ? {
-              label: `Study: ${primary.title}`,
-              detail: "Work through the recommended resource, then take the check.",
-              href: "#resources",
-              cta: "Go to resources",
-            }
-          : !checkPassed
-            ? {
-                label: "Retake the competency check",
-                detail: "Last attempt didn't pass — review, then try again.",
-                href: "#check",
-                cta: "Go to the check",
-              }
-            : !conceptUnderstood
-              ? {
-                  label: "Mark this concept understood",
-                  detail:
-                    "You've passed the check and evidenced it. Set the status when you're confident.",
-                  href: "#status",
-                  cta: "Go to status",
-                }
-              : {
-                  label: "You're set on this concept",
-                  detail:
-                    "Understood and evidenced. Move on to the next concept in your syllabus.",
-                  href: `/syllabi/${syllabus.id}`,
-                  cta: "Back to syllabus",
-                };
+  const cta: ConceptCta | null = conceptState
+    ? selectConceptCta({
+        concept: conceptState,
+        clusterIsArtefactBearing: cluster.isArtefactBearing,
+        clusterHasBackedArtefact: clusterContribution?.artefactBacked === 1,
+        primaryResourceUnfinished: primary != null && primary.status !== "completed",
+        nextUnverifiedConceptId: nextConceptId,
+      })
+    : null;
+
+  const nextConceptName = nextConceptId
+    ? (ledgerTree?.clusters
+        .flatMap((c) => c.subSkills.flatMap((s) => s.concepts))
+        .find((c) => c.id === nextConceptId)?.name ?? null)
+    : null;
+
+  /** Which in-page section the CTA points at, so its <details> opens to match. */
+  const openAnchor =
+    cta?.state === "study"
+      ? "#resources"
+      : cta?.state === "take_check" || cta?.state === "retake_check"
+        ? "#check"
+        : null;
 
   return (
     <PageContainer width="content" className="flex flex-col gap-8">
@@ -309,7 +251,15 @@ export default async function ConceptPage({ params }: PageProps) {
         </p>
       </header>
 
-      <StartHereCard action={nextAction} />
+      {cta ? (
+        <ConceptCtaCard
+          cta={cta}
+          context={{
+            primaryResourceTitle: primary?.title ?? null,
+            nextConceptName,
+          }}
+        />
+      ) : null}
 
       <div className="flex flex-col gap-8 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-x-10">
       <div className="lg:col-start-1">
@@ -334,7 +284,7 @@ export default async function ConceptPage({ params }: PageProps) {
 
       <details
         id="status"
-        open={nextAction.href === "#status"}
+        open={false}
         className="group flex scroll-mt-24 flex-col gap-3 lg:col-start-1"
       >
         <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-medium [&::-webkit-details-marker]:hidden">
@@ -420,7 +370,7 @@ export default async function ConceptPage({ params }: PageProps) {
 
       <details
         id="check"
-        open={nextAction.href === "#check"}
+        open={openAnchor === "#check"}
         className="group flex scroll-mt-24 flex-col gap-3 lg:col-start-1"
       >
         <summary className="flex cursor-pointer list-none items-center gap-2 text-lg font-medium [&::-webkit-details-marker]:hidden">
@@ -446,7 +396,7 @@ export default async function ConceptPage({ params }: PageProps) {
 
       <details
         id="notes"
-        open={nextAction.href === "#notes" || initialSessionId != null}
+        open={initialSessionId != null}
         className="group flex flex-col gap-4 lg:col-start-1"
       >
         <summary className="flex cursor-pointer list-none items-center gap-2 text-lg font-medium [&::-webkit-details-marker]:hidden">

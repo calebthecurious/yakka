@@ -285,6 +285,32 @@ export interface ConceptEvidenceEntry {
   evidence: ConceptEvidence[];
 }
 
+/**
+ * Per-concept state, one entry for EVERY concept in input order — which is
+ * syllabus display order, since the loader walks clusters by orderIndex.
+ *
+ * `evidence` above only describes concepts that are verified, so it cannot tell
+ * "never attempted a check" from "attempted and failed". Both matter to a
+ * surface deciding what to tell the learner next, so they are distinguished
+ * here. Nothing in this shape is self-declared: `concepts.status` is not
+ * consulted.
+ */
+export interface ConceptLedgerEntry {
+  conceptId: string;
+  clusterId: string;
+  subSkillId: string | null;
+  /** Evidence-gated, identical to the verdict that drives every count. */
+  verified: boolean;
+  /** A COMPLETED competency check exists — pass or fail. */
+  checkAttempted: boolean;
+  /** Best score among completed checks, PASSING OR NOT. Null if none completed. */
+  bestScore: number | null;
+  /** That best score reaches PASS_BAR. */
+  checkPassed: boolean;
+  /** At least one backed artefact demonstrates this concept. */
+  artefactBacked: boolean;
+}
+
 /** Artefact counters at ARTEFACT grain. Distinct from
  * `breakdown.artefactsBacked`/`artefactsTargeted`, which count artefact-bearing
  * CLUSTERS (one milestone each) — two completed artefacts in one cluster are
@@ -341,6 +367,8 @@ export interface ReadinessLedger {
   foundations: FoundationsSignal;
   /** Per-concept provenance for every verified concept. */
   evidence: ConceptEvidenceEntry[];
+  /** One entry per concept, in syllabus display order. */
+  conceptStates: ConceptLedgerEntry[];
   artefacts: ArtefactStats;
   activity: ActivitySignal;
   trail: LearningTrail;
@@ -401,6 +429,22 @@ export function bestPassingScore(
   for (const c of checks) {
     if (!isCompetencyPass(c.score, c.completedAt)) continue;
     if (c.score != null && (best == null || c.score > best)) best = c.score;
+  }
+  return best;
+}
+
+/**
+ * The highest score among COMPLETED checks, passing or not — the number to show
+ * a learner who fell short. Distinct from {@link bestPassingScore}, which
+ * answers "is this evidence?"; this answers "how did they do?".
+ */
+export function bestCompletedScore(
+  checks: { score: number | null; completedAt: Date | string | null }[],
+): number | null {
+  let best: number | null = null;
+  for (const c of checks) {
+    if (c.completedAt == null || c.score == null) continue;
+    if (best == null || c.score > best) best = c.score;
   }
   return best;
 }
@@ -551,6 +595,7 @@ export function computeReadinessLedger(input: ReadinessInput): ReadinessLedger {
   let conceptsWithoutSubSkill = 0;
   let conceptsInProgress = 0;
   const evidenceEntries: ConceptEvidenceEntry[] = [];
+  const conceptStates: ConceptLedgerEntry[] = [];
   for (const concept of input.concepts) {
     const entry = ensure(concept.clusterId);
     entry.total += 1;
@@ -594,6 +639,21 @@ export function computeReadinessLedger(input: ReadinessInput): ReadinessLedger {
     }
 
     if (isConceptInProgress(concept.status)) conceptsInProgress += 1;
+
+    // Per-concept state, from the same verdict and the same check list — a
+    // surface can never see a state that disagrees with the counts above.
+    const own = checksByConcept.get(concept.id) ?? [];
+    const best = bestCompletedScore(own);
+    conceptStates.push({
+      conceptId: concept.id,
+      clusterId: concept.clusterId,
+      subSkillId: concept.subSkillId ?? null,
+      verified,
+      checkAttempted: best != null,
+      bestScore: best,
+      checkPassed: passedConceptIds.has(concept.id),
+      artefactBacked: (backingArtefacts.get(concept.id) ?? []).length > 0,
+    });
 
     if (concept.subSkillId != null) {
       const sub = ensureSub(concept.subSkillId, concept.clusterId);
@@ -720,6 +780,7 @@ export function computeReadinessLedger(input: ReadinessInput): ReadinessLedger {
     },
     foundations: { needIt, total: baselines.length },
     evidence: evidenceEntries,
+    conceptStates,
     artefacts: {
       completed: artefactsCompleted,
       projectsCompleted,

@@ -35,6 +35,7 @@ import type {
   ActivitySignal,
   ArtefactStats,
   ConceptEvidenceEntry,
+  ConceptLedgerEntry,
   LearningTrail,
   LedgerCoverage,
   ReadinessLedger,
@@ -125,6 +126,8 @@ export interface ReadinessSummary {
    * `formatEvidenceLabel` rather than composing a sentence at the call site.
    */
   evidence: ConceptEvidenceEntry[];
+  /** One entry per concept, in syllabus display order. */
+  conceptStates: ConceptLedgerEntry[];
   /**
    * ARTEFACT-grain counters. Note `artefactCounts.completed` counts artefacts
    * while `artefacts.backed` above counts artefact-bearing CLUSTERS — two
@@ -225,6 +228,7 @@ export function summarizeReadinessLedger(
       total: ledger.foundations.total,
     },
     evidence: ledger.evidence,
+    conceptStates: ledger.conceptStates,
     artefactCounts: ledger.artefacts,
     activity: ledger.activity,
     trail: ledger.trail,
