@@ -5,6 +5,54 @@ range and anything a future reader would otherwise have to rediscover.
 
 ---
 
+## 2026-08-24 — Amendment 1 closed: concept CTA + /u/ route refactor (P1.5b)
+
+**Commits:** `4c7a7a3`, `8ba6629` (on top of the nine unpushed commits ending
+`da8ad27`)
+
+### What landed
+
+- **`4c7a7a3` — concept-page guided next action (Amendment 1.5 item #4).**
+  The "Start here" card's state machine moved out of the route into
+  `selectConceptCta` over new per-concept ledger state
+  (`ledger.conceptStates`, one `ConceptLedgerEntry` per concept in display
+  order). Six states; self-declared status is not in the input shape by
+  construction, so the old "mark it understood" nag state no longer exists.
+  `findNextUnverifiedConcept` picks the move-on target (same cluster first,
+  then later clusters, wrapping).
+- **`8ba6629` — /u/[handle] consumes the ledger; the third truth is deleted.**
+  The route half of P1.5b. `check:single-truth` went 8 → 0 — Amendment 1's
+  grep-clean DoD is met. The line-292 status gate is gone: a passed check on
+  a concept still marked `learning` now shows under Verified competencies.
+  "Artefacts shipped" (counted pasted URLs) is replaced by "Artefacts
+  completed" (`ledger.artefacts.completed`, verifiedAt-gated). The profile
+  joined `parity.test.ts` (156 tests green, +10): its verified count must
+  equal the workspace header on every fixture, including the
+  passed-check-on-`not_started` case its old gate hid.
+
+### Decisions
+
+- **`currentSkills` stays (Amendment 1.5 item #5).** The plan's "write-only,
+  wire or delete" premise no longer holds: it feeds syllabus generation
+  (`generate-syllabus.ts`, `run.ts`) and is read as `resumeText` by the gap
+  report, gap page, and foundations actions. Keep; nothing to do.
+- **Phase 0.2 is closed.** PR #1 was merged (`5f44741`) and pushed.
+
+### Open, and a blocker found
+
+- **The Supabase project is unreachable (found 2026-08-24).** Local dev fails
+  with pooler error `(ENOTFOUND) tenant/user postgres.dzdfeundgibdiyvtajue
+  not found`; `https://dzdfeundgibdiyvtajue.supabase.co` does not resolve at
+  all; **prod `/u/caleb` returns 500** (login page still 200 — no DB). Almost
+  certainly the free-tier auto-pause (~11 days idle). Needs a dashboard
+  restore — do Phase 0.1's password rotation in the same visit.
+- **Real-eyes DoD for Amendment 1 is blocked on that restore** — header /
+  tree / profile agreement is asserted by the parity test but not yet
+  eyeballed on a live workspace.
+- **Eleven commits sit unpushed on `main`.** Push deliberately held: pushing
+  auto-deploys, and the post-deploy smoke (Phase 0.3) cannot pass with the
+  database down. Push once Supabase is restored.
+
 ## 2026-08-13 — Amendment 1: single source of truth for progress numbers
 
 **Commits:** `48bba40` → `a3a6b91` (4 commits, branched from `5f44741`)
