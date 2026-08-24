@@ -31,6 +31,10 @@ export async function loadSyllabus(id: string, userId: string) {
         orderBy: (c, { asc }) => [asc(c.orderIndex)],
         with: {
           subSkills: {
+            // Load-bearing, not cosmetic: the ledger's `conceptStates` is
+            // documented as syllabus display order, and the concept CTA's
+            // move_on target is picked positionally from it.
+            orderBy: (s, { asc }) => [asc(s.orderIndex)],
             with: {
               concepts: {
                 orderBy: (c, { asc }) => [asc(c.orderIndex)],
