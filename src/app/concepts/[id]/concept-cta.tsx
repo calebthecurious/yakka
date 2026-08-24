@@ -37,6 +37,8 @@ export type ConceptCtaContext = {
   primaryResourceTitle: string | null;
   /** Name of the next unverified concept, for the move_on state. */
   nextConceptName: string | null;
+  /** Name of the attach_evidence target cluster, for the cross-cluster case. */
+  attachClusterName: string | null;
 };
 
 function present(cta: ConceptCta, ctx: ConceptCtaContext): Presentation | null {
@@ -70,14 +72,28 @@ function present(cta: ConceptCta, ctx: ConceptCtaContext): Presentation | null {
         href: "#check",
       };
     case "attach_evidence":
-      return {
-        icon: Hammer,
-        label: "Attach evidence",
-        detail:
-          "You passed the check. Build and log this cluster's artefact to turn it into evidence an employer can see.",
-        cta: "Open the project",
-        href: `/clusters/${cta.clusterId}/artefact`,
-      };
+      // Two flavours, one honest rule: the copy never claims a check was
+      // passed (verification may be artefact-borne) and never says "this
+      // cluster" when routing to another cluster's open target.
+      return cta.isCurrentCluster
+        ? {
+            icon: Hammer,
+            label: "Attach evidence",
+            detail:
+              "This concept is verified — build and log this cluster's artefact to turn it into evidence an employer can see.",
+            cta: "Open the project",
+            href: `/clusters/${cta.clusterId}/artefact`,
+          }
+        : {
+            icon: Hammer,
+            label: ctx.attachClusterName
+              ? `Build the ${ctx.attachClusterName} artefact`
+              : "Build the remaining artefact",
+            detail:
+              "Every concept is verified. This artefact is the evidence still open on your syllabus.",
+            cta: "Open the project",
+            href: `/clusters/${cta.clusterId}/artefact`,
+          };
     case "move_on":
       return {
         icon: Rocket,
@@ -112,9 +128,10 @@ export function ConceptCtaCard({
           <span className="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
             Nothing outstanding
           </span>
-          <span className="font-medium">Every concept is evidenced</span>
+          <span className="font-medium">Every milestone is evidenced</span>
           <span className="text-muted-foreground text-sm">
-            You have verified the whole syllabus. Nothing here needs you right now.
+            Concepts and artefacts are all verified. Nothing here needs you
+            right now.
           </span>
         </div>
       </div>

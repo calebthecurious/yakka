@@ -9,6 +9,7 @@ import {
 import {
   findNextUnverifiedConcept,
   selectConceptCta,
+  unbackedBearingClusterIds,
   type ConceptCtaInput,
 } from "./concept-cta";
 
@@ -33,8 +34,7 @@ function entry(over: Partial<ConceptLedgerEntry> = {}): ConceptLedgerEntry {
 function cta(over: Partial<ConceptCtaInput> = {}) {
   return selectConceptCta({
     concept: entry(),
-    clusterIsArtefactBearing: false,
-    clusterHasBackedArtefact: false,
+    unbackedBearingClusterIds: [],
     primaryResourceUnfinished: false,
     nextUnverifiedConceptId: null,
     ...over,
@@ -67,18 +67,30 @@ describe("selectConceptCta", () => {
     ).toEqual({ state: "retake_check", bestScore: 2 });
   });
 
-  it("state 4 — attach_evidence: passed, bearing cluster, no backed artefact", () => {
+  it("state 4 — attach_evidence: verified, own cluster's target unbacked", () => {
     expect(
       cta({
         concept: entry({ verified: true, checkAttempted: true, bestScore: 5, checkPassed: true }),
-        clusterIsArtefactBearing: true,
-        clusterHasBackedArtefact: false,
+        unbackedBearingClusterIds: ["C"],
         nextUnverifiedConceptId: "k9",
       }),
-    ).toEqual({ state: "attach_evidence", clusterId: "C" });
+    ).toEqual({ state: "attach_evidence", clusterId: "C", isCurrentCluster: true });
   });
 
-  it("state 5 — move_on: verified with nothing further, links to the next unverified", () => {
+  it("state 4 is milestone-driven — a foreign-cluster artefact backing this concept does not close C's target", () => {
+    // The concept is verified BY an artefact (logged under another cluster),
+    // yet cluster C's own artefact-target milestone is still open. The nudge
+    // must fire; suppressing it would leave the milestone unroutable.
+    expect(
+      cta({
+        concept: entry({ verified: true, artefactBacked: true }),
+        unbackedBearingClusterIds: ["C"],
+        nextUnverifiedConceptId: null,
+      }),
+    ).toEqual({ state: "attach_evidence", clusterId: "C", isCurrentCluster: true });
+  });
+
+  it("state 5 — move_on: verified with nothing further HERE, links to the next unverified", () => {
     expect(
       cta({
         concept: entry({ verified: true, checkPassed: true, checkAttempted: true, bestScore: 5 }),
@@ -87,10 +99,33 @@ describe("selectConceptCta", () => {
     ).toEqual({ state: "move_on", nextConceptId: "k9" });
   });
 
-  it("state 6 — done: verified and nothing unverified remains anywhere", () => {
+  it("move_on outranks another cluster's open artefact — concepts come first", () => {
     expect(
       cta({
         concept: entry({ verified: true, checkPassed: true }),
+        unbackedBearingClusterIds: ["D"],
+        nextUnverifiedConceptId: "k9",
+      }),
+    ).toEqual({ state: "move_on", nextConceptId: "k9" });
+  });
+
+  it("cross-cluster attach_evidence: all concepts verified, another cluster's target open", () => {
+    // The false-done repro from review: without this branch the CTA claimed
+    // "nothing outstanding" while the headline read < 100%.
+    expect(
+      cta({
+        concept: entry({ verified: true, checkPassed: true }),
+        unbackedBearingClusterIds: ["D", "E"],
+        nextUnverifiedConceptId: null,
+      }),
+    ).toEqual({ state: "attach_evidence", clusterId: "D", isCurrentCluster: false });
+  });
+
+  it("state 6 — done: verified, no unverified concept, no unbacked target anywhere", () => {
+    expect(
+      cta({
+        concept: entry({ verified: true, checkPassed: true }),
+        unbackedBearingClusterIds: [],
         nextUnverifiedConceptId: null,
       }),
     ).toEqual({ state: "done" });
@@ -98,7 +133,7 @@ describe("selectConceptCta", () => {
 
   /* ── the fifth real state from P1.5b ─────────────────────────────────── */
 
-  it("evidence WITHOUT a passed check is move_on — never a nag to sit the check", () => {
+  it("evidence WITHOUT a passed check is never a nag to sit the check", () => {
     const artefactOnly = entry({
       verified: true,
       checkAttempted: false,
@@ -110,18 +145,15 @@ describe("selectConceptCta", () => {
     expect(
       cta({
         concept: artefactOnly,
-        clusterIsArtefactBearing: true,
-        clusterHasBackedArtefact: true,
         nextUnverifiedConceptId: "k9",
       }),
     ).toEqual({ state: "move_on", nextConceptId: "k9" });
 
-    // And it is never routed back to the check, in any cluster shape.
-    for (const bearing of [true, false]) {
+    // And it is never routed back to the check, whatever else is open.
+    for (const unbacked of [[], ["C"], ["D"]]) {
       const result = cta({
         concept: artefactOnly,
-        clusterIsArtefactBearing: bearing,
-        clusterHasBackedArtefact: true,
+        unbackedBearingClusterIds: unbacked,
         nextUnverifiedConceptId: null,
       });
       expect(result.state).not.toBe("take_check");
@@ -131,22 +163,23 @@ describe("selectConceptCta", () => {
 
   /* ── the bearing-cluster carve-out ───────────────────────────────────── */
 
-  it("a passed check in a NON-bearing cluster is done, not an artefact nag", () => {
+  it("a verified concept in a NON-bearing cluster is move_on, not an artefact nag for that cluster", () => {
+    // C is non-bearing, so it can never appear in unbackedBearingClusterIds.
     expect(
       cta({
         concept: entry({ verified: true, checkPassed: true, checkAttempted: true, bestScore: 4 }),
-        clusterIsArtefactBearing: false,
+        unbackedBearingClusterIds: [],
         nextUnverifiedConceptId: "k9",
       }),
     ).toEqual({ state: "move_on", nextConceptId: "k9" });
   });
 
   it("a bearing cluster that already has a backed artefact does not ask again", () => {
+    // A backed cluster is absent from unbackedBearingClusterIds by definition.
     expect(
       cta({
         concept: entry({ verified: true, checkPassed: true }),
-        clusterIsArtefactBearing: true,
-        clusterHasBackedArtefact: true,
+        unbackedBearingClusterIds: [],
         nextUnverifiedConceptId: "k9",
       }),
     ).toEqual({ state: "move_on", nextConceptId: "k9" });
@@ -216,7 +249,7 @@ describe("findNextUnverifiedConcept", () => {
     expect(findNextUnverifiedConcept(led, "c1")).toBe("a1");
   });
 
-  it("is null only when the whole syllabus is verified", () => {
+  it("is null only when no OTHER concept is unverified", () => {
     const led = computeReadinessLedger(
       workspace(["a1", "a2", "a3", "b1", "b2", "c1"]),
     );
@@ -227,6 +260,91 @@ describe("findNextUnverifiedConcept", () => {
   it("returns a real unverified id for an unknown starting concept", () => {
     const led = computeReadinessLedger(workspace(["a1"]));
     expect(findNextUnverifiedConcept(led, "nope")).toBe("a2");
+  });
+});
+
+/* ── unbacked bearing clusters, and the false-done repro end-to-end ─────── */
+
+describe("unbackedBearingClusterIds", () => {
+  it("lists bearing clusters without a backed artefact, in cluster order", () => {
+    const input: ReadinessInput = {
+      clusters: [cluster("A", 3, true), cluster("B"), cluster("C", 3, true)],
+      concepts: [
+        { id: "a1", clusterId: "A", subSkillId: "sA", status: "not_started" },
+        { id: "b1", clusterId: "B", subSkillId: "sB", status: "not_started" },
+        { id: "c1", clusterId: "C", subSkillId: "sC", status: "not_started" },
+      ],
+      competencyChecks: [],
+      artefacts: [
+        // C's target is backed; A's is not. B is non-bearing.
+        { id: "art1", clusterId: "C", verifiedAt: D, demonstratedConceptIds: ["c1"] },
+      ],
+      foundationItems: [],
+    };
+    expect(unbackedBearingClusterIds(computeReadinessLedger(input))).toEqual(["A"]);
+  });
+
+  it("REGRESSION (review repro): all checks passed, bearing cluster unbacked — the CTA routes there instead of claiming done", () => {
+    // Cluster A non-bearing, cluster B bearing, both concepts check-passed,
+    // zero artefacts. The headline is < 100% (B's artefact milestone is open),
+    // so `done` on a1 would be a lie the ledger contradicts.
+    const input: ReadinessInput = {
+      clusters: [cluster("A"), cluster("B", 3, true)],
+      concepts: [
+        { id: "a1", clusterId: "A", subSkillId: "sA", status: "not_started" },
+        { id: "b1", clusterId: "B", subSkillId: "sB", status: "not_started" },
+      ],
+      competencyChecks: [
+        { conceptId: "a1", score: 5, completedAt: D },
+        { conceptId: "b1", score: 5, completedAt: D },
+      ],
+      artefacts: [],
+      foundationItems: [],
+    };
+    const led = computeReadinessLedger(input);
+    expect(led.headline.pct).toBeLessThan(100);
+
+    const a1 = led.conceptStates.find((c) => c.conceptId === "a1")!;
+    const result = selectConceptCta({
+      concept: a1,
+      unbackedBearingClusterIds: unbackedBearingClusterIds(led),
+      primaryResourceUnfinished: false,
+      nextUnverifiedConceptId: findNextUnverifiedConcept(led, "a1"),
+    });
+    expect(result).toEqual({
+      state: "attach_evidence",
+      clusterId: "B",
+      isCurrentCluster: false,
+    });
+  });
+
+  it("done agrees with a 100% headline — same ledger, both grains closed", () => {
+    const input: ReadinessInput = {
+      clusters: [cluster("A"), cluster("B", 3, true)],
+      concepts: [
+        { id: "a1", clusterId: "A", subSkillId: "sA", status: "not_started" },
+        { id: "b1", clusterId: "B", subSkillId: "sB", status: "not_started" },
+      ],
+      competencyChecks: [
+        { conceptId: "a1", score: 5, completedAt: D },
+        { conceptId: "b1", score: 5, completedAt: D },
+      ],
+      artefacts: [
+        { id: "art1", clusterId: "B", verifiedAt: D, demonstratedConceptIds: ["b1"] },
+      ],
+      foundationItems: [],
+    };
+    const led = computeReadinessLedger(input);
+    expect(led.headline.pct).toBe(100);
+
+    const a1 = led.conceptStates.find((c) => c.conceptId === "a1")!;
+    const result = selectConceptCta({
+      concept: a1,
+      unbackedBearingClusterIds: unbackedBearingClusterIds(led),
+      primaryResourceUnfinished: false,
+      nextUnverifiedConceptId: findNextUnverifiedConcept(led, "a1"),
+    });
+    expect(result).toEqual({ state: "done" });
   });
 });
 

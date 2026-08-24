@@ -17,6 +17,7 @@ import { requireCurrentUserId } from "@/lib/auth";
 import {
   findNextUnverifiedConcept,
   selectConceptCta,
+  unbackedBearingClusterIds,
   type ConceptCta,
 } from "@/lib/readiness/concept-cta";
 import { loadSyllabus, readinessForLoadedSyllabus } from "../../syllabi/[id]/queries";
@@ -183,30 +184,31 @@ export default async function ConceptPage({ params }: PageProps) {
   const ledger = ledgerTree ? readinessForLoadedSyllabus(ledgerTree) : null;
   const conceptState =
     ledger?.conceptStates.find((c) => c.conceptId === concept.id) ?? null;
-  const clusterContribution =
-    ledger?.breakdown.clusterWeightsApplied.find(
-      (c) => c.clusterId === cluster.id,
-    ) ?? null;
   const nextConceptId =
     ledger && conceptState
       ? findNextUnverifiedConcept(ledger, concept.id)
       : null;
 
-  const cta: ConceptCta | null = conceptState
-    ? selectConceptCta({
-        concept: conceptState,
-        clusterIsArtefactBearing: cluster.isArtefactBearing,
-        clusterHasBackedArtefact: clusterContribution?.artefactBacked === 1,
-        primaryResourceUnfinished: primary != null && primary.status !== "completed",
-        nextUnverifiedConceptId: nextConceptId,
-      })
-    : null;
+  const cta: ConceptCta | null =
+    ledger && conceptState
+      ? selectConceptCta({
+          concept: conceptState,
+          unbackedBearingClusterIds: unbackedBearingClusterIds(ledger),
+          primaryResourceUnfinished: primary != null && primary.status !== "completed",
+          nextUnverifiedConceptId: nextConceptId,
+        })
+      : null;
 
   const nextConceptName = nextConceptId
     ? (ledgerTree?.clusters
         .flatMap((c) => c.subSkills.flatMap((s) => s.concepts))
         .find((c) => c.id === nextConceptId)?.name ?? null)
     : null;
+
+  const attachClusterName =
+    cta?.state === "attach_evidence" && !cta.isCurrentCluster
+      ? (ledgerTree?.clusters.find((c) => c.id === cta.clusterId)?.name ?? null)
+      : null;
 
   /** Which in-page section the CTA points at, so its <details> opens to match. */
   const openAnchor =
@@ -257,6 +259,7 @@ export default async function ConceptPage({ params }: PageProps) {
           context={{
             primaryResourceTitle: primary?.title ?? null,
             nextConceptName,
+            attachClusterName,
           }}
         />
       ) : null}
