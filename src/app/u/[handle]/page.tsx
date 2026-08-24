@@ -30,11 +30,21 @@ import {
   syllabi,
 } from "@/db/schema";
 import { cn } from "@/lib/utils";
+import {
+  computeReadinessLedger,
+  criteriaProgress,
+  formatEvidenceLabel,
+  isArtefactBacked,
+  isConceptInProgress,
+  isSelfDeclaredDone,
+  type ArtefactType,
+  type ConceptStatus,
+  type ReadinessInput,
+  type ResourceStatus,
+  type ResourceType,
+} from "@/lib/readiness/model";
 
 export const revalidate = 60;
-
-/** A competency check counts as evidence only at/above the app's pass bar. */
-const PASS_THRESHOLD = 4;
 
 type PageProps = { params: Promise<{ handle: string }> };
 
@@ -113,7 +123,8 @@ type LoadedProfile = {
     verified: number;
     inProgress: number;
     projectsCompleted: number;
-    artefactsShipped: number;
+    /** Artefacts with `verifiedAt` set — a pasted URL is not a completion. */
+    artefactsCompleted: number;
   };
   artefactList: ProfileArtefact[];
   verifiedGroups: ClusterGroup[];
@@ -161,7 +172,7 @@ async function loadProfile(handle: string): Promise<LoadedProfile | null> {
   const empty: LoadedProfile = {
     publicProfile,
     syllabus: null,
-    readiness: { verified: 0, inProgress: 0, projectsCompleted: 0, artefactsShipped: 0 },
+    readiness: { verified: 0, inProgress: 0, projectsCompleted: 0, artefactsCompleted: 0 },
     artefactList: [],
     verifiedGroups: [],
     selfAssessedGroups: [],
@@ -194,6 +205,8 @@ async function loadProfile(handle: string): Promise<LoadedProfile | null> {
       name: skillClusters.name,
       orderIndex: skillClusters.orderIndex,
       artefactTarget: skillClusters.artefactTarget,
+      weight: skillClusters.weight,
+      isArtefactBearing: skillClusters.isArtefactBearing,
     })
     .from(skillClusters)
     .where(eq(skillClusters.syllabusId, syllabus.id))
@@ -230,7 +243,7 @@ async function loadProfile(handle: string): Promise<LoadedProfile | null> {
 
   const conceptIds = conceptRows.map((c) => c.id);
 
-  // Evidence source 1: passed competency checks (completed, score >= threshold).
+  // Competency checks — raw rows for the ledger; scoring lives in the module.
   const checkRows = conceptIds.length
     ? await db
         .select({
@@ -241,14 +254,6 @@ async function loadProfile(handle: string): Promise<LoadedProfile | null> {
         .from(competencyChecks)
         .where(inArray(competencyChecks.conceptId, conceptIds))
     : [];
-
-  const bestPassScore = new Map<string, number>();
-  for (const r of checkRows) {
-    if (r.completedAt == null || r.score == null) continue;
-    if (r.score < PASS_THRESHOLD) continue;
-    const prev = bestPassScore.get(r.conceptId) ?? 0;
-    if (r.score > prev) bestPassScore.set(r.conceptId, r.score);
-  }
 
   // Artefacts (public-safe columns only — no reflection, no progress log).
   const artefactRows = subSkillIds.length
@@ -272,43 +277,87 @@ async function loadProfile(handle: string): Promise<LoadedProfile | null> {
 
   const conceptName = new Map(conceptRows.map((c) => [c.id, c.name]));
 
-  // Evidence source 2: concepts demonstrated by a *completed* artefact.
-  const demonstratedBy = new Map<string, string[]>(); // conceptId -> artefact titles
-  for (const a of artefactRows) {
-    if (a.verifiedAt == null) continue;
-    for (const cid of a.demonstratedConceptIds) {
-      if (!conceptName.has(cid)) continue; // ignore stale/foreign ids
-      const list = demonstratedBy.get(cid) ?? [];
-      list.push(a.title);
-      demonstratedBy.set(cid, list);
-    }
+  // Learning-trail rows. Titles/authors are public works; notes are NEVER
+  // selected (and are absent from the ledger's input shape by design).
+  const resourceRows = conceptIds.length
+    ? await db
+        .select({
+          conceptId: resources.conceptId,
+          type: resources.type,
+          title: resources.title,
+          author: resources.author,
+          status: resources.status,
+        })
+        .from(resources)
+        .where(inArray(resources.conceptId, conceptIds))
+    : [];
+
+  // ── The ledger is the only computation. Every number, label, and partition
+  // below is read from it; this route only maps ids to display names. ──
+  const input: ReadinessInput = {
+    clusters: clusterRows.map((c) => ({
+      id: c.id,
+      weight: c.weight,
+      isArtefactBearing: c.isArtefactBearing,
+    })),
+    concepts: conceptRows.map((c) => ({
+      id: c.id,
+      clusterId: subSkillToCluster.get(c.subSkillId) ?? "",
+      subSkillId: c.subSkillId,
+      status: c.status as ConceptStatus,
+    })),
+    competencyChecks: checkRows,
+    artefacts: artefactRows.map((a) => ({
+      id: a.id,
+      clusterId: subSkillToCluster.get(a.subSkillId) ?? "",
+      verifiedAt: a.verifiedAt,
+      demonstratedConceptIds: a.demonstratedConceptIds,
+      title: a.title,
+      type: a.type as ArtefactType,
+      acceptanceCriteria: a.acceptanceCriteria,
+    })),
+    foundationItems: [],
+    resources: resourceRows.map((r) => ({
+      conceptId: r.conceptId,
+      type: r.type as ResourceType,
+      status: r.status as ResourceStatus,
+      title: r.title,
+      author: r.author,
+    })),
+  };
+  const ledger = computeReadinessLedger(input);
+
+  // Verified competencies with provenance, straight from the ledger. A concept
+  // still marked "learning" whose check passed IS listed — evidence is never
+  // hidden behind self-declaration (the P1.5b disposition).
+  const verifiedByCluster = new Map<string, VerifiedConcept[]>();
+  for (const e of ledger.evidence) {
+    const name = conceptName.get(e.conceptId);
+    if (!name) continue;
+    const cname = clusterName.get(e.clusterId) ?? "Other";
+    const list = verifiedByCluster.get(cname) ?? [];
+    list.push({
+      id: e.conceptId,
+      name,
+      evidence: e.evidence.map(formatEvidenceLabel),
+    });
+    verifiedByCluster.set(cname, list);
   }
 
-  // Partition "done" concepts into evidence-backed (verified) vs self-assessed.
-  const verifiedByCluster = new Map<string, VerifiedConcept[]>();
+  // Self-assessed: self-declared done, minus everything the ledger verified —
+  // the same named rule and the same verdict behind ledger.selfAssessed.concepts.
+  const verifiedIds = new Set(
+    ledger.conceptStates.filter((c) => c.verified).map((c) => c.conceptId),
+  );
   const selfByCluster = new Map<string, string[]>();
-
   for (const c of conceptRows) {
-    if (c.status !== "understood" && c.status !== "verified") continue;
+    if (!isSelfDeclaredDone(c.status as ConceptStatus)) continue;
+    if (verifiedIds.has(c.id)) continue;
     const cid = subSkillToCluster.get(c.subSkillId);
     const cname = cid ? (clusterName.get(cid) ?? "Other") : "Other";
-
-    const evidence: EvidenceLabel[] = [];
-    const pass = bestPassScore.get(c.id);
-    if (pass != null) evidence.push(`Competency check passed · ${pass}/5`);
-    for (const title of demonstratedBy.get(c.id) ?? []) {
-      evidence.push(`Demonstrated in “${title}”`);
-    }
-
-    if (evidence.length > 0) {
-      const list = verifiedByCluster.get(cname) ?? [];
-      list.push({ id: c.id, name: c.name, evidence });
-      verifiedByCluster.set(cname, list);
-    } else {
-      const list = selfByCluster.get(cname) ?? [];
-      list.push(c.name);
-      selfByCluster.set(cname, list);
-    }
+    const list = selfByCluster.get(cname) ?? [];
+    list.push(c.name);
+    selfByCluster.set(cname, list);
   }
 
   // Preserve cluster order from the syllabus.
@@ -320,70 +369,46 @@ async function loadProfile(handle: string): Promise<LoadedProfile | null> {
     .map((name) => ({ clusterName: name, conceptNames: selfByCluster.get(name) ?? [] }))
     .filter((g) => g.conceptNames.length > 0);
 
-  const verifiedCount = verifiedGroups.reduce((n, g) => n + g.concepts.length, 0);
-  const inProgressCount = conceptRows.filter((c) => c.status === "learning").length;
-
   // Artefacts list: completed first, then most recent. Lead signal. Sort the
   // raw rows (which carry the timestamps) before projecting to the public shape.
   const sortedArtefacts = [...artefactRows].sort((a, b) => {
-    const aDone = a.verifiedAt != null;
-    const bDone = b.verifiedAt != null;
+    const aDone = isArtefactBacked(a.verifiedAt);
+    const bDone = isArtefactBacked(b.verifiedAt);
     if (aDone !== bDone) return aDone ? -1 : 1;
     const at = (a.verifiedAt ?? a.createdAt).getTime();
     const bt = (b.verifiedAt ?? b.createdAt).getTime();
     return bt - at;
   });
-  const artefactList: ProfileArtefact[] = sortedArtefacts.map((a) => ({
-    id: a.id,
-    type: a.type as ArtefactTypeT,
-    title: a.title,
-    description: a.description,
-    url: a.url,
-    evidenceUrl: a.evidenceUrl,
-    completed: a.verifiedAt != null,
-    criteriaTotal: a.acceptanceCriteria.length,
-    criteriaDone: a.acceptanceCriteria.filter((c) => c.done).length,
-    demonstrates: a.demonstratedConceptIds
-      .map((id) => conceptName.get(id))
-      .filter((n): n is string => Boolean(n)),
-    employerValue:
-      clusterEmployerValue.get(subSkillToCluster.get(a.subSkillId) ?? "") ?? null,
+  const artefactList: ProfileArtefact[] = sortedArtefacts.map((a) => {
+    const criteria = criteriaProgress(a.acceptanceCriteria);
+    return {
+      id: a.id,
+      type: a.type as ArtefactTypeT,
+      title: a.title,
+      description: a.description,
+      url: a.url,
+      evidenceUrl: a.evidenceUrl,
+      completed: isArtefactBacked(a.verifiedAt),
+      criteriaTotal: criteria.total,
+      criteriaDone: criteria.done,
+      demonstrates: a.demonstratedConceptIds
+        .map((id) => conceptName.get(id))
+        .filter((n): n is string => Boolean(n)),
+      employerValue:
+        clusterEmployerValue.get(subSkillToCluster.get(a.subSkillId) ?? "") ?? null,
+    };
+  });
+
+  // Learning trail — the ledger's inventory of completed resources.
+  const trailByType: TrailType[] = ledger.trail.byType.map((t) => ({
+    type: t.type as ResourceTypeT,
+    count: t.count,
   }));
-
-  const projectsCompleted = artefactRows.filter(
-    (a) => a.type === "project" && a.verifiedAt != null,
-  ).length;
-  const artefactsShipped = artefactRows.filter(
-    (a) => Boolean(a.url) || Boolean(a.evidenceUrl),
-  ).length;
-
-  // Learning trail — resources consumed. Titles/authors are public works; notes
-  // are NEVER selected. Counts by type + a few notable named completed resources.
-  const resourceRows = conceptIds.length
-    ? await db
-        .select({
-          type: resources.type,
-          title: resources.title,
-          author: resources.author,
-          status: resources.status,
-        })
-        .from(resources)
-        .where(inArray(resources.conceptId, conceptIds))
-    : [];
-
-  const completedResources = resourceRows.filter((r) => r.status === "completed");
-  const byTypeMap = new Map<ResourceTypeT, number>();
-  for (const r of completedResources) {
-    const t = r.type as ResourceTypeT;
-    byTypeMap.set(t, (byTypeMap.get(t) ?? 0) + 1);
+  const trailNamed: TrailNamed[] = [];
+  for (const r of ledger.trail.named) {
+    if (r.title == null) continue;
+    trailNamed.push({ title: r.title, author: r.author, type: r.type as ResourceTypeT });
   }
-  const trailByType: TrailType[] = [...byTypeMap.entries()].map(([type, count]) => ({
-    type,
-    count,
-  }));
-  const trailNamed: TrailNamed[] = completedResources
-    .slice(0, 8)
-    .map((r) => ({ title: r.title, author: r.author, type: r.type as ResourceTypeT }));
 
   // Currently developing — prefer the gap report's in-progress framing; else
   // fall back to in-progress concepts. Honest, positive.
@@ -400,7 +425,7 @@ async function loadProfile(handle: string): Promise<LoadedProfile | null> {
       .map((g) => ({ label: g.requirement, note: g.note }));
   } else {
     developing = conceptRows
-      .filter((c) => c.status === "learning")
+      .filter((c) => isConceptInProgress(c.status as ConceptStatus))
       .slice(0, 6)
       .map((c) => {
         const cid = subSkillToCluster.get(c.subSkillId);
@@ -416,15 +441,15 @@ async function loadProfile(handle: string): Promise<LoadedProfile | null> {
       createdAt: syllabus.createdAt,
     },
     readiness: {
-      verified: verifiedCount,
-      inProgress: inProgressCount,
-      projectsCompleted,
-      artefactsShipped,
+      verified: ledger.breakdown.conceptsVerified,
+      inProgress: ledger.activity.conceptsInProgress,
+      projectsCompleted: ledger.artefacts.projectsCompleted,
+      artefactsCompleted: ledger.artefacts.completed,
     },
     artefactList,
     verifiedGroups,
     selfAssessedGroups,
-    trail: { byType: trailByType, total: completedResources.length, named: trailNamed },
+    trail: { byType: trailByType, total: ledger.trail.total, named: trailNamed },
     developing,
   };
 }
@@ -509,11 +534,12 @@ export default async function PublicProfilePage({ params }: PageProps) {
               <Stat value={readiness.verified} label="Verified competencies" />
               <Stat value={readiness.inProgress} label="In progress" />
               <Stat value={readiness.projectsCompleted} label="Projects completed" />
-              <Stat value={readiness.artefactsShipped} label="Artefacts shipped" />
+              <Stat value={readiness.artefactsCompleted} label="Artefacts completed" />
             </div>
             <p className="text-muted-foreground/70 text-xs">
               Counts, not a score. &ldquo;Verified&rdquo; means backed by a passed
-              competency check or a completed project — not self-marked.
+              competency check or demonstrated in a completed artefact — not
+              self-marked.
             </p>
           </section>
 
@@ -552,7 +578,7 @@ export default async function PublicProfilePage({ params }: PageProps) {
               </SectionTitle>
               <p className="text-muted-foreground text-sm">
                 Each one is backed by a passed competency check or demonstrated in
-                a completed project.
+                a completed artefact.
               </p>
             </div>
             {verifiedGroups.length === 0 ? (

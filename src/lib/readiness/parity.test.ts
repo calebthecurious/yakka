@@ -2,7 +2,9 @@ import { describe, it, expect } from "vitest";
 import {
   PASS_BAR,
   computeReadinessLedger,
+  isSelfDeclaredDone,
   type ReadinessInput,
+  type ReadinessLedger,
 } from "./model";
 import {
   findClusterSummary,
@@ -28,9 +30,10 @@ import {
  * surface uses. If the contract underneath them ever shifts — a grain changes,
  * a denominator changes, a roll-up stops reconciling — these fail.
  *
- * /u/[handle] is deliberately ABSENT: it still carries its own inline evidence
- * logic (P1.5b route half unwritten), so it has no parity to assert yet. It is
- * red in check:single-truth, which is the honest way to represent that.
+ * /u/[handle] joined with the P1.5b route commit: its snapshot reads the raw
+ * LEDGER (not the summary) — verified = breakdown.conceptsVerified, groups from
+ * ledger.evidence, self-assessed = self-declared minus conceptStates.verified.
+ * `readProfile`/`readProfileSelfAssessed` mirror those accessor paths.
  */
 
 /* ── surface accessor mirrors ───────────────────────────────────────────── */
@@ -69,6 +72,26 @@ function readMandalaOverall(s: ReadinessSummary) {
     total += c.concepts.total;
   }
   return { done, total, pct: total > 0 ? done / total : 0 };
+}
+
+/** u/[handle]/page.tsx — readiness snapshot + verified groups, from the ledger. */
+function readProfile(led: ReadinessLedger) {
+  return {
+    verified: led.breakdown.conceptsVerified,
+    inProgress: led.activity.conceptsInProgress,
+    evidenceEntries: led.evidence.length,
+  };
+}
+
+/** u/[handle]/page.tsx self-assessed partition — self-declared done, minus
+ * everything `conceptStates` verified. Must equal ledger.selfAssessed.concepts. */
+function readProfileSelfAssessed(input: ReadinessInput, led: ReadinessLedger) {
+  const verifiedIds = new Set(
+    led.conceptStates.filter((c) => c.verified).map((c) => c.conceptId),
+  );
+  return input.concepts.filter(
+    (c) => isSelfDeclaredDone(c.status) && !verifiedIds.has(c.id),
+  ).length;
 }
 
 /* ── fixture matrix ─────────────────────────────────────────────────────── */
@@ -192,9 +215,9 @@ const SUBSKILLS = ["sA1", "sA2", "sB1", "sB2"];
 describe("surface parity — every surface reads one truth", () => {
   for (const variant of VARIANTS) {
     describe(variant, () => {
-      const s = summarizeReadinessLedger(
-        computeReadinessLedger(buildWorkspace(variant)),
-      );
+      const input = buildWorkspace(variant);
+      const led = computeReadinessLedger(input);
+      const s = summarizeReadinessLedger(led);
 
       it("header equals the ledger's concept counters", () => {
         expect(readHeader(s)).toEqual({
@@ -272,6 +295,19 @@ describe("surface parity — every surface reads one truth", () => {
         expect(s.subSkillCoverage.complete).toBe(true);
         expect(s.subSkillCoverage.conceptsMissing).toBe(0);
       });
+
+      it("public profile shows the same verified count as the workspace header", () => {
+        const p = readProfile(led);
+        expect(p.verified).toBe(readHeader(s).verified);
+        expect(p.evidenceEntries).toBe(p.verified);
+        expect(p.inProgress).toBe(s.activity.conceptsInProgress);
+      });
+
+      it("profile self-assessed partition equals the ledger's own count", () => {
+        expect(readProfileSelfAssessed(input, led)).toBe(
+          led.selfAssessed.concepts,
+        );
+      });
     });
   }
 });
@@ -301,10 +337,15 @@ describe("surface parity — evidence gating is visible in the shared numbers", 
     const s = summarizeReadinessLedger(
       computeReadinessLedger(buildWorkspace("passed-check")),
     );
-    // a1 is not_started yet evidence-verified — no surface may hide it.
+    // a1 is not_started yet evidence-verified — no surface may hide it. The
+    // public profile in particular: its old status gate made exactly this
+    // evidence invisible, which is the P1.5b bug this line locks out.
     expect(readHeader(s).verified).toBe(3);
     expect(readTreeSubSkill(s, "sA1").done).toBe(1); // a1
     expect(readMandalaOverall(s).done).toBe(3);
+    expect(
+      readProfile(computeReadinessLedger(buildWorkspace("passed-check"))).verified,
+    ).toBe(3);
   });
 
   it("verified-artefact: a backed artefact verifies its concepts; an unbacked one does not", () => {
