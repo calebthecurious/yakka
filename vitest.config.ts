@@ -11,6 +11,6 @@ export default defineConfig({
   test: {
     // Pure logic tests — no DOM needed.
     environment: "node",
-    include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    include: ["src/**/*.{test,spec}.{ts,tsx}", "scripts/**/*.{test,spec}.ts"],
   },
 });

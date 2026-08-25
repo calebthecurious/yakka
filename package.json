@@ -11,10 +11,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
+    "db:migrate": "tsx scripts/migrate.ts --env prod",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:migrate:dev": "tsx scripts/migrate-dev.ts",
+    "db:migrate:dev": "tsx scripts/migrate.ts --env dev",
     "db:seed:dev": "tsx scripts/seed-dev.ts"
   },
   "dependencies": {
