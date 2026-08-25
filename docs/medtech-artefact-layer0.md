@@ -11,9 +11,10 @@ sits on top of this and is written second.
 > audience, credibility thesis, and failure modes. If Layer 0 was meant to be
 > something else, this doc is cheap to re-cut; the analysis below survives.
 
-**Status:** framing sections complete. Sections marked OPEN await two research
-briefs commissioned 2026-08-25 (company status; dataset and evaluation
-landscape). Nothing here should be treated as final until those land.
+**Status:** framing sections complete; **artefact decided 2026-08-25 (§8).**
+Sections marked OPEN await two research briefs commissioned 2026-08-25
+(company status; dataset and evaluation landscape). §8 is the standing decision
+and governs the build; §6 findings feed the spec on top of it, not the choice.
 
 ---
 
@@ -145,6 +146,41 @@ criteria are not retrofitted to a favourite.
    is aimed at producing that insight rather than hoping one emerges.
 
 ---
+
+## 8. DECISION — the artefact (v1, 25 Aug 2026)
+
+Caleb's pick, per §7 step 2. Recorded verbatim in substance; this section wins
+over anything above it that disagrees.
+
+1. **The artefact:** a real-time EEG streaming inference demo — PhysioNet EEG
+   data replayed as a live stream, processed and classified in flight, with a
+   clean browser visualization of signal + model output.
+2. **What it proves:** the ability to ingest, process, and visualize
+   physiological signal data in real time with production-quality, tested
+   TypeScript/Python — the daily work of a Melbourne neurotech engineer.
+3. **Shipped means:** public GitHub repo + README architecture writeup + hosted
+   live demo link. Done when a stranger understands it in 3 minutes.
+4. **Time-box:** 8 days — Wed 26 Aug to Fri 4 Sep 2026, hard stop.
+5. **It is NOT:** novel research, a product, or a Provency feature. It exits
+   the box on 4 Sep in whatever honest state it's in, and the cold emails go
+   out the following week either way.
+
+### Read against §4 / §5
+
+- Criteria 1, 2, 4, 6 and the "unfinished ambition", "Provency dependency" and
+  "silence" failure modes are addressed directly by the wording above (point 5
+  is the explicit anti-silence clause).
+- Criterion 3 (data obtainable): PhysioNet resolves this — open access, no DUA
+  for the EEG collections in scope. Closes that §6 item for this artefact.
+- **Criterion 5 (one concrete insight for the email) is not yet named.** The
+  decision proves *capability*, which is the right bar for the artefact; the
+  email still needs a specific finding or observation. §7 step 4 remains open
+  and should be drafted before build starts on 26 Aug.
+- **"Kaggle rehash" guard:** the classifier is the least important part. The
+  distinguishing work is the streaming path, latency accounting, tests, and the
+  honest README — keep the model boring and say so.
+- Time-box is 8 days against criterion 2's "3–4 focused days"; the extra
+  covers hosting, README and the demo link, which criterion 2 did not price in.
 
 ## Appendix — an unrelated finding worth acting on
 
