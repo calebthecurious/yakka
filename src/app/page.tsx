@@ -163,7 +163,7 @@ const FEATURES: Feature[] = [
   {
     kicker: "Prove it",
     title: "A public profile that shows you can do the work",
-    body: "Concepts understood, artefacts built, progress rendered — all on a shareable profile. Evidence you can put in front of a hiring manager instead of a line on a résumé.",
+    body: "Concepts verified, artefacts built, progress rendered — all on a shareable profile. Evidence you can put in front of a hiring manager instead of a line on a résumé.",
     visual: <ProofVisual />,
   },
 ];
@@ -353,22 +353,31 @@ function InsightVisual() {
 
 function ProofVisual() {
   const items = [
-    { label: "Concepts understood", value: "63 / 81" },
+    // Illustrative figures — this card is a labelled example workspace, not a
+    // live profile. The units are the ledger's: verified is evidence-gated
+    // (a passed competency check or a completed artefact), self-assessed is
+    // kept separate and never counts toward it.
+    { label: "Concepts verified", value: "63 / 81" },
     { label: "Artefacts built", value: "7" },
-    { label: "Active streak", value: "19 days" },
+    { label: "Self-assessed only", value: "11" },
   ];
   return (
     <VisualFrame>
-      <div className="flex items-center gap-3">
-        <span className="bg-foreground/10 ring-border/60 flex size-9 items-center justify-center rounded-full font-medium ring-1">
-          C
-        </span>
-        <div className="flex flex-col">
-          <span className="text-sm font-medium">caleb</span>
-          <span className="text-muted-foreground text-xs">
-            provency.ai/u/caleb
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className="bg-foreground/10 ring-border/60 flex size-9 items-center justify-center rounded-full font-medium ring-1">
+            C
           </span>
+          <div className="flex flex-col">
+            <span className="text-sm font-medium">caleb</span>
+            <span className="text-muted-foreground text-xs">
+              provency.ai/u/caleb
+            </span>
+          </div>
         </div>
+        <span className="border-border/60 text-muted-foreground shrink-0 rounded-full border px-2 py-0.5 text-xs">
+          Example workspace
+        </span>
       </div>
       <div className="mt-5 grid grid-cols-3 gap-3">
         {items.map((it) => (
@@ -392,6 +401,11 @@ function ProofVisual() {
           </span>
         ))}
       </div>
+      <p className="text-muted-foreground/60 mt-4 text-[11px]">
+        Illustrative figures. On a real profile, verified means evidence — a
+        passed check or a finished artefact — and self-assessed never counts
+        toward it.
+      </p>
     </VisualFrame>
   );
 }
@@ -412,7 +426,7 @@ const STEPS: { n: string; title: string; body: string }[] = [
   {
     n: "03",
     title: "Work through it & prove it",
-    body: "Start at step one, track what you understand, log artefacts, and render it all on a public profile.",
+    body: "Start at step one, verify what you understand, log artefacts, and render it all on a public profile.",
   },
 ];
 
