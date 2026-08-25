@@ -41,6 +41,11 @@ multi-user product — see the "Decision trigger" in `docs/roadmap.md`.
 
 ### currentSkills re-display + edit
 - **What:** Surface `metadata.currentSkills` back to the user (stored, never shown).
+- **Trigger:** next syllabus-settings UX work.
+- **Note (2026-08-25):** a DELETE of `currentSkills` was proposed and rescinded —
+  false premise. It is read by syllabus generation (`run.ts`, `generate-syllabus.ts`),
+  the gap report, the gap page, and foundations actions. Standing adjudication:
+  `WORKLOG.md` "currentSkills stays (Amendment 1.5 item #5)". Keep; re-display only.
 - **Effort:** S → S.
 
 ### Foundations discounting
