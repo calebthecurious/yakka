@@ -5,6 +5,35 @@ range and anything a future reader would otherwise have to rediscover.
 
 ---
 
+## 2026-08-25 — Supabase restored; the 16 held commits are deployed
+
+Supabase came back (dashboard restore). `5f44741..676c752` pushed to `main`;
+Vercel auto-built and the new build is live.
+
+**Verified, not assumed:**
+
+- DNS resolves again; prod `/u/caleb` went 500 → 200 on the OLD build first,
+  confirming the outage was purely the paused database, not the code.
+- Pre-push gate green: 162 tests, `tsc --noEmit` clean, `check:single-truth` 0.
+- New build confirmed live by a content marker, not by `/login` — `/login` was
+  already 200 throughout the outage and proves nothing about which build is
+  serving. The marker is the profile stat label the P1.5b refactor renamed:
+  `Artefacts shipped` → **`Artefacts completed`**, now present on prod.
+- Live `/u/caleb` renders the ledger's four counts (all 0) with the honest
+  empty states. Zero is correct today: 91 concepts, 1 non-passing check, 0
+  artefacts. It becomes non-zero when the medtech artefact is logged (Track B).
+
+**Flaky test, understood — not a regression.** One pre-push run reported
+2 failures out of 162; a clean re-run and three consecutive runs of
+`middleware.test.ts` all passed. That run took 29.7s vs the usual ~12s
+(transform alone 23s), and those tests use real ~2.5s timers, so they lose
+their timing budget under machine load. Worth a `testTimeout` bump or fake
+timers if it recurs; it did NOT gate the push, because the failure was
+reproduced as load-dependent rather than code-dependent.
+
+**Still open from Phase 0:** the password rotation (0.1) and the prod smoke
+test (0.3) — see the next entry's blockers list, both now unblocked.
+
 ## 2026-08-24 (later) — CTA hardened under adversarial review; taxonomy doc (7.1)
 
 **Commits:** `6d2af15`, `daf9ee5`, `590d56e`
