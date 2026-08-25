@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { db } from "@/db";
 import { requireCurrentUserId } from "@/lib/auth";
+import { criteriaProgress } from "@/lib/readiness/model";
 import { Badge } from "@/components/ui/badge";
 import { PageContainer } from "@/components/page-container";
 import { Separator } from "@/components/ui/separator";
@@ -88,8 +89,7 @@ export default async function ArtefactPage({ params }: PageProps) {
   const meta = TYPE_META[artefact.type as ArtefactType];
   const Icon = meta.icon;
   const verified = artefact.verifiedAt !== null;
-  const criteriaDone = artefact.acceptanceCriteria.filter((c) => c.done).length;
-  const criteriaTotal = artefact.acceptanceCriteria.length;
+  const criteria = criteriaProgress(artefact.acceptanceCriteria);
 
   return (
     <PageContainer width="content" className="flex flex-col gap-8">
@@ -130,9 +130,9 @@ export default async function ArtefactPage({ params }: PageProps) {
               Not yet verified
             </Badge>
           )}
-          {criteriaTotal > 0 ? (
+          {criteria.total > 0 ? (
             <span className="text-muted-foreground text-xs">
-              {criteriaDone} / {criteriaTotal} criteria done
+              {criteria.done} / {criteria.total} criteria done
             </span>
           ) : null}
         </div>

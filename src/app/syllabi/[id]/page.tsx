@@ -11,6 +11,7 @@ import { runSyllabusGeneration } from "@/lib/generation/run";
 import {
   findClusterSummary,
   findSubSkillSummary,
+  ratioPct,
   summarizeReadinessLedger,
   type ReadinessSummary,
 } from "@/lib/readiness/summary";
@@ -341,6 +342,11 @@ export default async function SyllabusPage({ params }: PageProps) {
         clusters={treeData}
         targetRole={syllabus.targetRole}
         targetCompany={syllabus.targetCompany}
+        overall={{
+          done: readiness.concepts.verified,
+          total: readiness.concepts.total,
+          pct: ratioPct(readiness.concepts.verified, readiness.concepts.total),
+        }}
       />
 
       <footer className="border-border/60 mt-8 flex items-center justify-end border-t pt-6">

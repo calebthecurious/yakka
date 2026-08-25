@@ -4,7 +4,11 @@ import { useMemo, useState } from "react";
 import { Aperture, ListTree, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SyllabusTree, type ClusterNode } from "./syllabus-tree";
-import { GoalMandala, type MandalaCluster } from "./goal-mandala";
+import {
+  GoalMandala,
+  type MandalaCluster,
+  type MandalaReadiness,
+} from "./goal-mandala";
 
 type View = "mandala" | "tree";
 
@@ -13,11 +17,14 @@ export function SyllabusViews({
   clusters,
   targetRole,
   targetCompany,
+  overall,
 }: {
   syllabusId: string;
   clusters: ClusterNode[];
   targetRole: string;
   targetCompany: string | null;
+  /** Syllabus-wide concept counts, projected server-side from the summary. */
+  overall: MandalaReadiness;
 }) {
   const [view, setView] = useState<View>("mandala");
 
@@ -65,6 +72,7 @@ export function SyllabusViews({
           targetRole={targetRole}
           targetCompany={targetCompany}
           clusters={mandalaClusters}
+          overall={overall}
         />
       </div>
       <div className={cn(view !== "tree" && "hidden")}>

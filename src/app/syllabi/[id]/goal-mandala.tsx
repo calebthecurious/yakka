@@ -17,7 +17,7 @@ type MandalaConcept = { id: string; name: string; status: Status };
  * converted to the 0–1 fraction this file's geometry expects at the single
  * seam below — never at a render site.
  */
-type MandalaReadiness = { done: number; total: number; pct: number };
+export type MandalaReadiness = { done: number; total: number; pct: number };
 
 export type MandalaCluster = {
   id: string;
@@ -65,22 +65,20 @@ function progressOf(cluster: MandalaCluster): { done: number; total: number; pct
 }
 
 /**
- * Syllabus-wide roll-up, summed from the same per-cluster ledger counts rather
- * than recomputed from concepts. Safe by the ledger's own tested invariant:
+ * Syllabus-wide roll-up. NOT computed here: it arrives from the readiness
+ * summary (`concepts.verified` / `concepts.total`, pct via the ledger's
+ * `ratioPct`) and is only converted from the ledger's 0–100 to this file's 0–1
+ * fraction — the same seam `progressOf` uses for a cluster. Reconciles with the
+ * per-cluster arcs by the ledger's own tested invariant:
  * Σ byCluster.concepts.total === concepts.total (see summary.test.ts).
  */
-function overallProgressOf(clusters: MandalaCluster[]): {
+function overallProgressOf(overall: MandalaReadiness): {
   done: number;
   total: number;
   pct: number;
 } {
-  let done = 0;
-  let total = 0;
-  for (const c of clusters) {
-    done += c.readiness.done;
-    total += c.readiness.total;
-  }
-  return { done, total, pct: total > 0 ? done / total : 0 };
+  const { done, total, pct } = overall;
+  return { done, total, pct: pct / 100 };
 }
 
 function truncate(s: string, n: number): string {
@@ -144,14 +142,20 @@ export function GoalMandala({
   targetRole,
   targetCompany,
   clusters,
+  overall: overallReadiness,
 }: {
   targetRole: string;
   targetCompany: string | null;
   clusters: MandalaCluster[];
+  /** Syllabus-wide concept counts from the readiness summary (pct 0–100). */
+  overall: MandalaReadiness;
 }) {
   const [focusedId, setFocusedId] = useState<string | null>(null);
 
-  const overall = useMemo(() => overallProgressOf(clusters), [clusters]);
+  const overall = useMemo(
+    () => overallProgressOf(overallReadiness),
+    [overallReadiness],
+  );
 
   return (
     <>
