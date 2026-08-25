@@ -31,16 +31,13 @@ multi-user product — see the "Decision trigger" in `docs/roadmap.md`.
 
 ## P3 — Internal hygiene (owner-facing, not recruiter-facing)
 
-### Reconcile inline progress derivations onto the readiness model
-- **What:** Migrate the syllabus header count, cluster/sub-skill rings (`syllabus-tree.tsx`),
-  and goal mandala (`goal-mandala.tsx`) to consume `computeReadinessLedger` so the
-  owner-facing views stop silently disagreeing with the honest profile.
-- **Why deferred:** Internal consistency, not on the recruiter path. The profile (§2 of the
-  roadmap) is the only surface that must be on the model for the job search.
-- **Note:** The "Mark verified" self-declare decision was PROMOTED out of this backlog to
-  roadmap item #0 (blocking) — self-attested evidence makes the whole job-search case hollow,
-  so it's no longer hygiene. This item is now only the mandala/tree/header reconciliation.
-- **Effort:** M → S.
+### ~~Reconcile inline progress derivations onto the readiness model~~ — DONE (Amendment 1)
+- **Closed 2026-08-25.** Header, tree rings, mandala, `/u/[handle]`, and the artefact
+  page all read `computeReadinessLedger` → `summarizeReadinessLedger`. Locked by
+  `check:single-truth` (0 violations) and `src/lib/readiness/parity.test.ts`. Last
+  slices: P1.10 `72e610e` (residual dedupe), P1.11 `47edb03` (landing-page mock
+  labelled, verified vocabulary). What deliberately remains on raw status is
+  itemised in "Amendment 1 — closed" below.
 
 ### currentSkills re-display + edit
 - **What:** Surface `metadata.currentSkills` back to the user (stored, never shown).
@@ -71,3 +68,37 @@ multi-user product — see the "Decision trigger" in `docs/roadmap.md`.
   that slice a pure flag-flip + dead-code removal.
 - **Reversibility:** 5/5. Pure add.
 - **Effort:** M → S.
+
+## Amendment 1 — closed. Residual raw-status sites, filed 2026-08-25
+
+Disposition on the P1.1 must-differ list and the remaining raw sites. **All
+deferred with named triggers, none scheduled now. No further Amendment 1 work
+after P1.10/P1.11 — the amendment is closed and stays closed.** Each item below
+opens only when its trigger fires, and then as that prompt's precondition work.
+
+### 1. `hasBegun` (must-differ F) — KEPT by design, permanently. CLOSED, not deferred.
+- **Where:** `src/app/syllabi/[id]/page.tsx` — `status !== "not_started"`.
+- **Why:** Self-declaration of "I've begun" has no honest evidence equivalent
+  (`learning` is invisible to the ledger). Not a TODO. Do not reopen.
+
+### 2. Tree artefact badge grain — TODO
+- **Trigger (verbatim):** any redesign of the tree badge OR the first
+  employer-facing surface that displays it (A6).
+- **Until then:** both counters stay, correctly, in their own units (the tree
+  row renders concept grain; the ledger's `ClusterSummary.total` is milestone
+  grain, concepts + 1 for an artefact-bearing cluster).
+
+### 3. `selfAssessed` / `inProgress` booleans on `ConceptLedgerEntry` + the two `/u/` identity-list migrations — TODO
+- **Trigger (verbatim):** P5.1 profile variants, which touches `/u/` anyway.
+- **How:** Do it as that prompt's precondition work, not before.
+
+### 4. Mandala dots vs ring — TODO, product call
+- **Trigger (verbatim):** next mandala design touch.
+- **State:** concept dots are coloured by self-declared status while the ring is
+  evidence-gated, so dots can read "understood" where the ring says 0.
+  Options stand as documented (dim unevidenced dots, or legend).
+
+### 5. `FoundationsSignal.haveIt` — TODO
+- **Trigger (verbatim):** next foundations UX work.
+- **Related:** "Foundations discounting" under P3 above — resolve together when
+  the trigger fires.
