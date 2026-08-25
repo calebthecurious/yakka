@@ -229,6 +229,17 @@ watching ycombinator.com/apply.
 
 ### Decisions
 
+- **Dev database = local Supabase in Docker, not a second cloud project, not
+  branching (2026-08-25).** Branching needs Pro (prod is free tier — hence the
+  08-24 auto-pause) and branches share the parent's auth config; a second cloud
+  project (`provency-dev`, Seoul) was attempted and refused by the 2-active-free-
+  project account cap. `supabase init` + `supabase start` with
+  `project_id = "provency-dev"` (`supabase/config.toml`, committed). Connection
+  values live ONLY in `.env.local` as `DEV_DATABASE_URL` / `DEV_SUPABASE_URL` /
+  `DEV_SUPABASE_ANON_KEY` — deliberately not `DATABASE_URL`, so the prod value
+  that drizzle-kit auto-loads can never be shadowed by accident. Dev host is
+  `127.0.0.1:54322`; anything else is prod. Revisit cloud dev when a free slot
+  opens or the org goes Pro.
 - **`currentSkills` stays (Amendment 1.5 item #5).** The plan's "write-only,
   wire or delete" premise no longer holds: it feeds syllabus generation
   (`generate-syllabus.ts`, `run.ts`) and is read as `resumeText` by the gap
