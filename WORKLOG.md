@@ -5,6 +5,69 @@ range and anything a future reader would otherwise have to rediscover.
 
 ---
 
+## 2026-08-25 (later) — Real-eyes check on the live ledger: PARTIAL
+
+Amendment 1's DoD is "header / tree / profile agree on a live workspace."
+Half of it is now witnessed on production; half is blocked on an authenticated
+session (see Blocked below). Recorded partial rather than claimed complete.
+
+### The finding that reframes this DoD
+
+**No workspace on prod carries any evidence.** Across all 14 of Caleb's
+syllabi: 0 concepts self-marked understood, 0 completed competency checks
+(one exists but is unfinished — `completed_at` null), 0 verified artefacts.
+So a naive parity check compares zeros to zeros and proves nothing about the
+numerators. What IS non-trivial on live data — and was checked — is the
+denominators, the milestone arithmetic, and the evidence GATES.
+
+### Witnessed on production
+
+Ran the **real production reducer** (`computeReadinessLedger` +
+`summarizeReadinessLedger`, imported from `src/`, not re-implemented) over
+**live prod rows**, then compared against the rendered public profiles.
+
+- `/u/caleb` → syllabus `37099175` (Master Facilitator): 91 concepts, 1
+  unfinished check, 0 artefacts. Ledger says 0/0/0/0; the live page renders
+  0/0/0/0 under the four stat labels. Denominator arithmetic holds: cluster
+  rows 19+17+18+18+19 = 91 = header total; weightedTotal 402; every cluster
+  artefact-bearing, so milestones = concepts + 1 per cluster.
+- `/u/calebthecurious` → featured syllabus `8bc46617` (Software Engineer,
+  Data Engineering · Neuralink): 88 concepts, ledger 0/0/0/0, page renders
+  0/0/0/0. All six parity assertions PASS on live data (tree sum == header
+  total, evidence count == verified count, conceptStates == verified count,
+  summary mirrors header, sub-skill coverage complete).
+- **The verifiedAt gate, demonstrated non-trivially.** Syllabus `ed77fbce`
+  holds **2 artefacts, both with `verified_at` null**. The ledger reports
+  `artefacts.completed = 0` (of 2 total) and `selfAssessed.artefacts = 2`.
+  The pre-P1.5b profile counted pasted URLs and would have shown
+  "Artefacts shipped: 2". This is the honesty fix proven on real rows, not a
+  fixture — the strongest single piece of evidence this DoD produced.
+- Incidental: unauthenticated `/syllabi` correctly bounced to
+  `/login?next=%2Fsyllabi`, so the new build's route guard works.
+
+### Blocked, not done
+
+- **Header, syllabus tree, and goal mandala are NOT yet eyeballed.** All three
+  live behind `/syllabi/[id]`, which the middleware protects. Getting a
+  session needs credentials, which the agent must not handle. Two mechanical
+  paths both failed today: gstack `browse handoff` cannot launch a headed
+  Chromium on this machine (`launchPersistentContext` 15s timeout, no stale
+  profile lock), and `cookie-import-browser` cannot read Chrome's cookie DB
+  while Chrome is running (~61 live processes throughout).
+- **A meaningful numerator check needs evidence that does not exist yet.**
+  It arrives naturally with Track B: once the medtech artefact is logged and
+  verified, re-run this check on that workspace and the numbers stop being
+  zeros. Cheap to repeat — `tmp/ledger-live.mts <syllabusId>` prints the
+  ledger and the six assertions straight from prod.
+
+### Note for Amendment 2
+
+Prod carries **real third-party users** (kristine, harry, pezz, gumbii, s-s,
+robee) with syllabi of their own, alongside Caleb's four accounts. The plan's
+premise for environment separation is confirmed in the strongest terms: local
+shells currently point at a database holding other people's data. Every probe
+in this entry was read-only.
+
 ## 2026-08-25 — Supabase restored; the 16 held commits are deployed
 
 Supabase came back (dashboard restore). `5f44741..676c752` pushed to `main`;
