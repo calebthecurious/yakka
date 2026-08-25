@@ -5,6 +5,75 @@ range and anything a future reader would otherwise have to rediscover.
 
 ---
 
+## 2026-08-25 — /u/ profile list order: ON BRANCH, not merged
+
+**Commit:** `ed5f907` on `claude/elated-fermi-2f3234` (parent `b4d0e59`).
+**Not on `main`, not deployed.** Merging `main` auto-builds to Vercel and prod
+carries real third-party users, so the merge is Caleb's call. Gates get re-run
+here at merge time; the numbers below are the branch session's, not yet
+independently reproduced.
+
+Built by a parallel session; ordering semantics determined here against live
+prod data. 5 files, +410/-24, 178 tests (+16).
+
+### Why it was not cosmetic
+
+The `/u/` loader reads the tree with flat `inArray` queries and **no ORDER BY**,
+so row order varied per request — and that order is load-bearing: it becomes
+the ledger's `evidence` and `conceptStates` order, and from there four rendered
+lists. Two of them are **capped** (`TRAIL_NAMED_LIMIT = 8`, developing
+`.slice(0, 6)`), so order there is **selection, not sequence** — it decided
+*which* items a recruiter sees. That is what upgrades this off the "cosmetic"
+label the original task chip gave it.
+
+### Three sections, three orders
+
+Each list's order encodes what that section is for:
+
+| List | Order | Why |
+|---|---|---|
+| Verified + self-assessed | syllabus (cluster → sub-skill → concept) | reads as curriculum |
+| Trail — named | `completedAt` DESC nulls last, title, id | a trail is temporal; picks the *real* 8 |
+| Trail — byType chips | count DESC, then type A–Z | was "first-seen" = arbitrary |
+| Currently developing | `updatedAt` DESC, ties keep syllabus order | the word is "currently" |
+| Artefacts | unchanged sort + `id` tie-break | ties could wobble |
+
+Every order carries a final `id` tie-break: `order_index` defaults to 0 on
+every table, so ties are the common case, not the edge case.
+
+### Two decisions a future reader must not undo
+
+- **Competencies are NOT sorted evidence-strength-first.** A passed check and a
+  verified artefact are **peer rungs** (`docs/verification-taxonomy.md`).
+  Ranking one above the other would imply a hierarchy the ledger never asserts.
+- **`byType` is sorted inside the ledger, not the route.** A route consuming
+  ledger data and then deriving display state from it is exactly the shape
+  `check:single-truth` exists to prevent. (This overrode the instruction from
+  this session, which had specified the route. The branch session was right.)
+
+A seventh site was found beyond the six specified: the artefact read needed a
+deterministic base independently of the list sort, because `input.artefacts`
+order drives the sequence of a concept's "Demonstrated in …" evidence labels.
+
+### Test flake, now attributed (and chipped)
+
+`src/app/syllabi/new/actions.test.ts` fails **both** its tests intermittently
+in full-suite runs, passes in isolation. Confirmed **pre-existing**, from two
+independent observations:
+
+1. Here, at `676c752` — the parent of this branch's base — a run reported
+   `2 failed | 160 passed (162)`, wall 29.70s with transform 23.36s against a
+   healthy ~12s / ~1.6–3s.
+2. The branch session saw the same file fail both tests three times, then pass
+   eight consecutive runs including under forced concurrent load.
+
+That file has exactly two `it(` blocks, matching the 2-of-162 count. **This
+session's earlier diagnosis was wrong** — the WORKLOG entry above blames the
+timing-sensitive middleware tests, which were the obvious suspect (real ~2.5s
+timers) but not the culprit. The failure mode ("a mock was called when it
+should not have been") points at mock/module state bleeding across test files,
+not a timeout. Spawned as its own investigation rather than fixed inline.
+
 ## 2026-08-25 (later) — Real-eyes check on the live ledger: PARTIAL
 
 Amendment 1's DoD is "header / tree / profile agree on a live workspace."
