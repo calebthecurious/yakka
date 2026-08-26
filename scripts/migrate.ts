@@ -5,8 +5,8 @@
  *   npm run db:migrate            →  tsx scripts/migrate.ts --env prod
  *
  * There is no default target. `--env dev` resolves DEV_DATABASE_URL (loopback
- * only); `--env prod` resolves PROD_DATABASE_URL (DATABASE_URL as a loudly
- * deprecated fallback — see P2.2b). Before anything is applied the script
+ * only); `--env prod` resolves PROD_DATABASE_URL, which lives only in Vercel and
+ * must be exported into the shell for the apply. Before anything is applied the script
  * prints the resolved host, database, pending migration files and the row
  * counts of the three largest tables. Any non-loopback host then requires an
  * interactive operator to type PROD; a non-TTY stdin fails BEFORE a socket is
@@ -14,8 +14,8 @@
  * and are unit-tested.
  *
  * Why not `drizzle-kit migrate`? Two reasons:
- *  1. drizzle.config.ts reads DATABASE_URL with no target ceremony — that is
- *     how 0015 was once applied to prod from a local shell.
+ *  1. drizzle-kit has no target ceremony — that is how 0015 was once applied
+ *     to prod from a local shell. drizzle.config.ts is now pinned to loopback.
  *  2. `0005_auth_ownership_rls.sql` lives outside the Drizzle journal — it was
  *     applied to prod out-of-band (see CLAUDE.md, memory: 0005 out-of-band).
  *     0012 alters `profiles`, which only 0005_auth creates, so it must run
@@ -28,9 +28,7 @@
  * is applied at most once (hash match ⇒ skip), so the script is idempotent.
  */
 
-import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { parse } from "dotenv";
 import postgres from "postgres";
@@ -44,55 +42,15 @@ import {
   resolveTarget,
   type ResolvedTarget,
 } from "./migrate-guard";
-
-const MIGRATIONS_DIR = path.resolve("src/db/migrations");
-const OUT_OF_BAND = { tag: "0005_auth_ownership_rls", after: "0004_clever_scarecrow" };
-
-interface JournalEntry {
-  idx: number;
-  when: number;
-  tag: string;
-  breakpoints: boolean;
-}
-interface Migration {
-  tag: string;
-  createdAt: number;
-  hash: string;
-  statements: string[];
-  outOfBand: boolean;
-}
-
-function readMigration(tag: string, createdAt: number, outOfBand = false): Migration {
-  const sqlText = readFileSync(path.join(MIGRATIONS_DIR, `${tag}.sql`), "utf8");
-  return {
-    tag,
-    createdAt,
-    outOfBand,
-    hash: createHash("sha256").update(sqlText).digest("hex"),
-    statements: sqlText
-      .split("--> statement-breakpoint")
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0),
-  };
-}
-
-function plan(): Migration[] {
-  const journal = JSON.parse(
-    readFileSync(path.join(MIGRATIONS_DIR, "meta/_journal.json"), "utf8"),
-  ) as { entries: JournalEntry[] };
-  const out: Migration[] = [];
-  for (const e of journal.entries) {
-    out.push(readMigration(e.tag, e.when));
-    if (e.tag === OUT_OF_BAND.after) {
-      out.push(readMigration(OUT_OF_BAND.tag, e.when + 1, true));
-    }
-  }
-  return out;
-}
+import { plan, type Migration } from "./migration-plan";
 
 /* ── Target resolution ─────────────────────────────────────────────────── */
 
-/** process.env wins; .env.local fills gaps. Only the keys the guard needs are read. */
+/**
+ * DEV_DATABASE_URL may come from .env.local (it is loopback, at rest is fine).
+ * PROD_DATABASE_URL is read from process.env ONLY — never from a file — so a
+ * prod credential pasted into .env.local is inert here (Amendment 2).
+ */
 function loadVars(): Record<string, string | undefined> {
   let fileVars: Record<string, string> = {};
   try {
@@ -100,11 +58,9 @@ function loadVars(): Record<string, string | undefined> {
   } catch {
     /* no .env.local — process.env must carry everything */
   }
-  const pick = (k: string) => process.env[k] ?? fileVars[k];
   return {
-    DEV_DATABASE_URL: pick("DEV_DATABASE_URL"),
-    PROD_DATABASE_URL: pick("PROD_DATABASE_URL"),
-    DATABASE_URL: pick("DATABASE_URL"),
+    DEV_DATABASE_URL: process.env.DEV_DATABASE_URL ?? fileVars.DEV_DATABASE_URL,
+    PROD_DATABASE_URL: process.env.PROD_DATABASE_URL,
   };
 }
 
@@ -194,7 +150,6 @@ async function apply(sql: Sql, pending: Migration[]): Promise<void> {
 async function main() {
   const env = parseEnvFlag(process.argv.slice(2));
   const target = resolveTarget(env, loadVars());
-  if (target.warning) console.warn(`\n!!! ${target.warning}\n`);
 
   const needsCeremony = requiresCeremony(target.host);
   // Fail before opening a socket: a piped or CI stdin can never reach prod.
