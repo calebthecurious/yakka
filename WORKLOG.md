@@ -5,6 +5,110 @@ range and anything a future reader would otherwise have to rediscover.
 
 ---
 
+## 2026-08-26 — Supabase project move, half applied. PROD DEPLOY IS ARMED TO BREAK
+
+**Read this before pushing anything to `main`.**
+
+Caleb created a **new Supabase project** (`skksjylkquovwhgjbwxi`, ap-south-1)
+rather than rotating the old one (`dzdfeundgibdiyvtajue`, ap-northeast-2).
+Vercel Production was repointed at it today:
+
+| variable | now points at | type |
+| --- | --- | --- |
+| `PROD_DATABASE_URL` | new project pooler, 6543 | secret |
+| `NEXT_PUBLIC_SUPABASE_URL` | new project | config |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | new publishable key | config |
+| `DATABASE_URL` | **old** project | secret, still present |
+
+**The landmine.** The *running* production build still works — `/login`, `/`
+and `/u/caleb` all 200 — because it was built before the change: its
+`NEXT_PUBLIC_*` values are inlined from the old project and it reads
+`DATABASE_URL` (old project) at runtime. **The next deployment breaks prod.**
+A new build would inline the new project's browser values while the deployed
+code still reads `DATABASE_URL`, and the new project has *no schema and no
+rows*. Do not push to `main`, and do not redeploy, until the sequence below
+finishes.
+
+**What is still missing, in order:**
+
+1. Schema on the new project — `npm run db:migrate` with `PROD_DATABASE_URL`
+   exported into an interactive shell (typed `PROD` ceremony; a non-TTY is
+   refused by design, so this is a human step). 17 migrations pending.
+2. Data carry-over — `scripts/copy-prod.ts` (written, uncommitted). Needs the
+   **old** project's pooler URI; Vercel cannot reveal it because
+   `DATABASE_URL` is marked sensitive, so it must come from the old
+   dashboard. Copies `auth.users` + `auth.identities` (so existing logins and
+   user ids survive) then all 16 public tables in FK order.
+3. Push P2.2b, so the deployed code reads `PROD_DATABASE_URL`.
+4. Health-check, then delete `DATABASE_URL`.
+
+**Rotation is NOT done, and the exposure is now larger, not smaller.** Phase
+0.1 has been open since the v3-era exposure. It was not closed today: instead
+of rotating, a new project was created, and the new project's database
+password was pasted into chat and into `.env.local` twice (evicted both
+times, and `scripts/migrate.ts` now reads `PROD_DATABASE_URL` from
+`process.env` only, so a file paste is inert). That password is in plaintext
+in the session transcript and in Vercel. **It must be reset in the new
+project's dashboard and updated in Vercel before this is called closed.**
+Anyone reading this later: do not mark Phase 0.1 done on the strength of the
+project move.
+
+**Prod smoke test (P0.3) is also NOT done.** It needs a logged-in human on
+prod: create one real syllabus, kill the tab mid-generation, reopen and watch
+the worker resume. Note `provency.ai` still does not resolve (curl → 000);
+the live host is `yakka-two.vercel.app`. Best run either *before* step 1
+above (tests today's working prod, and the syllabus it creates is carried
+over by step 2) or *after* step 4 — never in the current half-state.
+
+---
+
+## 2026-08-25 — Amendment 2: prod credentials evicted from local files (P2.2b) — WRITTEN, NOT LANDED
+
+**Status: uncommitted working tree.** Held deliberately: pushing before the
+new project has a schema would break prod (see the entry above).
+
+**Commits:** P2.0 `b8b0379` (local Supabase stack), P2.1r `578649e`
+(migrate + seed on DEV_*), P2.2r `a45995d` (explicit `--env`, typed-PROD
+ceremony), P2.2b — this entry, not yet committed.
+
+**What was evicted.** `DATABASE_URL` no longer exists anywhere: not in
+`.env.local`, not in `.env.development.local`, not in any code path.
+Also removed from `.env.local`: the prod `NEXT_PUBLIC_SUPABASE_URL` /
+`NEXT_PUBLIC_SUPABASE_ANON_KEY` (public values, but prod-pointing — a local
+checkout now points nowhere but the docker stack). Deleted: the stale,
+untracked `.env.local.example` (carried the prod project host) and three
+untracked `tmp/*.mjs` probes that read `DATABASE_URL`. A tracked
+`.env.example` now documents the DEV_*-only shape.
+
+**Where prod values live now.** Only in Vercel Project Settings, as
+`PROD_DATABASE_URL` (renamed from `DATABASE_URL`, matching P2.2r's
+resolution), plus `GROK_API_KEY` and the two `NEXT_PUBLIC_SUPABASE_*`.
+Nothing pulls them down: `vercel env pull` is not part of any workflow.
+
+**How the app chooses.** `src/lib/env.ts` `resolveDatabaseUrl()`: on Vercel
+(`VERCEL=1`) it reads `PROD_DATABASE_URL`; anywhere else it reads
+`DEV_DATABASE_URL` and refuses a non-loopback host. Which variable is read is
+decided by where the process runs, never by which env file loaded — so a
+local process cannot reach prod even in principle. `drizzle.config.ts` is
+pinned to `DEV_DATABASE_URL` + loopback (generate/studio/push are local
+tools); the migrator's deprecated `DATABASE_URL` fallback is gone.
+`PROD_DATABASE_URL` reaches a local shell only by explicit export for the
+duration of a `npm run db:migrate` apply, which still demands a typed PROD.
+
+**Rotation.** Not done — see the 2026-08-26 entry above. The old project's
+password was never rotated; a new project was created instead, and its
+password is itself unrotated and exposed. Phase 0.1 remains open.
+
+**Deploy health after the rename.** Not yet measured: P2.2b has not been
+pushed, so no deployment has run against `PROD_DATABASE_URL`. The currently
+live build predates the Vercel change and is healthy on the *old* project
+(`/login`, `/`, `/u/caleb` all 200 as of 2026-08-26).
+
+**Gates.** tsc 0 errors · eslint clean on changed files · vitest 185/185
+(new: `src/lib/env.test.ts`, `scripts/migrate-guard.test.ts` updated) ·
+`npm run db:migrate:dev` preflight resolves `127.0.0.1:54322` · `next dev`
+boots on DEV_* only and renders the fixture workspace.
+
 ## 2026-08-25 — /u/ profile list order: ON BRANCH, not merged
 
 **Commit:** `ed5f907` on `claude/elated-fermi-2f3234` (parent `b4d0e59`).
