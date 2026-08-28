@@ -464,7 +464,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title: `${name} → ${profile.syllabus.targetRole} — Provency`,
     description:
       profile.publicProfile.headline ??
-      `${name}'s role-readiness profile for ${profile.syllabus.targetRole}.`,
+      `${name}'s evidence record for ${profile.syllabus.targetRole}.`,
   };
 }
 
@@ -513,6 +513,11 @@ export default async function PublicProfilePage({ params }: PageProps) {
             </span>
           </div>
         ) : null}
+
+        <p className="text-muted-foreground/70 max-w-xl text-sm text-pretty">
+          A record of evidence. Verified means a passed check or a finished
+          artefact; self-assessed never counts toward it.
+        </p>
 
         <ExternalLinks
           github={p.githubUrl}
@@ -746,7 +751,7 @@ export default async function PublicProfilePage({ params }: PageProps) {
       )}
 
       <footer className="border-border/50 text-muted-foreground/70 flex items-center justify-between border-t pt-6 text-xs">
-        <span>provency.ai · role-readiness profile</span>
+        <span>provency.ai · evidence record</span>
         <span>Updated {format(new Date(), "d MMM yyyy")}</span>
       </footer>
     </main>

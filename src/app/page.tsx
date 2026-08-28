@@ -6,21 +6,21 @@ import { cn } from "@/lib/utils";
 import { LandingCta } from "@/components/landing/landing-cta";
 
 export const metadata: Metadata = {
-  title: "Provency — Turn the job you want into the plan that gets you there",
+  title: "Provency — Evidence that survives the age of generated portfolios",
   description:
-    "Paste any job description and Provency builds you a personalized, source-grounded learning roadmap — from the exact first step to a public profile that proves you can do the work.",
+    "Paste a job description, build toward it, and keep a record of verified evidence — passed checks and finished artefacts — that survives generated résumés and portfolios.",
   openGraph: {
-    title: "Provency — the personal learning OS for self-taught knowledge workers",
+    title: "Provency — the verification layer for self-taught knowledge workers",
     description:
-      "Paste a target job description. Get a personalized roadmap, an unmistakable place to start, and a public profile that proves your progress.",
+      "Paste a target job description. Get a personalized roadmap, an unmistakable place to start, and a public record of verified evidence.",
     type: "website",
     siteName: "Provency",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Provency — turn the job you want into the plan that gets you there",
+    title: "Provency — evidence that survives the age of generated portfolios",
     description:
-      "Personalized, source-grounded learning roadmaps from any job description.",
+      "A record of verified evidence — passed checks and finished artefacts — built from any job description.",
   },
 };
 
@@ -51,17 +51,19 @@ function Hero() {
     <section className="relative overflow-hidden px-6 pt-24 pb-28 sm:pt-32 sm:pb-36">
       <div className="relative z-10 mx-auto flex max-w-3xl flex-col items-center text-center">
         <h1 className="font-serif text-5xl leading-[1.05] font-normal tracking-tight text-balance sm:text-7xl">
-          Turn the job you want into the plan that gets you there.
+          Evidence that survives the age of generated portfolios.
         </h1>
 
         <p className="text-muted-foreground mx-auto mt-7 max-w-md text-base text-pretty sm:text-lg">
-          Paste any job description. Provency builds a personalized,
-          source-grounded learning roadmap — from the exact first step to a
-          public profile that proves you can do the work.
+          Résumés are generated, portfolios are free to fabricate, take-homes
+          are solved in ninety seconds. Provency is the verification layer:
+          paste the role you&apos;re aiming for, build toward it, and keep a record
+          of evidence — checks passed, artefacts finished — that a hiring
+          manager can trust.
         </p>
 
         <div className="mt-10 flex flex-col items-center gap-3">
-          <LandingCta size="xl" next="/syllabi" label="Build my roadmap" />
+          <LandingCta size="xl" next="/syllabi" label="Start my record" />
           <p className="text-muted-foreground/70 text-xs">
             Free to start · No credit card · ~2 minutes to your first roadmap
           </p>
@@ -110,7 +112,7 @@ const STATS: { value: string; label: string }[] = [
   { value: "Any JD", label: "becomes a structured roadmap" },
   { value: "80+", label: "concepts, foundation → advanced" },
   { value: "1 click", label: "to an unmistakable place to start" },
-  { value: "Public", label: "profile that proves your progress" },
+  { value: "Public", label: "record of verified evidence" },
 ];
 
 function Stats() {
@@ -163,7 +165,7 @@ const FEATURES: Feature[] = [
   {
     kicker: "Prove it",
     title: "A public profile that shows you can do the work",
-    body: "Concepts verified, artefacts built, progress rendered — all on a shareable profile. Evidence you can put in front of a hiring manager instead of a line on a résumé.",
+    body: "Claims kept separate from evidence: a concept is verified only by a passed check or a finished artefact, and self-assessed is always labelled as such. A shareable record a hiring manager can trust instead of a line on a résumé.",
     visual: <ProofVisual />,
   },
 ];
@@ -425,8 +427,8 @@ const STEPS: { n: string; title: string; body: string }[] = [
   },
   {
     n: "03",
-    title: "Work through it & prove it",
-    body: "Start at step one, verify what you understand, log artefacts, and render it all on a public profile.",
+    title: "Build the evidence",
+    body: "Start at step one, pass competency checks, finish artefacts, and let the record accumulate. Verified means evidence; self-assessed is always labelled.",
   },
 ];
 
@@ -589,7 +591,7 @@ function FinalCta() {
           step at a time, with proof at the end.
         </p>
         <div className="mt-9">
-          <LandingCta size="xl" next="/syllabi" label="Build my roadmap" />
+          <LandingCta size="xl" next="/syllabi" label="Start my record" />
         </div>
         <p className="text-muted-foreground/70 mt-3 text-xs">
           Continue with Google · we only use it to create your account
@@ -607,7 +609,7 @@ function Footer() {
         <span className="bg-foreground text-background rounded-sm px-1.5 py-0.5 text-[10px] font-bold uppercase">
           Provency
         </span>
-        <p>The personal learning OS for self-taught knowledge workers.</p>
+        <p>The verification layer for self-taught knowledge workers.</p>
         <div className="flex items-center gap-5">
           <Link href="/login" className="hover:text-foreground transition-colors">
             Log in
