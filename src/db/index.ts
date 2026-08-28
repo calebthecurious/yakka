@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { getEnv } from "@/lib/env";
+import { getDatabaseUrl } from "@/lib/env";
 import * as schema from "./schema";
 
 const globalForDb = globalThis as unknown as {
@@ -11,7 +11,7 @@ const globalForDb = globalThis as unknown as {
 let dbInstance: ReturnType<typeof createDb> | undefined;
 
 function createClient() {
-  return globalForDb.client ?? postgres(getEnv("DATABASE_URL"), {
+  return globalForDb.client ?? postgres(getDatabaseUrl(), {
     prepare: false,
   });
 }

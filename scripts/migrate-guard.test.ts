@@ -41,7 +41,6 @@ describe("resolveTarget", () => {
     expect(t.host).toBe("127.0.0.1");
     expect(t.port).toBe("54322");
     expect(t.database).toBe("postgres");
-    expect(t.warning).toBeNull();
   });
 
   it("dev refuses a non-loopback DEV_DATABASE_URL", () => {
@@ -52,22 +51,18 @@ describe("resolveTarget", () => {
     expect(() => resolveTarget("dev", { DATABASE_URL: REMOTE })).toThrow(/DEV_DATABASE_URL is not set/);
   });
 
-  it("prod resolves PROD_DATABASE_URL without a warning", () => {
-    const t = resolveTarget("prod", { PROD_DATABASE_URL: REMOTE, DATABASE_URL: DEV });
+  it("prod resolves PROD_DATABASE_URL", () => {
+    const t = resolveTarget("prod", { PROD_DATABASE_URL: REMOTE });
     expect(t.source).toBe("PROD_DATABASE_URL");
     expect(t.host).toBe("db.fake-not-prod.example.com");
-    expect(t.warning).toBeNull();
   });
 
-  it("prod falls back to DATABASE_URL with a deprecation warning", () => {
-    const t = resolveTarget("prod", { DATABASE_URL: REMOTE });
-    expect(t.source).toBe("DATABASE_URL");
-    expect(t.warning).toMatch(/DEPRECATED/);
-    expect(t.warning).toMatch(/PROD_DATABASE_URL/);
+  it("prod never falls back to a legacy DATABASE_URL", () => {
+    expect(() => resolveTarget("prod", { DATABASE_URL: REMOTE })).toThrow(/PROD_DATABASE_URL is not set/);
   });
 
-  it("prod fails when neither variable is set", () => {
-    expect(() => resolveTarget("prod", {})).toThrow(/neither PROD_DATABASE_URL nor DATABASE_URL/);
+  it("prod fails when PROD_DATABASE_URL is unset", () => {
+    expect(() => resolveTarget("prod", {})).toThrow(/PROD_DATABASE_URL is not set/);
   });
 
   it("prod ignores DEV_DATABASE_URL", () => {

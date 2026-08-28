@@ -5,6 +5,59 @@ range and anything a future reader would otherwise have to rediscover.
 
 ---
 
+## 2026-08-28 — Supabase project move: Y1–Y3 landed (schema, data, RLS parity, P2.2b committed)
+
+Closes steps 1–3 of the 2026-08-26 entry below. Y4–Y5 (Vercel env + password
+reset) and the single push are still ahead — **do not push until Caleb says
+"deploy safe — push".**
+
+**Y1 — schema on the new project (`skksjylkquovwhgjbwxi`).** Applied via the
+TTY-free path from `3838449`: `scripts/emit-migration-sql.ts` → one
+transactional `.sql` (17 migrations, out-of-band 0005 slotted after 0004)
+pasted into the new project's SQL editor. Verified independently: anon REST
+probe flipped from `PGRST205` (table not found) to `200 []` on `syllabi`,
+`profiles`, `concepts`, `skill_clusters`, `sub_skills`, `artefacts`,
+`learning_sessions`; a control table still 404s.
+
+**Y2 — data carry-over.** `scripts/copy-prod.ts` (committed here). First real
+run died on its first insert (`auth.users`) with
+`cannot call json_populate_recordset on a scalar` — a double JSON encoding:
+binding the payload as `$1::json` makes the server describe the parameter as
+json, and postgres.js then re-stringifies the already-stringified array.
+Fixed by binding as `$1::text::json`; failures now name the table. Zero rows
+had been written. Re-run: **all 18 tables match**, read live from both sides:
+auth.users 12 · auth.identities 13 · profiles 12 · syllabi 29 ·
+skill_clusters 142 · sub_skills 382 · concepts 2126 · resources 4760 ·
+learning_sessions 2 · retention_cards 0 · artefacts 6 · study_briefs 13 ·
+competency_checks 7 · concept_expansions 3 · concept_relevances 7 ·
+gap_reports 4 · company_insights 3 · foundation_items 32.
+
+**Dropped at carry-over (option A, decided 2026-08-28):** `syllabi.country`
+and `syllabi.region` exist only on the old project — added out-of-band by
+`31b5082` on the unmerged `feat/jurisdiction-aware` branch; not in
+`schema.ts`, no migration, no code on `main` reads them. One row carried
+values: syllabus `ede7fcd6-060c-48e4-8fed-e7f854be7531` (created 3 Jun 2026)
+had `country='Australia'`, `region='Victoria'`. If that branch ever lands,
+its migration adds the columns and this row can be re-tagged by hand.
+
+**RLS parity (Amendment 2.5).** Diffed old vs new row-by-row including
+`qual`/`with_check` expressions: 16/16 tables with RLS enabled, 44/44
+policies, 1/1 trigger, 1/1 public function — identical. No
+dashboard-orphaned policy to file.
+
+**Y3 — this commit.** The P2.2b chain (held since 2026-08-25, see that entry)
+plus `copy-prod.ts` and its fix. Gates: vitest 185/185 · tsc 0 · eslint 0 on
+changed files · check:single-truth OK. Commit-only; not pushed.
+
+**Still open.** Y4 (delete `DATABASE_URL` in Vercel; update
+`PROD_DATABASE_URL`), Y5 (reset the burned password — it was pasted into
+this session's transcript again on 08-28, for **both** projects, which share
+it; reset both or retire the old project), then one push, then health-check
+the new build inlines `skksjyl…` not `dzdfeund…`. Phase 0.1 stays open
+until Y5 is evidenced. P0.3 prod smoke test still not done.
+
+---
+
 ## 2026-08-26 — Supabase project move, half applied. PROD DEPLOY IS ARMED TO BREAK
 
 **Read this before pushing anything to `main`.**

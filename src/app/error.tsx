@@ -22,7 +22,7 @@ export default function GlobalError({
     console.error("[GlobalError]", error);
   }, [error]);
 
-  const isDatabaseConfigError = error.message.includes("DATABASE_URL");
+  const isDatabaseConfigError = error.message.includes("PROD_DATABASE_URL");
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
@@ -40,7 +40,7 @@ export default function GlobalError({
           </CardTitle>
           <CardDescription>
             {isDatabaseConfigError
-              ? "DATABASE_URL is missing from the running deployment. Add it in Vercel Project Settings, then redeploy."
+              ? "PROD_DATABASE_URL is missing from the running deployment. Add it in Vercel Project Settings (Production and Preview), then redeploy."
               : "Check the Vercel runtime logs for the underlying server error."}
           </CardDescription>
         </CardHeader>

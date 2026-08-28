@@ -8,8 +8,8 @@
  *  - `--env dev|prod` is mandatory. No flag, or any other value, is a usage
  *    error — there is no default target.
  *  - dev  → DEV_DATABASE_URL, and the host MUST be loopback.
- *  - prod → PROD_DATABASE_URL. Falls back to DATABASE_URL with a loud
- *    deprecation warning (P2.2b renames the variable; the fallback is a bridge).
+ *  - prod → PROD_DATABASE_URL. Nothing else: DATABASE_URL no longer exists in
+ *    this repo or its env files (Amendment 2, P2.2b).
  *  - Any non-loopback host demands ceremony: an interactive operator typing
  *    the literal token PROD. Non-interactive stdin is a hard failure and there
  *    is deliberately no --yes / env-var bypass.
@@ -46,12 +46,10 @@ export interface ResolvedTarget {
   env: TargetEnv;
   url: string;
   /** Which variable supplied the URL. */
-  source: "DEV_DATABASE_URL" | "PROD_DATABASE_URL" | "DATABASE_URL";
+  source: "DEV_DATABASE_URL" | "PROD_DATABASE_URL";
   host: string;
   port: string;
   database: string;
-  /** Non-empty when a deprecated fallback was used. Caller must print it loudly. */
-  warning: string | null;
 }
 
 export function isLoopback(host: string): boolean {
@@ -82,25 +80,16 @@ export function resolveTarget(env: TargetEnv, vars: Readonly<Record<string, stri
         `--env dev but DEV_DATABASE_URL points at "${d.host}", which is not loopback. Refusing.`,
       );
     }
-    return { env, url, source: "DEV_DATABASE_URL", ...d, warning: null };
+    return { env, url, source: "DEV_DATABASE_URL", ...d };
   }
 
-  if (vars.PROD_DATABASE_URL) {
-    const url = vars.PROD_DATABASE_URL;
-    return { env, url, source: "PROD_DATABASE_URL", ...describeUrl(url), warning: null };
+  const url = vars.PROD_DATABASE_URL;
+  if (!url) {
+    throw new GuardError(
+      "--env prod but PROD_DATABASE_URL is not set. It lives only in Vercel; export it into this shell for the duration of the apply.",
+    );
   }
-  if (vars.DATABASE_URL) {
-    const url = vars.DATABASE_URL;
-    return {
-      env,
-      url,
-      source: "DATABASE_URL",
-      ...describeUrl(url),
-      warning:
-        "DEPRECATED: --env prod resolved from DATABASE_URL. Rename it to PROD_DATABASE_URL (P2.2b); this fallback will be removed.",
-    };
-  }
-  throw new GuardError("--env prod but neither PROD_DATABASE_URL nor DATABASE_URL is set.");
+  return { env, url, source: "PROD_DATABASE_URL", ...describeUrl(url) };
 }
 
 /** Ceremony is required for every host that is not loopback — regardless of --env. */

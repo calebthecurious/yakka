@@ -26,8 +26,8 @@ export const dynamic = "force-dynamic";
 function getDatabaseErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
 
-  if (message.includes("DATABASE_URL")) {
-    return "DATABASE_URL is not available to the running deployment. Add it in Vercel Project Settings, then redeploy.";
+  if (message.includes("PROD_DATABASE_URL")) {
+    return "PROD_DATABASE_URL is not available to the running deployment. Add it in Vercel Project Settings (Production and Preview), then redeploy.";
   }
 
   if (
@@ -61,7 +61,7 @@ function DatabaseUnavailable({ message }: { message: string }) {
             In Vercel, set the production environment variables and redeploy:
           </p>
           <pre className="bg-muted text-foreground overflow-x-auto rounded-md p-3 text-xs">
-{`DATABASE_URL
+{`PROD_DATABASE_URL
 GROK_API_KEY
 NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY`}
