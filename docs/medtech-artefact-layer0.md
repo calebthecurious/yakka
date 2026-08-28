@@ -6,7 +6,8 @@ would make it fail. The spec (datasets, acceptance criteria, README skeleton)
 sits on top of this and is written second.
 
 > **Terminology note.** "Layer-0 doc" comes from the Upgrade Plan v1 sequencing
-> map, which never defines it, and the term appears nowhere else in this repo.
+> map (`docs/upgrade-plan-v1.md`, week-1 row), which never defines it; the plan
+> is now in-repo (28 Aug) and that row remains its only mention.
 > Working definition used here: **the layer beneath the spec** — problem,
 > audience, credibility thesis, and failure modes. If Layer 0 was meant to be
 > something else, this doc is cheap to re-cut; the analysis below survives.
