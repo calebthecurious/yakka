@@ -162,3 +162,4 @@
 ## DELTA NOTES
 
 - **28 Aug:** verification-layer thesis + conceptual schema documented; schema remains paper, gated on employer signal (A6 gate). Current-role wedge added as W-track, gated on EEG v1.0.0. Repositioning (PR-2) sanctioned.
+- **28 Aug (later):** W-track's EEG v1.0.0 gate lifted — the current-role wedge (W-1 → W-4) runs now, Track B still outranking. The EEG artefact itself is unchanged (Layer-0 §8 stands). Supabase project move landed: schema, data (18/18 counts), RLS parity, P2.2b deployed (`e48b433`); password reset (Y5) still open.

@@ -4,7 +4,7 @@
 ## GATE HEADER — read before pasting anything
 - **Track B still outranks this pack.** These run in gaps (training runs, deploy waits) or after v1.0.0 tags. Exceptions already standing: P5.4a/b + P5.5 (cold-email instrumentation).
 - **Runs now:** PR-1, PR-2 (after the copy session), PR-3, P5.4a, P5.4b, P5.5.
-- **Gated on EEG v1.0.0 tag:** W-1 → W-4 (current-role wedge).
+- **Also runs now (EEG gate lifted 28 Aug):** W-1 → W-4 (current-role wedge). The wedge no longer waits on the artefact tagging v1.0.0; Track B still outranks it, and W-2's copy still late-binds to the PR-2 session.
 - **NOT in this pack, deliberately:** every verification-layer migration — organizations, standards, evidence spine, attestations, presence, displacement_events. Those are Amendment 6+ territory, gated on employer signal, and the schema doc's own posture note governs. Anyone (including future-me) proposing to "just add the evidence table now" is the pattern wearing a lab coat.
 - Standing rules bind: one CC session per repo · dev-first migrations · prod applies only at G-gates with typed PROD · STOP = real-eyes + commit · next precondition cites the hash.
 
@@ -88,7 +88,7 @@ Run exactly as written in the earlier packs, with: **(1)** the migration now fol
 
 ---
 
-## W-TRACK — Current-role wedge  ⛔ GATED: no W-prompt pastes before the EEG repo tags v1.0.0
+## W-TRACK — Current-role wedge  (EEG v1.0.0 gate lifted 28 Aug — runs now, Track B still outranks)
 
 ### W-1 — Purpose on the syllabus (schema, smallest honest slice)
 ```
@@ -98,7 +98,7 @@ backfill) | current_role. NOT the full enrollments/standards model — that
 stays paper per the gate header. purpose is forward-compatible with it
 (maps onto enrollments.purpose when that day comes).
 
-PRECONDITION: EEG v1.0.0 tagged (cite tag). Dev DB targeted (verify host).
+PRECONDITION: Dev DB targeted (verify host).
 Clean tree; tests green.
 
 TASK: Additive migration (dev only): purpose enum + column, default +
