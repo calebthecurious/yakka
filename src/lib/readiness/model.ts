@@ -309,8 +309,14 @@ export interface ConceptEvidenceEntry {
  * `evidence` above only describes concepts that are verified, so it cannot tell
  * "never attempted a check" from "attempted and failed". Both matter to a
  * surface deciding what to tell the learner next, so they are distinguished
- * here. Nothing in this shape is self-declared: `concepts.status` is not
- * consulted.
+ * here.
+ *
+ * Two fields — `selfAssessed` and `inProgress` — ARE self-declared. They are
+ * carried so a per-concept surface (the Constellation) can place a concept on
+ * the taxonomy ladder's rungs 0–1 from the ledger rather than from raw rows.
+ * They are the same verdicts behind `selfAssessed.concepts` and
+ * `activity.conceptsInProgress`; neither is evidence and neither moves a count
+ * of verified work.
  */
 export interface ConceptLedgerEntry {
   conceptId: string;
@@ -326,6 +332,14 @@ export interface ConceptLedgerEntry {
   checkPassed: boolean;
   /** At least one backed artefact demonstrates this concept. */
   artefactBacked: boolean;
+  /**
+   * Self-declared understood/verified WITHOUT evidence (taxonomy rung 1).
+   * Always false when `verified` is true — the rungs never blend.
+   */
+  selfAssessed: boolean;
+  /** The learner marked this `learning` (taxonomy rung 0). Self-declared;
+   * independent of `verified` — a concept can be both. */
+  inProgress: boolean;
 }
 
 /** Artefact counters at ARTEFACT grain. Distinct from
@@ -761,7 +775,8 @@ export function computeReadinessLedger(input: ReadinessInput): ReadinessLedger {
       selfAssessedConcepts += 1;
     }
 
-    if (isConceptInProgress(concept.status)) conceptsInProgress += 1;
+    const inProgress = isConceptInProgress(concept.status);
+    if (inProgress) conceptsInProgress += 1;
 
     // Per-concept state, from the same verdict and the same check list — a
     // surface can never see a state that disagrees with the counts above.
@@ -776,6 +791,8 @@ export function computeReadinessLedger(input: ReadinessInput): ReadinessLedger {
       bestScore: best,
       checkPassed: passedConceptIds.has(concept.id),
       artefactBacked: (backingArtefacts.get(concept.id) ?? []).length > 0,
+      selfAssessed,
+      inProgress,
     });
 
     if (concept.subSkillId != null) {

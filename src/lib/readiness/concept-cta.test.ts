@@ -27,6 +27,8 @@ function entry(over: Partial<ConceptLedgerEntry> = {}): ConceptLedgerEntry {
     bestScore: null,
     checkPassed: false,
     artefactBacked: false,
+    selfAssessed: false,
+    inProgress: false,
     ...over,
   };
 }
