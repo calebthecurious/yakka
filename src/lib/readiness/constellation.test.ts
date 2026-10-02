@@ -9,8 +9,10 @@ import {
   TIER_RUNG,
   VERIFIED_TIERS,
   constellationData,
+  formatTierLabel,
   tierOf,
   type ConstellationLabels,
+  type ConstellationTier,
 } from "./constellation";
 
 const EARLY = new Date("2026-03-12T09:00:00Z");
@@ -267,5 +269,27 @@ describe("constellationData — shape", () => {
 
   it("keeps nodes in ledger (syllabus display) order", () => {
     expect(data.nodes.map((n) => n.id)).toEqual(ledger.conceptStates.map((s) => s.conceptId));
+  });
+});
+
+describe("formatTierLabel — the taxonomy's words, nothing else", () => {
+  it("maps every tier to exactly one allowed string", () => {
+    const expected: Record<ConstellationTier, string> = {
+      artefact_verified: "Verified",
+      check_passed: "Verified",
+      self_assessed: "Self-assessed",
+      in_progress: "In progress",
+      not_started: "Not started",
+    };
+    for (const [tier, label] of Object.entries(expected)) {
+      expect(formatTierLabel(tier as ConstellationTier)).toBe(label);
+    }
+  });
+
+  it("never says 'verified' for anything the ledger did not verify", () => {
+    for (const n of data.nodes) {
+      const label = formatTierLabel(n.tier);
+      expect(label === "Verified").toBe(n.verified);
+    }
   });
 });

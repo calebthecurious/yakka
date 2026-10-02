@@ -30,6 +30,11 @@ import {
   syllabi,
 } from "@/db/schema";
 import { cn } from "@/lib/utils";
+import { Constellation } from "@/components/profile/constellation";
+import {
+  constellationData,
+  type ConstellationData,
+} from "@/lib/readiness/constellation";
 import {
   computeReadinessLedger,
   criteriaProgress,
@@ -125,6 +130,8 @@ type LoadedProfile = {
   syllabus: { targetRole: string; targetCompany: string | null; createdAt: Date } | null;
   /** `Building this record since <d MMM yyyy>` from the ledger; null until there is dated evidence. */
   recordSince: string | null;
+  /** The evidence map's payload, derived in the ledger module; null without a syllabus. */
+  constellation: ConstellationData | null;
   readiness: {
     verified: number;
     inProgress: number;
@@ -179,6 +186,7 @@ async function loadProfile(handle: string): Promise<LoadedProfile | null> {
     publicProfile,
     syllabus: null,
     recordSince: null,
+    constellation: null,
     readiness: { verified: 0, inProgress: 0, projectsCompleted: 0, artefactsCompleted: 0 },
     artefactList: [],
     verifiedGroups: [],
@@ -334,6 +342,17 @@ async function loadProfile(handle: string): Promise<LoadedProfile | null> {
   };
   const ledger = computeReadinessLedger(input);
 
+  // The Constellation's payload. The module derives every tier, count, date
+  // and label; this route only hands it the id → display-name maps it already
+  // holds (names and public artefact URLs are not derivations).
+  const constellation = constellationData(ledger, {
+    concepts: Object.fromEntries(conceptRows.map((c) => [c.id, c.name])),
+    clusters: Object.fromEntries(clusterRows.map((c) => [c.id, c.name])),
+    artefacts: Object.fromEntries(
+      artefactRows.map((a) => [a.id, { title: a.title, url: a.url }]),
+    ),
+  });
+
   // Verified competencies with provenance, straight from the ledger. A concept
   // still marked "learning" whose check passed IS listed — evidence is never
   // hidden behind self-declaration (the P1.5b disposition).
@@ -449,6 +468,7 @@ async function loadProfile(handle: string): Promise<LoadedProfile | null> {
       createdAt: syllabus.createdAt,
     },
     recordSince: formatRecordSinceLabel(ledger.firstEvidenceAt),
+    constellation,
     readiness: {
       verified: ledger.breakdown.conceptsVerified,
       inProgress: ledger.activity.conceptsInProgress,
@@ -486,6 +506,7 @@ export default async function PublicProfilePage({ params }: PageProps) {
     publicProfile: p,
     syllabus,
     recordSince,
+    constellation,
     readiness,
     artefactList,
     verifiedGroups,
@@ -546,7 +567,22 @@ export default async function PublicProfilePage({ params }: PageProps) {
         </p>
       ) : (
         <>
-          {/* 2. Readiness snapshot — honest counts, no fabricated % */}
+          {/* 2. Evidence map — the record as a constellation. Every tier, count
+              and label arrives from the ledger module; the component only draws. */}
+          {constellation ? (
+            <section className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1">
+                <SectionLabel>Evidence map</SectionLabel>
+                <p className="text-muted-foreground text-sm">
+                  One node per concept. Fill is the evidence tier; the centre is
+                  what has been proven.
+                </p>
+              </div>
+              <Constellation data={constellation} />
+            </section>
+          ) : null}
+
+          {/* 3. Readiness snapshot — honest counts, no fabricated % */}
           <section className="flex flex-col gap-4">
             <SectionLabel>Readiness snapshot</SectionLabel>
             <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl bg-border sm:grid-cols-4">

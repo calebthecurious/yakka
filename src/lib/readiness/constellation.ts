@@ -59,6 +59,26 @@ export const VERIFIED_TIERS: ReadonlySet<ConstellationTier> = new Set([
 ]);
 
 /**
+ * The ONLY words a surface may put next to a tier, straight from the taxonomy
+ * ladder: rungs 2–3 are both "Verified" (the evidence label discloses which),
+ * rung 1 "Self-assessed", rung 0 "In progress", and the unranked state "Not
+ * started". A legend, a pill, an aria-label — all read this, never a literal.
+ */
+export function formatTierLabel(tier: ConstellationTier): string {
+  switch (tier) {
+    case "artefact_verified":
+    case "check_passed":
+      return "Verified";
+    case "self_assessed":
+      return "Self-assessed";
+    case "in_progress":
+      return "In progress";
+    case "not_started":
+      return "Not started";
+  }
+}
+
+/**
  * The tier for one ledger concept state. Rung 3 outranks rung 2 when a concept
  * has both; rung 1 is only reachable WITHOUT evidence (the ledger already
  * guarantees `selfAssessed` is false whenever `verified` is true).

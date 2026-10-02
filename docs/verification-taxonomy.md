@@ -69,6 +69,18 @@ which. A concept can hold both; both labels render.
   placeholder, no "recently", no fake precision. Dates are UTC. The
   "(unproctored)" qualifier is still the open 7.2 sub-decision and is **not**
   introduced by the suffix.
+- **Unranked — nothing claimed, nothing proven.** Below rung 0: the learner
+  has not touched the concept. A surface may say `Not started`. Never
+  evidence; it counts toward a total and toward nothing else.
+- **The Constellation (Plan v2 A2) encodes tier as fill, and the legend says
+  so.** Node fill and radius are the tier; nothing else is encoded as fill.
+  Legend and pill words are `formatTierLabel`'s, which are the ladder's:
+  `Verified` (rungs 2–3 share the word and the fill; the evidence label
+  discloses which; a ring marks an artefact), `Self-assessed` (dashed, as the
+  profile's chips), `In progress`, `Not started`. Hover shows the concept name
+  and `formatEvidenceDate`; the click panel shows `formatEvidenceLabelDated`
+  strings verbatim. The component derives no number and composes no evidence
+  sentence. Rungs 4–5 and the E-track states render nothing there until A4.
 
 ## E-track states (reserved — strings decided here before any code renders them)
 
@@ -207,3 +219,7 @@ doc gains the governing-rule citation; until then, rule 5 applies.
   artefact card's `Verified <d MMM yyyy>`, and the header's `Building this
   record since <d MMM yyyy>`. All three come from the ledger module's
   formatters. Base strings unchanged; "(unproctored)" still not added (7.2).
+- **2 Oct 2026 (C-2 Constellation, under Upgrade Plan v2 A2):** Register
+  gains the unranked `Not started` string and the Constellation's visual
+  rule (fill = tier, legend words from `formatTierLabel`). Base strings
+  unchanged.
