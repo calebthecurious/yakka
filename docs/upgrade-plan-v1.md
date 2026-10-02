@@ -162,3 +162,4 @@
 ## DELTA NOTES
 
 - **28 Aug:** verification-layer thesis + conceptual schema documented; schema remains paper, gated on employer signal (A6 gate). Current-role wedge added as W-track, gated on EEG v1.0.0. Repositioning (PR-2) sanctioned.
+- **2 Oct 2026:** SUPERSEDED by `upgrade-plan-v2.md`, which is now the governing plan — employer signal received (recruiter replies to cold emails); plan resequenced around signal conversion, verification layer, YC mid-2027. v1 stays for history.
