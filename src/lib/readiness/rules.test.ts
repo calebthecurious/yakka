@@ -3,10 +3,16 @@ import {
   COMPETENCY_CHECK_OUT_OF,
   PASS_BAR,
   TRAIL_NAMED_LIMIT,
+  bestPassingCheck,
   bestPassingScore,
   computeReadinessLedger,
   criteriaProgress,
+  formatArtefactVerifiedLabel,
+  formatEvidenceDate,
   formatEvidenceLabel,
+  formatEvidenceLabelDated,
+  formatRecordSinceLabel,
+  toIsoInstant,
   isCompletedProject,
   isConceptInProgress,
   isResourceCompleted,
@@ -117,10 +123,10 @@ describe("isResourceCompleted", () => {
 describe("formatEvidenceLabel", () => {
   it("renders the competency-check label exactly as the profile always has", () => {
     expect(
-      formatEvidenceLabel({ kind: "competency_check", score: 4, outOf: 5 }),
+      formatEvidenceLabel({ kind: "competency_check", score: 4, outOf: 5, occurredAt: null }),
     ).toBe("Competency check passed · 4/5");
     expect(
-      formatEvidenceLabel({ kind: "competency_check", score: 5, outOf: 5 }),
+      formatEvidenceLabel({ kind: "competency_check", score: 5, outOf: 5, occurredAt: null }),
     ).toBe("Competency check passed · 5/5");
   });
 
@@ -130,13 +136,14 @@ describe("formatEvidenceLabel", () => {
         kind: "artefact",
         artefactId: "a1",
         artefactTitle: "Seizure detection pipeline",
+        occurredAt: null,
       }),
     ).toBe("Demonstrated in “Seizure detection pipeline”");
   });
 
   it("falls back to a generic phrase when the loader supplied no title", () => {
     expect(
-      formatEvidenceLabel({ kind: "artefact", artefactId: "a1", artefactTitle: null }),
+      formatEvidenceLabel({ kind: "artefact", artefactId: "a1", artefactTitle: null, occurredAt: null }),
     ).toBe("Demonstrated in a completed artefact");
   });
 });
@@ -164,7 +171,7 @@ describe("evidence is never gated behind self-declaration", () => {
         conceptId: "k1",
         clusterId: "C",
         evidence: [
-          { kind: "competency_check", score: 5, outOf: COMPETENCY_CHECK_OUT_OF },
+          { kind: "competency_check", score: 5, outOf: COMPETENCY_CHECK_OUT_OF, occurredAt: D.toISOString() },
         ],
       },
     ]);
@@ -191,7 +198,7 @@ describe("evidence is never gated behind self-declaration", () => {
     const led = computeReadinessLedger(input);
     expect(led.breakdown.conceptsVerified).toBe(1);
     expect(led.evidence[0].evidence).toEqual([
-      { kind: "artefact", artefactId: "a1", artefactTitle: "Bench rig" },
+      { kind: "artefact", artefactId: "a1", artefactTitle: "Bench rig", occurredAt: D.toISOString() },
     ]);
   });
 });
@@ -229,9 +236,9 @@ describe("computeReadinessLedger — evidence provenance", () => {
   it("orders competency-check evidence first, then artefacts in input order", () => {
     const led = computeReadinessLedger(input);
     expect(led.evidence[0].evidence).toEqual([
-      { kind: "competency_check", score: 5, outOf: 5 },
-      { kind: "artefact", artefactId: "a1", artefactTitle: "First" },
-      { kind: "artefact", artefactId: "a2", artefactTitle: "Second" },
+      { kind: "competency_check", score: 5, outOf: 5, occurredAt: D.toISOString() },
+      { kind: "artefact", artefactId: "a1", artefactTitle: "First", occurredAt: D.toISOString() },
+      { kind: "artefact", artefactId: "a2", artefactTitle: "Second", occurredAt: D.toISOString() },
     ]);
   });
 
@@ -401,5 +408,125 @@ describe("summarizeReadinessLedger — new sections pass through unchanged", () 
     expect(s.artefacts.backed).toBe(1);
     expect(s.concepts.verified).toBe(1);
     expect(s.activity.conceptsInProgress).toBe(1);
+  });
+});
+
+/* ── PR-3: evidence timestamps ──────────────────────────────────────────── */
+
+describe("evidence timestamps (PR-3)", () => {
+  const EARLY = new Date("2026-03-12T09:00:00Z");
+  const LATE = new Date("2026-08-03T09:00:00Z");
+
+  it("formatEvidenceDate renders d MMM yyyy in UTC, and nothing for nothing", () => {
+    expect(formatEvidenceDate(EARLY.toISOString())).toBe("12 Mar 2026");
+    expect(formatEvidenceDate(LATE.toISOString())).toBe("3 Aug 2026");
+    expect(formatEvidenceDate(null)).toBeNull();
+    expect(formatEvidenceDate("not a date")).toBeNull();
+  });
+
+  it("toIsoInstant accepts Date or string and rejects garbage", () => {
+    expect(toIsoInstant(EARLY)).toBe("2026-03-12T09:00:00.000Z");
+    expect(toIsoInstant("2026-03-12T09:00:00Z")).toBe("2026-03-12T09:00:00.000Z");
+    expect(toIsoInstant(null)).toBeNull();
+    expect(toIsoInstant(undefined)).toBeNull();
+    expect(toIsoInstant("yesterday-ish")).toBeNull();
+  });
+
+  it("the dated label is the taxonomy label plus ' · <date>', and exactly the label when undated", () => {
+    expect(
+      formatEvidenceLabelDated({
+        kind: "competency_check",
+        score: 4,
+        outOf: 5,
+        occurredAt: LATE.toISOString(),
+      }),
+    ).toBe("Competency check passed · 4/5 · 3 Aug 2026");
+    expect(
+      formatEvidenceLabelDated({
+        kind: "artefact",
+        artefactId: "a1",
+        artefactTitle: "Bench rig",
+        occurredAt: EARLY.toISOString(),
+      }),
+    ).toBe("Demonstrated in “Bench rig” · 12 Mar 2026");
+    // Undated → byte-identical to the undated label. No placeholder.
+    const undated = { kind: "competency_check", score: 5, outOf: 5, occurredAt: null } as const;
+    expect(formatEvidenceLabelDated(undated)).toBe(formatEvidenceLabel(undated));
+  });
+
+  it("artefact and header labels render only when there is a date", () => {
+    expect(formatArtefactVerifiedLabel(EARLY)).toBe("Verified 12 Mar 2026");
+    expect(formatArtefactVerifiedLabel(null)).toBeNull();
+    expect(formatRecordSinceLabel(EARLY.toISOString())).toBe(
+      "Building this record since 12 Mar 2026",
+    );
+    expect(formatRecordSinceLabel(null)).toBeNull();
+  });
+
+  it("bestPassingCheck keeps the EARLIEST completion among ties at the best score", () => {
+    const best = bestPassingCheck([
+      { conceptId: "k", score: 5, completedAt: LATE },
+      { conceptId: "k", score: 5, completedAt: EARLY },
+      { conceptId: "k", score: 4, completedAt: new Date("2025-01-01") }, // lower score, older — loses
+      { conceptId: "k", score: 2, completedAt: new Date("2024-01-01") }, // fail — invisible
+    ]);
+    expect(best?.score).toBe(5);
+    expect(best?.completedAt).toBe(EARLY);
+    expect(bestPassingCheck([{ conceptId: "k", score: 3, completedAt: EARLY }])).toBeNull();
+  });
+
+  it("provenance carries the date of the check that set the best score", () => {
+    const led = computeReadinessLedger({
+      ...EMPTY,
+      clusters: [{ id: "C", weight: 1, isArtefactBearing: false }],
+      concepts: [{ id: "k1", clusterId: "C", status: "not_started" }],
+      competencyChecks: [
+        { conceptId: "k1", score: 4, completedAt: EARLY },
+        { conceptId: "k1", score: 5, completedAt: LATE },
+      ],
+    });
+    expect(led.evidence[0].evidence).toEqual([
+      { kind: "competency_check", score: 5, outOf: 5, occurredAt: LATE.toISOString() },
+    ]);
+  });
+
+  it("firstEvidenceAt is the oldest passed check or completed artefact, across both sources", () => {
+    const led = computeReadinessLedger({
+      ...EMPTY,
+      clusters: [{ id: "C", weight: 1, isArtefactBearing: true }],
+      concepts: [
+        { id: "k1", clusterId: "C", status: "not_started" },
+        { id: "k2", clusterId: "C", status: "understood" },
+      ],
+      competencyChecks: [
+        { conceptId: "k1", score: 5, completedAt: LATE },
+        { conceptId: "k2", score: 2, completedAt: new Date("2020-01-01") }, // failed: not evidence
+      ],
+      artefacts: [
+        // Demonstrates nothing, but is completed — still evidence for the cluster target.
+        { id: "a1", clusterId: "C", verifiedAt: EARLY, demonstratedConceptIds: [] },
+        { id: "a2", clusterId: "C", verifiedAt: null, demonstratedConceptIds: ["k2"] }, // draft
+      ],
+    });
+    expect(led.firstEvidenceAt).toBe(EARLY.toISOString());
+    expect(formatRecordSinceLabel(led.firstEvidenceAt)).toBe(
+      "Building this record since 12 Mar 2026",
+    );
+  });
+
+  it("firstEvidenceAt is null when nothing is evidence — self-assessment and activity do not count", () => {
+    const led = computeReadinessLedger({
+      ...EMPTY,
+      clusters: [{ id: "C", weight: 1, isArtefactBearing: false }],
+      concepts: [
+        { id: "k1", clusterId: "C", status: "understood" },
+        { id: "k2", clusterId: "C", status: "learning" },
+      ],
+      competencyChecks: [{ conceptId: "k1", score: 3, completedAt: EARLY }],
+      artefacts: [{ id: "a1", clusterId: "C", verifiedAt: null, demonstratedConceptIds: ["k1"] }],
+    });
+    expect(led.firstEvidenceAt).toBeNull();
+    expect(computeReadinessLedger(EMPTY).firstEvidenceAt).toBeNull();
+    expect(summarizeReadinessLedger(led).firstEvidenceAt).toBeNull();
   });
 });

@@ -33,7 +33,9 @@ import { cn } from "@/lib/utils";
 import {
   computeReadinessLedger,
   criteriaProgress,
-  formatEvidenceLabel,
+  formatArtefactVerifiedLabel,
+  formatEvidenceLabelDated,
+  formatRecordSinceLabel,
   isArtefactBacked,
   isConceptInProgress,
   isSelfDeclaredDone,
@@ -94,6 +96,8 @@ type ProfileArtefact = {
   url: string | null;
   evidenceUrl: string | null;
   completed: boolean;
+  /** `Verified <d MMM yyyy>` from the ledger's formatter; null when not completed. */
+  verifiedLabel: string | null;
   criteriaTotal: number;
   criteriaDone: number;
   demonstrates: string[];
@@ -119,6 +123,8 @@ type LoadedProfile = {
     showCurrentlyDeveloping: boolean;
   };
   syllabus: { targetRole: string; targetCompany: string | null; createdAt: Date } | null;
+  /** `Building this record since <d MMM yyyy>` from the ledger; null until there is dated evidence. */
+  recordSince: string | null;
   readiness: {
     verified: number;
     inProgress: number;
@@ -172,6 +178,7 @@ async function loadProfile(handle: string): Promise<LoadedProfile | null> {
   const empty: LoadedProfile = {
     publicProfile,
     syllabus: null,
+    recordSince: null,
     readiness: { verified: 0, inProgress: 0, projectsCompleted: 0, artefactsCompleted: 0 },
     artefactList: [],
     verifiedGroups: [],
@@ -339,7 +346,7 @@ async function loadProfile(handle: string): Promise<LoadedProfile | null> {
     list.push({
       id: e.conceptId,
       name,
-      evidence: e.evidence.map(formatEvidenceLabel),
+      evidence: e.evidence.map(formatEvidenceLabelDated),
     });
     verifiedByCluster.set(cname, list);
   }
@@ -389,6 +396,7 @@ async function loadProfile(handle: string): Promise<LoadedProfile | null> {
       url: a.url,
       evidenceUrl: a.evidenceUrl,
       completed: isArtefactBacked(a.verifiedAt),
+      verifiedLabel: formatArtefactVerifiedLabel(a.verifiedAt),
       criteriaTotal: criteria.total,
       criteriaDone: criteria.done,
       demonstrates: a.demonstratedConceptIds
@@ -440,6 +448,7 @@ async function loadProfile(handle: string): Promise<LoadedProfile | null> {
       targetCompany: syllabus.targetCompany,
       createdAt: syllabus.createdAt,
     },
+    recordSince: formatRecordSinceLabel(ledger.firstEvidenceAt),
     readiness: {
       verified: ledger.breakdown.conceptsVerified,
       inProgress: ledger.activity.conceptsInProgress,
@@ -476,6 +485,7 @@ export default async function PublicProfilePage({ params }: PageProps) {
   const {
     publicProfile: p,
     syllabus,
+    recordSince,
     readiness,
     artefactList,
     verifiedGroups,
@@ -518,6 +528,10 @@ export default async function PublicProfilePage({ params }: PageProps) {
           A record of evidence. Verified means a passed check or a finished
           artefact; self-assessed never counts toward it.
         </p>
+
+        {recordSince ? (
+          <p className="text-muted-foreground/60 text-xs">{recordSince}</p>
+        ) : null}
 
         <ExternalLinks
           github={p.githubUrl}
@@ -896,6 +910,11 @@ function ArtefactCard({ artefact: a }: { artefact: ProfileArtefact }) {
         {a.criteriaTotal > 0 ? (
           <span className="text-muted-foreground text-xs tabular-nums">
             {a.criteriaDone}/{a.criteriaTotal} acceptance criteria met
+          </span>
+        ) : null}
+        {a.verifiedLabel ? (
+          <span className="text-muted-foreground/70 text-xs tabular-nums">
+            {a.verifiedLabel}
           </span>
         ) : null}
       </div>

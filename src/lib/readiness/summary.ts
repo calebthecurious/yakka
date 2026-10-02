@@ -140,6 +140,8 @@ export interface ReadinessSummary {
   trail: LearningTrail;
   /** Where the input was incomplete; non-zero means a count is a floor. */
   coverage: LedgerCoverage;
+  /** Oldest dated evidence, passed through verbatim from `ledger.firstEvidenceAt`. */
+  firstEvidenceAt: string | null;
 }
 
 /**
@@ -233,6 +235,7 @@ export function summarizeReadinessLedger(
     activity: ledger.activity,
     trail: ledger.trail,
     coverage: ledger.coverage,
+    firstEvidenceAt: ledger.firstEvidenceAt,
   };
 }
 

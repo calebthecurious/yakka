@@ -57,6 +57,18 @@ which. A concept can hold both; both labels render.
 - **Artefact provenance (7.3) strengthens rung 3's credibility, not its rank.**
   Repo-ownership checks and commit-history age, when built, attach to the
   artefact's display; they do not create a new rung.
+- **Evidence dates (PR-3) are a suffix, never a new string.** Accumulation is
+  shown by *when*, so the existing rung-2/3 labels may carry exactly one
+  suffix, ` · <d MMM yyyy>`, taken from the evidence's own timestamp (check
+  `completedAt`, artefact `verifiedAt`) via `formatEvidenceLabelDated`. Two
+  further dated strings exist and nowhere else: an artefact card may say
+  `Verified <d MMM yyyy>` (`formatArtefactVerifiedLabel`), and the profile
+  header may say `Building this record since <d MMM yyyy>`
+  (`formatRecordSinceLabel`, from `ledger.firstEvidenceAt`, the oldest passed
+  check or completed artefact). An absent date renders nothing — no
+  placeholder, no "recently", no fake precision. Dates are UTC. The
+  "(unproctored)" qualifier is still the open 7.2 sub-decision and is **not**
+  introduced by the suffix.
 
 ## E-track states (reserved — strings decided here before any code renders them)
 
@@ -190,3 +202,8 @@ doc gains the governing-rule citation; until then, rule 5 applies.
   evidence, with never-conflate assertions for each. All new states RESERVED.
   Rungs 0–5 and every pre-existing allowed string unchanged. Anchored on
   Register 7.3 and `verification-layer-v1.md` §4.2.
+- **2 Oct 2026 (PR-3, under Upgrade Plan v2 A2):** Register gains the
+  evidence-date rule: the ` · <d MMM yyyy>` suffix on rung-2/3 labels, the
+  artefact card's `Verified <d MMM yyyy>`, and the header's `Building this
+  record since <d MMM yyyy>`. All three come from the ledger module's
+  formatters. Base strings unchanged; "(unproctored)" still not added (7.2).

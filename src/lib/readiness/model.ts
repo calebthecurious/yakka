@@ -271,10 +271,27 @@ export interface FoundationsSignal {
  * this next to each verified competency, so it is derived HERE, under test,
  * rather than rebuilt inline by whichever surface happens to need it. */
 
-/** One piece of backing evidence for one concept. */
+/**
+ * One piece of backing evidence for one concept.
+ *
+ * `occurredAt` is WHEN the evidence happened — the check's `completedAt` or the
+ * artefact's `verifiedAt` — as an ISO-8601 instant so the whole ledger stays
+ * serialisable. Null when the loader supplied no usable timestamp; a surface
+ * then renders no date (never a placeholder, never "today").
+ */
 export type ConceptEvidence =
-  | { kind: "competency_check"; score: number; outOf: number }
-  | { kind: "artefact"; artefactId: string; artefactTitle: string | null };
+  | {
+      kind: "competency_check";
+      score: number;
+      outOf: number;
+      occurredAt: string | null;
+    }
+  | {
+      kind: "artefact";
+      artefactId: string;
+      artefactTitle: string | null;
+      occurredAt: string | null;
+    };
 
 /** All evidence for one concept. Emitted ONLY for concepts that are verified;
  * a concept with no evidence has no entry (never an empty one). */
@@ -373,6 +390,14 @@ export interface ReadinessLedger {
   activity: ActivitySignal;
   trail: LearningTrail;
   coverage: LedgerCoverage;
+  /**
+   * The earliest instant any evidence in this ledger occurred — the oldest
+   * passed check or completed artefact (including completed artefacts that
+   * demonstrate no concept; they still back a cluster target). ISO-8601, or
+   * null when there is no dated evidence. Self-assessment and activity are not
+   * evidence and never move it. This is the "building this record since" date.
+   */
+  firstEvidenceAt: string | null;
 }
 
 /* ── Rule predicates (pure) ─────────────────────────────────────────────────
@@ -434,6 +459,31 @@ export function bestPassingScore(
 }
 
 /**
+ * The check that produced {@link bestPassingScore}, so provenance can carry its
+ * date. Among checks tied at the best passing score the EARLIEST completion
+ * wins: the evidence first existed then, and a later retake at the same score
+ * does not make the record younger. Null when no check passes.
+ */
+export function bestPassingCheck<
+  T extends { score: number | null; completedAt: Date | string | null },
+>(checks: T[]): T | null {
+  let best: T | null = null;
+  for (const c of checks) {
+    if (!isCompetencyPass(c.score, c.completedAt) || c.score == null) continue;
+    if (best == null || best.score == null || c.score > best.score) {
+      best = c;
+      continue;
+    }
+    if (c.score === best.score) {
+      const a = toIsoInstant(c.completedAt);
+      const b = toIsoInstant(best.completedAt);
+      if (a != null && (b == null || a < b)) best = c;
+    }
+  }
+  return best;
+}
+
+/**
  * The highest score among COMPLETED checks, passing or not — the number to show
  * a learner who fell short. Distinct from {@link bestPassingScore}, which
  * answers "is this evidence?"; this answers "how did they do?".
@@ -481,6 +531,77 @@ export function formatEvidenceLabel(evidence: ConceptEvidence): string {
   return evidence.artefactTitle == null
     ? "Demonstrated in a completed artefact"
     : `Demonstrated in “${evidence.artefactTitle}”`;
+}
+
+/* ── Evidence timestamps (PR-3) ─────────────────────────────────────────────
+ * Accumulation is a thesis pillar and timestamps are its cheapest proof. The
+ * dates already exist in the data; these helpers are the ONLY place they are
+ * turned into words. Pattern, per docs/verification-taxonomy.md: a rung-2/3
+ * label may carry the suffix ` · <d MMM yyyy>`; an artefact card may say
+ * `Verified <d MMM yyyy>`; the profile header may say `Building this record
+ * since <d MMM yyyy>`. An absent date renders NOTHING — no placeholder, no
+ * fake precision. Formatting is UTC so output is deterministic wherever the
+ * ledger runs; the profile has always been rendered server-side in UTC. */
+
+/**
+ * Normalise a loader timestamp to an ISO-8601 instant, or null when absent or
+ * unparsable. Keeps every date in the ledger a plain string.
+ */
+export function toIsoInstant(
+  value: Date | string | null | undefined,
+): string | null {
+  if (value == null) return null;
+  const d = value instanceof Date ? value : new Date(value);
+  const t = d.getTime();
+  return Number.isNaN(t) ? null : d.toISOString();
+}
+
+const MONTHS_SHORT = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+] as const;
+
+/** `d MMM yyyy` (e.g. `3 Aug 2026`) in UTC, or null for a null/invalid input. */
+export function formatEvidenceDate(iso: string | null): string | null {
+  if (iso == null) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${d.getUTCDate()} ${MONTHS_SHORT[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
+
+/**
+ * {@link formatEvidenceLabel} plus the ` · <d MMM yyyy>` suffix when the
+ * evidence is dated. Identical to the undated label otherwise, so the
+ * taxonomy's existing strings are a strict prefix and nothing drifts.
+ */
+export function formatEvidenceLabelDated(evidence: ConceptEvidence): string {
+  const base = formatEvidenceLabel(evidence);
+  const date = formatEvidenceDate(evidence.occurredAt);
+  return date == null ? base : `${base} · ${date}`;
+}
+
+/**
+ * The artefact card's completion date: `Verified <d MMM yyyy>`, or null when
+ * the artefact is not verified. There is no "verified, date unknown" case —
+ * `verifiedAt` IS the completion signal, so no date means not completed.
+ */
+export function formatArtefactVerifiedLabel(
+  verifiedAt: Date | string | null,
+): string | null {
+  const date = formatEvidenceDate(toIsoInstant(verifiedAt));
+  return date == null ? null : `Verified ${date}`;
+}
+
+/**
+ * The profile header's one quiet accumulation line, from
+ * `ledger.firstEvidenceAt`. Null when there is no dated evidence yet — the
+ * line is then simply absent.
+ */
+export function formatRecordSinceLabel(
+  firstEvidenceAt: string | null,
+): string | null {
+  const date = formatEvidenceDate(firstEvidenceAt);
+  return date == null ? null : `Building this record since ${date}`;
 }
 
 /* ── The pure reducer ───────────────────────────────────────────────────────── */
@@ -613,12 +734,13 @@ export function computeReadinessLedger(input: ReadinessInput): ReadinessLedger {
       // Provenance, derived from the SAME verdict that just counted it — the
       // evidence list can never disagree with the verified count.
       const items: ConceptEvidence[] = [];
-      const best = bestPassingScore(checksByConcept.get(concept.id) ?? []);
-      if (best != null) {
+      const bestCheck = bestPassingCheck(checksByConcept.get(concept.id) ?? []);
+      if (bestCheck != null && bestCheck.score != null) {
         items.push({
           kind: "competency_check",
-          score: best,
+          score: bestCheck.score,
           outOf: COMPETENCY_CHECK_OUT_OF,
+          occurredAt: toIsoInstant(bestCheck.completedAt),
         });
       }
       for (const a of backingArtefacts.get(concept.id) ?? []) {
@@ -626,6 +748,7 @@ export function computeReadinessLedger(input: ReadinessInput): ReadinessLedger {
           kind: "artefact",
           artefactId: a.id,
           artefactTitle: a.title ?? null,
+          occurredAt: toIsoInstant(a.verifiedAt),
         });
       }
       evidenceEntries.push({
@@ -757,6 +880,23 @@ export function computeReadinessLedger(input: ReadinessInput): ReadinessLedger {
 
   const pct = weightedTotal > 0 ? (weightedCompleted / weightedTotal) * 100 : 0;
 
+  // First evidence — the oldest dated passed check or completed artefact. Reads
+  // the same two evidence sources that drive every verdict above, so it can
+  // never predate (or postdate) what the counts are built from. ISO strings
+  // compare lexicographically because they share the same fixed format.
+  let firstEvidenceAt: string | null = null;
+  const consider = (iso: string | null) => {
+    if (iso != null && (firstEvidenceAt == null || iso < firstEvidenceAt)) {
+      firstEvidenceAt = iso;
+    }
+  };
+  for (const ck of input.competencyChecks) {
+    if (isCompetencyPass(ck.score, ck.completedAt)) consider(toIsoInstant(ck.completedAt));
+  }
+  for (const a of input.artefacts) {
+    if (isArtefactBacked(a.verifiedAt)) consider(toIsoInstant(a.verifiedAt));
+  }
+
   // Foundations — assumed_baseline items only; launch_steps carry no userStatus.
   const baselines = input.foundationItems.filter(
     (f) => f.type === "assumed_baseline",
@@ -789,5 +929,6 @@ export function computeReadinessLedger(input: ReadinessInput): ReadinessLedger {
     activity: { conceptsInProgress },
     trail,
     coverage: { conceptsWithoutSubSkill, artefactsWithoutType },
+    firstEvidenceAt,
   };
 }
