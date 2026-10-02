@@ -57,3 +57,136 @@ which. A concept can hold both; both labels render.
 - **Artefact provenance (7.3) strengthens rung 3's credibility, not its rank.**
   Repo-ownership checks and commit-history age, when built, attach to the
   artefact's display; they do not create a new rung.
+
+## E-track states (reserved — strings decided here before any code renders them)
+
+Upgrade Plan v2 (`docs/upgrade-plan-v2.md`, A4 "Evidence spine migration")
+introduces evidence kinds and tiers the ladder above does not yet name. Their
+mechanics are specified in `docs/verification-layer-v1.md` §4.2 (`evidence`
+spine: `kind`, `tier`, `supersedes_id`, `revoked_at`; `process_traces`;
+`attestations` with `attester_standing_at_time`). Per rule 5, **every state in
+this section is RESERVED and renders nothing** until its schema, ledger rule,
+and label all exist. What this section fixes now is the *only* string set each
+state may ever use, so that no surface composes its own wording when the code
+arrives. Rungs 0–5 above and their allowed strings are unchanged.
+
+Notation: `<name>` is the attester's display name as their own Provency record
+renders it at render time; `<date>` is `d MMM yyyy`; `<N>` is an integer.
+Every string here is emitted by `formatEvidenceLabel` (rule 2) once built.
+
+### Tier ↔ rung mapping
+
+The §4.2 `tier` enum maps onto the ladder as follows. A tier never creates a
+rung this table does not name.
+
+| §4.2 tier | Ladder rung | Note |
+|---|---|---|
+| `self_reported` | 1 Self-assessed | Includes an unverified attestation (below). |
+| `check_unproctored` | 2 Check-passed | Unchanged. |
+| `provenance_verified` | 3 Artefact-verified, qualified | Process trace is a qualifier on rung 3, not a rung (Register 7.3). |
+| `attested` | 4 Client-attested | Only the two verified sub-tiers below reach rung 4. |
+| `presence_verified` | between 4 and 5, RESERVED | Designed-not-built; no strings decided until a partner asks. |
+| `org_verified` | 5 Employer-verified | Unchanged. |
+
+### Process-verified evidence (`kind = process_trace`)
+
+A process trace attaches to an artefact and speaks to *how it was made*. It
+strengthens the artefact's credibility and never its rank: a concept backed
+only by a traced artefact is still exactly rung 3 (Register 7.3).
+
+| State | Requires | Surface may say |
+|---|---|---|
+| **Trace attached, unproven** | `process_traces` row exists; `ownership_proof` absent or failed. | `Process trace · ownership unproven`. Subordinate styling (as rung 1). The words **verified** and **process-verified** are prohibited. |
+| **Process-verified** | `ownership_proof` passed (gist challenge) and the timeline hash chain verifies end to end. | `Process-verified · <N> events, <date> – <date>` (first and last activity), appended after the artefact's own rung-3 label, never replacing it. |
+| **Trace integrity failed** | A previously verified chain no longer verifies. | `Process trace · integrity check failed`. Renders in place of the process-verified string, never hidden. The artefact's rung-3 label is unaffected. |
+
+Never conflate:
+- A process trace never moves a concept's rung or any verified count. It
+  qualifies rung 3; it is not rung 3 and not a rung of its own.
+- "Process-verified" is never rendered without a passing `ownership_proof`;
+  commit history alone proves activity, not authorship.
+- A trace on an artefact with no `verifiedAt` renders nothing, because the
+  artefact itself is not yet evidence (rung 3 gate).
+- Event counts and date ranges are read from the trace, never summarised into
+  a quality adjective ("sustained", "consistent").
+
+### Attestation tiers (`kind = attestation`, rung 4 sub-tiers)
+
+The three sub-tiers named in rung 4 above, now with their strings. An
+attestation is bound to one claim and carries `attester_standing_at_time`, a
+frozen snapshot of the attester's own tier mix when they attested.
+
+| State | Requires | Surface may say |
+|---|---|---|
+| **Attestation, unverified** | Candidate-entered statement; attester identity not confirmed by Provency. Tier `self_reported`. | `Statement from <name> · unverified`. Rendered in the Self-assessed band, behind `showSelfAssessed`. The words **attested**, **attested by**, and **verified** are prohibited. |
+| **Attested, email-verified** | Attester confirmed a Provency-issued email challenge; attester has their own record. Tier `attested`. | `Attested by <name> · email-verified` followed by the relationship: `(<relationship>)` from the `relationship` enum, verbatim. Counts as **verified** at rung 4. |
+| **Attested, domain-verified** | Email-verified *and* the attester's address is on a company domain tied to `shared_context` (org or engagement). Tier `attested`. | `Attested by <name> · verified at <domain>` followed by `(<relationship>)`. Counts as **verified** at rung 4. |
+
+**"Attested by <name>" display rule.** The string `Attested by` is reserved
+for the two verified sub-tiers and always carries the attester's display name
+and the verification qualifier in the same label; none of the three parts
+renders alone. `<name>` links to the attester's own public record. Standing
+is shown, when shown, as `Standing at time of attestation: <N> verified claims`
+from `attester_standing_at_time`; it is never recomputed from the attester's
+current record, and the computed weight is never rendered as a number.
+
+Never conflate:
+- An unverified attestation is rung 1. It never appears in a verified count,
+  never uses "attested", and is never grouped with verified attestations.
+- Email-verified never renders as domain-verified, and neither renders as
+  rung 5 (employer-verified), even when the attester's domain is an employer's.
+- Frozen standing is historical. A surface never updates it to the attester's
+  current standing, in either direction, and never says "currently".
+- An attestation whose attester lacks a Provency record cannot reach rung 4,
+  whatever their email proves.
+
+### Revoked evidence (`revoked_at` set on any `evidence` row)
+
+Attestations and verifications are revocable (§4.2). Revocation is loud on the
+item and immediate on the number.
+
+| State | Requires | Surface may say |
+|---|---|---|
+| **Revoked** | `revoked_at` set. Applies to any kind. | `Revoked — <date>` in place of the item's former label, in the item's former position. Owner-only surfaces may append `· <revoked_reason>`. Public surfaces never show the reason. |
+
+Never conflate:
+- Revoked evidence is **never silently hidden**. It stays in the list it was
+  in, with the revoked string, for as long as the list exists.
+- Revoked evidence counts for nothing. The concept's rung drops to the highest
+  surviving rung the moment `revoked_at` is set (rule 4).
+- "Revoked" is never softened to "expired", "archived", "withdrawn", or
+  "no longer available", and never rendered in the Self-assessed band.
+- A revoked item never keeps its former label alongside the revoked string;
+  one or the other, and the answer is the revoked string.
+
+### Superseded evidence (`supersedes_id` set on a newer `evidence` row)
+
+The spine is append-only; corrections arrive as a newer row that supersedes
+the older. Named here so supersession is never rendered as revocation or as
+disappearance.
+
+| State | Requires | Surface may say |
+|---|---|---|
+| **Superseded** | Another `evidence` row names this one in `supersedes_id`. | `Superseded <date>` on the older item, linking to the newer; the newer item carries the ordinary label for its state. Default lists show the newest; the chain is reachable, never deleted. |
+
+Never conflate:
+- Superseded is not revoked. A superseded item still counted when it was
+  current and is not an integrity event.
+- Only the newest row in a chain contributes to any number.
+
+### Definition of done for this section
+
+Every state the E-track can produce — three process-trace states, three
+attestation states, revoked, superseded — has exactly one allowed string set
+above. Presence verification deliberately has none and stays RESERVED. When A4
+lands each state, `formatEvidenceLabel` emits these strings verbatim and this
+doc gains the governing-rule citation; until then, rule 5 applies.
+
+## Changelog
+
+- **2 Oct 2026 (V0.3, under Upgrade Plan v2 A4):** Added "E-track states":
+  tier↔rung mapping, process-verified evidence, attestation sub-tiers with the
+  "Attested by <name>" rule and frozen standing, revoked and superseded
+  evidence, with never-conflate assertions for each. All new states RESERVED.
+  Rungs 0–5 and every pre-existing allowed string unchanged. Anchored on
+  Register 7.3 and `verification-layer-v1.md` §4.2.
