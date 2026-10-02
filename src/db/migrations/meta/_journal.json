@@ -113,6 +113,13 @@
       "when": 1784687447404,
       "tag": "0015_resumable_generation_state",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1790931441270,
+      "tag": "0016_profile_view_events",
+      "breakpoints": true
     }
   ]
 }

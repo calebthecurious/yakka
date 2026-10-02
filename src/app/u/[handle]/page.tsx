@@ -31,6 +31,7 @@ import {
 } from "@/db/schema";
 import { cn } from "@/lib/utils";
 import { Constellation } from "@/components/profile/constellation";
+import { ProfileViewBeacon } from "./view-beacon";
 import {
   constellationData,
   type ConstellationData,
@@ -517,6 +518,9 @@ export default async function PublicProfilePage({ params }: PageProps) {
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-16 px-5 py-14 sm:px-6 sm:py-20">
+      {/* P5.4a: one first-party view event per session. Renders nothing. */}
+      <ProfileViewBeacon handle={p.handle} />
+
       {/* 1. Header */}
       <header className="flex flex-col gap-5">
         <div className="flex flex-col gap-3">

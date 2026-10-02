@@ -1,6 +1,7 @@
 import {
   pgTable,
   pgEnum,
+  pgPolicy,
   uuid,
   text,
   integer,
@@ -11,6 +12,7 @@ import {
   unique,
   pgSchema,
 } from "drizzle-orm/pg-core";
+import { authenticatedRole } from "drizzle-orm/supabase";
 import { relations, sql } from "drizzle-orm";
 
 export const authSchema = pgSchema("auth");
@@ -806,6 +808,77 @@ export const foundationItems = pgTable(
     index("foundation_items_syllabus_type_idx").on(t.syllabusId, t.type),
   ],
 );
+
+/* ── Profile analytics (P5.4a) ──────────────────────────────────────────────
+ * The measurement layer for the cold-email A/B and the design-partner sends:
+ * "did the recruiter open it and what did they look at". Privacy-respecting
+ * by construction — no IP, no user agent, no fingerprint. The referrer is
+ * reduced to its host; utm values are short lower-case tokens; the visitor
+ * key is a random per-browser-session token the client generates, used only
+ * to collapse repeat loads, never to identify a person.
+ *
+ * `view` is P5.4a. `section`, `artefact_click` and `dwell` are reserved for
+ * P5.4b so that landing them is a write-path change, not a migration. The
+ * utm columns are what C-4 (per-partner links: utm_source=dp1/dp2/dp3) will
+ * write, for the same reason. */
+
+export const profileViewEventType = pgEnum("profile_view_event_type", [
+  "view",
+  "section",
+  "artefact_click",
+  "dwell",
+]);
+
+export const profileViewEvents = pgTable(
+  "profile_view_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** The profile being viewed. */
+    profileId: uuid("profile_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    /** The syllabus the page rendered (featured, or most-recent fallback). */
+    syllabusId: uuid("syllabus_id").references(() => syllabi.id, {
+      onDelete: "set null",
+    }),
+    eventType: profileViewEventType("event_type").notNull().default("view"),
+    /** For `section` events: which section (a short id, not free text). */
+    section: text("section"),
+    /** For `artefact_click` events. */
+    artefactId: uuid("artefact_id").references(() => artefacts.id, {
+      onDelete: "set null",
+    }),
+    /** For `dwell` events: time on page in ms. */
+    dwellMs: integer("dwell_ms"),
+    /** Referrer HOST only (e.g. "mail.google.com"); null for direct/self. */
+    referrerHost: text("referrer_host"),
+    utmSource: text("utm_source"),
+    utmMedium: text("utm_medium"),
+    utmCampaign: text("utm_campaign"),
+    /** Per-browser-session random token from the client. Not a fingerprint. */
+    visitorKey: text("visitor_key"),
+    /** The viewer is the profile's owner — excluded from every readout. */
+    isOwner: boolean("is_owner").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("profile_view_events_profile_created_idx").on(t.profileId, t.createdAt),
+    index("profile_view_events_profile_type_idx").on(t.profileId, t.eventType),
+    index("profile_view_events_utm_source_idx").on(t.utmSource),
+    // Owners may read their own events. Nobody writes through PostgREST: the
+    // server action inserts over the app's connection, which bypasses RLS.
+    pgPolicy("profile view events readable by owner", {
+      for: "select",
+      to: authenticatedRole,
+      using: sql`(select auth.uid()) = ${t.profileId}`,
+    }),
+  ],
+).enableRLS();
+
+export type ProfileViewEventType =
+  (typeof profileViewEventType.enumValues)[number];
 
 export const syllabiRelations = relations(syllabi, ({ one, many }) => ({
   clusters: many(skillClusters),
