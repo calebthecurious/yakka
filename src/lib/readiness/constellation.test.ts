@@ -8,8 +8,12 @@ import { summarizeReadinessLedger } from "./summary";
 import {
   TIER_RUNG,
   VERIFIED_TIERS,
+  SCRUBBER_MIN_EVENTS,
+  canScrub,
   constellationData,
+  datedEvents,
   formatTierLabel,
+  nodeStateAt,
   tierOf,
   type ConstellationLabels,
   type ConstellationTier,
@@ -291,5 +295,78 @@ describe("formatTierLabel — the taxonomy's words, nothing else", () => {
       const label = formatTierLabel(n.tier);
       expect(label === "Verified").toBe(n.verified);
     }
+  });
+});
+
+describe("nodeStateAt — the record as it stood at time T (C-3)", () => {
+  const k1 = byId.get("k1")!; // check LATE + artefact EARLY → artefact_verified
+  const k3 = byId.get("k3")!; // check MID only
+  const k2 = byId.get("k2")!; // artefact EARLY, learning
+  const k4 = byId.get("k4")!; // self-assessed, no evidence
+  const k7 = byId.get("k7")!; // check with an UNDATED completion
+
+  const before = new Date("2026-01-01T00:00:00Z").toISOString();
+  const between = new Date("2026-04-01T00:00:00Z").toISOString(); // after EARLY, before MID/LATE
+
+  it("at null equals the present state for every node", () => {
+    for (const n of data.nodes) {
+      expect(nodeStateAt(n, null)).toEqual({ tier: n.tier, verified: n.verified });
+    }
+  });
+
+  it("before any evidence, a verified node shows its self-declared baseline", () => {
+    expect(nodeStateAt(k1, before)).toEqual({ tier: "not_started", verified: false });
+    expect(nodeStateAt(k2, before)).toEqual({ tier: "in_progress", verified: false }); // learning, no evidence yet
+    expect(nodeStateAt(k3, before)).toEqual({ tier: "not_started", verified: false });
+  });
+
+  it("evidence lands at its own instant and the highest landed rung wins", () => {
+    expect(nodeStateAt(k1, EARLY.toISOString())).toEqual({ tier: "artefact_verified", verified: true });
+    expect(nodeStateAt(k3, between)).toEqual({ tier: "not_started", verified: false });
+    expect(nodeStateAt(k3, MID.toISOString())).toEqual({ tier: "check_passed", verified: true });
+    expect(nodeStateAt(k1, LATE.toISOString())).toEqual({ tier: "artefact_verified", verified: true });
+  });
+
+  it("undated evidence lands only in the present", () => {
+    expect(nodeStateAt(k7, LATE.toISOString())).toEqual({ tier: "not_started", verified: false });
+    expect(nodeStateAt(k7, null)).toEqual({ tier: "check_passed", verified: true });
+  });
+
+  it("self-declared states have no timestamp and hold throughout", () => {
+    expect(nodeStateAt(k4, before)).toEqual({ tier: "self_assessed", verified: false });
+    expect(nodeStateAt(k4, null)).toEqual({ tier: "self_assessed", verified: false });
+  });
+
+  it("verified count at T is monotone non-decreasing along the dated events", () => {
+    let prev = 0;
+    for (const e of datedEvents(data)) {
+      const count = data.nodes.filter((n) => nodeStateAt(n, e.at).verified).length;
+      expect(count).toBeGreaterThanOrEqual(prev);
+      prev = count;
+    }
+    // At the last dated instant everything dated has landed; only the undated k7 is left.
+    expect(prev).toBe(data.totals.verified - 1);
+  });
+
+  it("canScrub needs at least SCRUBBER_MIN_EVENTS dated events", () => {
+    expect(SCRUBBER_MIN_EVENTS).toBe(3);
+    expect(datedEvents(data)).toHaveLength(4);
+    expect(canScrub(data)).toBe(true);
+    expect(canScrub(constellationData(computeReadinessLedger(EMPTY)))).toBe(false);
+    const two = constellationData(
+      computeReadinessLedger({
+        ...EMPTY,
+        clusters: [{ id: "C", weight: 1, isArtefactBearing: false }],
+        concepts: [
+          { id: "a", clusterId: "C", status: "not_started" },
+          { id: "b", clusterId: "C", status: "not_started" },
+        ],
+        competencyChecks: [
+          { conceptId: "a", score: 5, completedAt: EARLY },
+          { conceptId: "b", score: 5, completedAt: MID },
+        ],
+      }),
+    );
+    expect(canScrub(two)).toBe(false);
   });
 });

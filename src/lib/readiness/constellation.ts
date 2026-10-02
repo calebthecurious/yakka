@@ -199,6 +199,55 @@ export interface ConstellationData {
   };
 }
 
+/* ── Time scrubbing (C-3) ──────────────────────────────────────────────────── */
+
+/** A scrubber needs at least this many DATED events to show anything honest. */
+export const SCRUBBER_MIN_EVENTS = 3;
+
+/** Dated events only — undated evidence cannot be placed on a timeline. */
+export function datedEvents(data: ConstellationData): ConstellationEvent[] {
+  return data.events.filter((e) => e.at != null);
+}
+
+/** Whether the payload carries enough dated evidence to scrub over. */
+export function canScrub(data: ConstellationData): boolean {
+  return datedEvents(data).length >= SCRUBBER_MIN_EVENTS;
+}
+
+/**
+ * A node's state as it stood at instant `at` (ISO), or its full present state
+ * when `at` is null. Pure over the payload — no refetch, no new data:
+ *  - evidence refs count only once `occurredAt <= at`; the tier is the highest
+ *    rung among landed refs (artefact 3 > check 2), exactly as `tierOf` ranks
+ *    them for the present;
+ *  - UNDATED refs land only in the present (`at === null`) — a timeline cannot
+ *    honestly place them earlier;
+ *  - self-declared states carry no timestamp, so a node with no landed evidence
+ *    falls back to its self-declared baseline: `in_progress` if the learner
+ *    marked it learning, `self_assessed` only if that is its present tier
+ *    (the ledger already guarantees a verified node is never self-assessed),
+ *    else `not_started`.
+ * With `at === null` the result equals `{ tier: node.tier, verified: node.verified }`.
+ */
+export function nodeStateAt(
+  node: ConstellationNode,
+  at: string | null,
+): { tier: ConstellationTier; verified: boolean } {
+  if (at == null) return { tier: node.tier, verified: node.verified };
+  let artefact = false;
+  let check = false;
+  for (const r of node.evidence) {
+    if (r.occurredAt == null || r.occurredAt > at) continue;
+    if (r.kind === "artefact") artefact = true;
+    else check = true;
+  }
+  if (artefact) return { tier: "artefact_verified", verified: true };
+  if (check) return { tier: "check_passed", verified: true };
+  if (node.tier === "self_assessed") return { tier: "self_assessed", verified: false };
+  if (node.inProgress) return { tier: "in_progress", verified: false };
+  return { tier: "not_started", verified: false };
+}
+
 /* ── The projection ────────────────────────────────────────────────────────── */
 
 function refFor(

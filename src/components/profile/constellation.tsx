@@ -25,16 +25,33 @@
  *   centre, so the record's core is what has been proven. Angle = cluster.
  */
 
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { ExternalLink, X } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { formatEvidenceDate } from "@/lib/readiness/model";
 import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
+import { ExternalLink, Pause, Play, X } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { formatEvidenceDate, formatRecordSinceLabel } from "@/lib/readiness/model";
+import {
+  canScrub,
+  datedEvents,
   formatTierLabel,
+  nodeStateAt,
   type ConstellationData,
   type ConstellationNode,
   type ConstellationTier,
 } from "@/lib/readiness/constellation";
+
+/* ── time scrubber (C-3) ───────────────────────────────────────────────────── */
+
+/** One sweep from the first dated event to the present. */
+const SWEEP_MS = 4000;
+/** Slider resolution. Continuous time, not event index, so bursts read as bursts. */
+const SLIDER_MAX = 1000;
 
 /* ── geometry (SVG user units; viewBox is a fixed square) ─────────────────── */
 
@@ -207,6 +224,67 @@ export function Constellation({
   const selected = selectedId ? (placed.find((p) => p.node.id === selectedId) ?? null) : null;
   const hovered = hoveredId ? (placed.find((p) => p.node.id === hoveredId) ?? null) : null;
 
+  // ── time: `t` is epoch ms, or null for the present (full record). ──
+  const scrubbable = canScrub(data);
+  const dated = useMemo(() => datedEvents(data), [data]);
+  const firstMs = data.range.first ? Date.parse(data.range.first) : 0;
+  const lastMs = data.range.last ? Date.parse(data.range.last) : 0;
+  const [t, setT] = useState<number | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const rafRef = useRef<number | null>(null);
+  const atIso = t == null ? null : new Date(t).toISOString();
+
+  // Per-node state at T, computed once per T for all nodes (cheap: O(refs)).
+  // Positions never move — only fill and opacity — so a sweep is a class swap
+  // per circle, which is what keeps it at frame rate on a few hundred nodes.
+  const stateAt = useMemo(() => {
+    const m = new Map<string, { tier: ConstellationTier; verified: boolean }>();
+    for (const n of data.nodes) m.set(n.id, nodeStateAt(n, atIso));
+    return m;
+  }, [data, atIso]);
+  const verifiedAt = useMemo(() => {
+    let n = 0;
+    for (const s of stateAt.values()) if (s.verified) n += 1;
+    return n;
+  }, [stateAt]);
+  const doneAtByCluster = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const n of data.nodes) {
+      if (stateAt.get(n.id)?.verified) m.set(n.clusterId, (m.get(n.clusterId) ?? 0) + 1);
+    }
+    return m;
+  }, [data, stateAt]);
+
+  const stop = useCallback(() => {
+    if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+    rafRef.current = null;
+    setPlaying(false);
+  }, []);
+
+  const play = useCallback(() => {
+    if (!scrubbable || lastMs <= firstMs) return;
+    stop();
+    setPlaying(true);
+    // Start from the beginning unless paused mid-sweep.
+    const startT = t != null && t < lastMs ? t : firstMs;
+    const startFrac = (startT - firstMs) / (lastMs - firstMs);
+    const t0 = performance.now() - startFrac * SWEEP_MS;
+    const tick = (now: number) => {
+      const frac = Math.min(1, (now - t0) / SWEEP_MS);
+      if (frac >= 1) {
+        setT(null); // the present: everything, including undated evidence, lands
+        rafRef.current = null;
+        setPlaying(false);
+        return;
+      }
+      setT(firstMs + frac * (lastMs - firstMs));
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+  }, [scrubbable, firstMs, lastMs, t, stop]);
+
+  useEffect(() => stop, [stop]);
+
   // Escape clears the selection from anywhere in the map.
   useEffect(() => {
     if (!selectedId) return;
@@ -322,7 +400,7 @@ export function Constellation({
                   dominantBaseline="middle"
                   className="fill-muted-foreground/70 text-[13px] tabular-nums"
                 >
-                  {s.done} / {s.total}
+                  {atIso == null ? s.done : (doneAtByCluster.get(s.id) ?? 0)} / {s.total}
                 </text>
               </g>
             );
@@ -337,7 +415,7 @@ export function Constellation({
             dominantBaseline="middle"
             className="fill-foreground font-serif text-[56px] tabular-nums"
           >
-            {data.totals.verified}
+            {atIso == null ? data.totals.verified : verifiedAt}
           </text>
           <text
             x={CX}
@@ -366,12 +444,22 @@ export function Constellation({
             const dimmed =
               selected != null && !isSelected && selected.node.clusterId !== node.clusterId;
             const date = formatEvidenceDate(node.occurredAt);
+            // State at T: the fill a node shows now, and whether its evidence has landed yet.
+            const st = stateAt.get(node.id) ?? { tier: node.tier, verified: node.verified };
+            const pending = atIso != null && st.tier !== node.tier;
             const aria = [node.label ?? "Concept", formatTierLabel(node.tier), date]
               .filter(Boolean)
               .join(", ");
             return (
-              <g key={node.id} className={cn(dimmed && "opacity-35", "transition-opacity duration-200 motion-reduce:transition-none")}>
-                {node.tier === "artefact_verified" ? (
+              <g
+                key={node.id}
+                className={cn(
+                  dimmed && "opacity-35",
+                  pending && !dimmed && "opacity-45",
+                  "transition-opacity duration-200 motion-reduce:transition-none",
+                )}
+              >
+                {st.tier === "artefact_verified" ? (
                   <circle
                     cx={p.x}
                     cy={p.y}
@@ -401,11 +489,11 @@ export function Constellation({
                   aria-label={aria}
                   aria-pressed={isSelected}
                   className={cn(
-                    TIER_NODE[node.tier],
-                    "cursor-pointer outline-none transition-[r] duration-150 focus-visible:stroke-ring focus-visible:stroke-[3px] motion-reduce:transition-none",
+                    TIER_NODE[st.tier],
+                    "cursor-pointer outline-none transition-[r,fill] duration-150 focus-visible:stroke-ring focus-visible:stroke-[3px] motion-reduce:transition-none",
                   )}
-                  strokeWidth={node.tier === "self_assessed" ? 1.75 : 1.25}
-                  strokeDasharray={node.tier === "self_assessed" ? "3 2.5" : undefined}
+                  strokeWidth={st.tier === "self_assessed" ? 1.75 : 1.25}
+                  strokeDasharray={st.tier === "self_assessed" ? "3 2.5" : undefined}
                   onClick={(e) => {
                     e.stopPropagation();
                     setSelectedId((cur) => (cur === node.id ? null : node.id));
@@ -448,6 +536,60 @@ export function Constellation({
             Nothing verified yet. The record fills from the centre outward as
             evidence lands.
           </p>
+        ) : null}
+
+        {/* ── time scrubber: the record growing. Hidden below 3 dated events. ── */}
+        {scrubbable ? (
+          <div className="border-border/50 mt-4 flex flex-col gap-2 border-t pt-4">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => (playing ? stop() : play())}
+                aria-label={playing ? "Pause" : "Play the record from the beginning"}
+                aria-pressed={playing}
+                className="border-border/60 bg-card/40 text-foreground hover:bg-card flex size-8 shrink-0 items-center justify-center rounded-full border transition-colors motion-reduce:transition-none"
+              >
+                {playing ? (
+                  <Pause className="size-3.5" aria-hidden />
+                ) : (
+                  <Play className="ml-0.5 size-3.5" aria-hidden />
+                )}
+              </button>
+              <input
+                type="range"
+                min={0}
+                max={SLIDER_MAX}
+                step={1}
+                value={
+                  t == null || lastMs <= firstMs
+                    ? SLIDER_MAX
+                    : Math.round(((t - firstMs) / (lastMs - firstMs)) * SLIDER_MAX)
+                }
+                onChange={(e) => {
+                  stop();
+                  const v = Number(e.target.value);
+                  setT(v >= SLIDER_MAX ? null : firstMs + (v / SLIDER_MAX) * (lastMs - firstMs));
+                }}
+                aria-label="Record over time"
+                aria-valuetext={formatEvidenceDate(atIso ?? data.range.last) ?? undefined}
+                // Design token, not the browser's default blue. Inline because
+                // `accent-foreground` is also the name of a shadcn colour token
+                // and the utility resolves ambiguously.
+                style={{ accentColor: "var(--foreground)" }}
+                className="h-1.5 w-full cursor-pointer"
+              />
+              <span className="text-foreground/90 w-24 shrink-0 text-right text-xs tabular-nums">
+                {atIso == null ? "Now" : formatEvidenceDate(atIso)}
+              </span>
+            </div>
+            <div className="text-muted-foreground/70 flex items-baseline justify-between gap-3 text-[11px]">
+              <span>{formatRecordSinceLabel(data.range.first)}</span>
+              <span className="tabular-nums">
+                {dated.length} dated evidence event{dated.length === 1 ? "" : "s"}
+                {data.undatedEvents > 0 ? ` · ${data.undatedEvents} undated, shown at Now` : ""}
+              </span>
+            </div>
+          </div>
         ) : null}
       </div>
 
