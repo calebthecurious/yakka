@@ -115,6 +115,7 @@ Diff engine: user's ledger vs the next level's standard → "what stands between
 
 ## GATE LEDGER v2
 - **G-A3:** EEG v1.0.0 tag [confirm → may already be open]
+  - **2 Oct 2026 — G-A3 OPEN.** `v1.0.0` tagged on `9a9afb9` ("matched 10-subject control…"; README full run: within-subject 58.0%, LOSO 55.6%) and public at https://github.com/calebthecurious/eeg-stream-demo. Verified by `git ls-remote --tags origin` → `refs/tags/v1.0.0^{}` = `9a9afb9`. The W-track (W-1 → W-4) may now open in order.
 - **G-A4:** ≥2 discovery calls done
 - **G-A5:** ≥1 signed design partner + standards live
 - **G-A6:** volume threshold + legal copy
