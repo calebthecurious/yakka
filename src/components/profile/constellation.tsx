@@ -58,8 +58,14 @@ const SLIDER_MAX = 1000;
 const VB = 1000;
 const CX = VB / 2;
 const CY = VB / 2;
-/** Horizontal breathing room so cluster labels at 3 and 9 o'clock never clip. */
-const VB_PAD_X = 170;
+/**
+ * Horizontal breathing room so cluster labels at 3 and 9 o'clock never clip.
+ * Real cluster names run to ~30 characters; at 17px in a 1000-unit box a
+ * 24-character label is ~230 units wide, so 260 clears it with margin.
+ */
+const VB_PAD_X = 260;
+/** Cluster label truncation; pairs with VB_PAD_X above. */
+const LABEL_MAX_CHARS = 24;
 const CENTER_R = 118;
 /** Radius per tier: proven work gravitates to the centre. */
 const TIER_RADIUS: Record<ConstellationTier, number> = {
@@ -391,7 +397,7 @@ export function Constellation({
                     isActive ? "fill-foreground" : "fill-muted-foreground",
                   )}
                 >
-                  {s.label ? truncate(s.label, 28) : ""}
+                  {s.label ? truncate(s.label, LABEL_MAX_CHARS) : ""}
                 </text>
                 <text
                   x={lx}
