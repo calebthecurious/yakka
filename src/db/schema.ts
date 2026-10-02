@@ -46,6 +46,20 @@ export const roleNatureEnum = pgEnum("role_nature", [
   "hybrid",
 ]);
 
+/**
+ * WHY a syllabus exists (W-1, the current-role wedge). `get_hired` is the
+ * original product: paste a target JD, build toward it. `current_role` is
+ * "help me do the job I already have, excellently" — the learner pastes their
+ * own JD. Smallest honest footprint: one enum on `syllabi`, no enrollments or
+ * standards model (that stays paper, gated on employer signal); it maps onto
+ * `enrollments.purpose` if that day comes. Existing rows are backfilled to
+ * `get_hired` — that is what every syllabus was for until now.
+ */
+export const syllabusPurpose = pgEnum("syllabus_purpose", [
+  "get_hired",
+  "current_role",
+]);
+
 export const conceptStatus = pgEnum("concept_status", [
   "not_started",
   "learning",
@@ -162,6 +176,9 @@ export const syllabi = pgTable(
     targetRole: text("target_role").notNull(),
     targetCompany: text("target_company"),
     roleNature: roleNatureEnum("role_nature").notNull().default("technical"),
+    // W-1. Default get_hired; the migration also backfills explicitly. No code
+    // path reads it yet — W-2 (intake) writes current_role, W-3 reads it.
+    purpose: syllabusPurpose("purpose").notNull().default("get_hired"),
     // Marks the ONE syllabus a user features on their public profile. At most one
     // true per user — enforced in setFeaturedSyllabus (transactional unset-then-set),
     // not by a DB constraint. Default false: nothing is public until the user picks.

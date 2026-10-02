@@ -7,8 +7,12 @@ import { db } from "@/db";
 import { syllabi } from "@/db/schema";
 import { runSyllabusGeneration } from "@/lib/generation/run";
 import { requireCurrentUserId } from "@/lib/auth";
+import { syllabusPurposeInput } from "@/lib/syllabus-purpose";
 
 const FormSchema = z.object({
+  // W-1. The form does not send this yet (no UI until W-2), so it resolves to
+  // the default get_hired — zero behaviour change for the existing flow.
+  purpose: syllabusPurposeInput,
   targetRole: z.string().trim().min(1, "Target role is required."),
   targetCompany: z
     .string()
@@ -43,6 +47,7 @@ export async function createSyllabus(
   const userId = await requireCurrentUserId();
 
   const parsed = FormSchema.safeParse({
+    purpose: formData.get("purpose"),
     targetRole: formData.get("targetRole"),
     targetCompany: formData.get("targetCompany"),
     jobDescription: formData.get("jobDescription"),
@@ -67,6 +72,7 @@ export async function createSyllabus(
       .insert(syllabi)
       .values({
         userId,
+        purpose: input.purpose,
         targetRole: input.targetRole,
         targetCompany: input.targetCompany ?? null,
         jobDescriptionText: input.jobDescription,
