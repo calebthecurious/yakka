@@ -522,7 +522,7 @@ export default async function PublicProfilePage({ params }: PageProps) {
       <ProfileViewBeacon handle={p.handle} />
 
       {/* 1. Header */}
-      <header className="flex flex-col gap-5">
+      <header data-section="header" className="flex flex-col gap-5">
         <div className="flex flex-col gap-3">
           <h1 className="font-serif text-4xl font-normal tracking-tight sm:text-5xl">
             {p.displayName}
@@ -574,7 +574,7 @@ export default async function PublicProfilePage({ params }: PageProps) {
           {/* 2. Evidence map — the record as a constellation. Every tier, count
               and label arrives from the ledger module; the component only draws. */}
           {constellation ? (
-            <section className="flex flex-col gap-4">
+            <section data-section="evidence_map" className="flex flex-col gap-4">
               <div className="flex flex-col gap-1">
                 <SectionLabel>Evidence map</SectionLabel>
                 <p className="text-muted-foreground text-sm">
@@ -587,7 +587,7 @@ export default async function PublicProfilePage({ params }: PageProps) {
           ) : null}
 
           {/* 3. Readiness snapshot — honest counts, no fabricated % */}
-          <section className="flex flex-col gap-4">
+          <section data-section="readiness_snapshot" className="flex flex-col gap-4">
             <SectionLabel>Readiness snapshot</SectionLabel>
             <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl bg-border sm:grid-cols-4">
               <Stat value={readiness.verified} label="Verified competencies" />
@@ -602,8 +602,8 @@ export default async function PublicProfilePage({ params }: PageProps) {
             </p>
           </section>
 
-          {/* 3. Artefacts & projects — strongest signal, leads */}
-          <section className="flex flex-col gap-5">
+          {/* 4. Artefacts & projects — strongest signal, leads */}
+          <section data-section="artefacts" className="flex flex-col gap-5">
             <div className="flex flex-col gap-1">
               <SectionTitle>Artefacts &amp; projects</SectionTitle>
               <p className="text-muted-foreground text-sm">
@@ -625,8 +625,8 @@ export default async function PublicProfilePage({ params }: PageProps) {
             )}
           </section>
 
-          {/* 4. Verified competencies — evidence-backed */}
-          <section className="flex flex-col gap-5">
+          {/* 5. Verified competencies — evidence-backed */}
+          <section data-section="verified_competencies" className="flex flex-col gap-5">
             <div className="flex flex-col gap-1">
               <SectionTitle>
                 <BadgeCheck
@@ -684,9 +684,9 @@ export default async function PublicProfilePage({ params }: PageProps) {
             )}
           </section>
 
-          {/* 5. Self-assessed — clearly labelled, lower weight */}
+          {/* 6. Self-assessed — clearly labelled, lower weight */}
           {p.showSelfAssessed && selfAssessedGroups.length > 0 ? (
-            <section className="flex flex-col gap-4">
+            <section data-section="self_assessed" className="flex flex-col gap-4">
               <div className="flex flex-col gap-1">
                 <SectionTitle muted>Self-assessed understanding</SectionTitle>
                 <p className="text-muted-foreground text-sm">
@@ -717,9 +717,9 @@ export default async function PublicProfilePage({ params }: PageProps) {
             </section>
           ) : null}
 
-          {/* 6. Learning trail */}
+          {/* 7. Learning trail */}
           {p.showLearningTrail && trail.total > 0 ? (
-            <section className="flex flex-col gap-4">
+            <section data-section="learning_trail" className="flex flex-col gap-4">
               <div className="flex flex-col gap-1">
                 <SectionTitle>Learning trail</SectionTitle>
                 <p className="text-muted-foreground text-sm">
@@ -769,9 +769,9 @@ export default async function PublicProfilePage({ params }: PageProps) {
             </section>
           ) : null}
 
-          {/* 7. Currently developing */}
+          {/* 8. Currently developing */}
           {p.showCurrentlyDeveloping && developing.length > 0 ? (
-            <section className="flex flex-col gap-4">
+            <section data-section="currently_developing" className="flex flex-col gap-4">
               <div className="flex flex-col gap-1">
                 <SectionTitle>
                   <Sprout
@@ -804,7 +804,7 @@ export default async function PublicProfilePage({ params }: PageProps) {
         </>
       )}
 
-      <footer className="border-border/50 text-muted-foreground/70 flex items-center justify-between border-t pt-6 text-xs">
+      <footer data-section="footer" className="border-border/50 text-muted-foreground/70 flex items-center justify-between border-t pt-6 text-xs">
         <span>provency.ai · evidence record</span>
         <span>Updated {format(new Date(), "d MMM yyyy")}</span>
       </footer>
@@ -930,6 +930,7 @@ function ArtefactCard({ artefact: a }: { artefact: ProfileArtefact }) {
             href={a.url}
             target="_blank"
             rel="noreferrer"
+            data-artefact-id={a.id}
             className="flex items-center gap-1 text-sm font-medium underline-offset-4 hover:underline"
           >
             View work
@@ -941,6 +942,7 @@ function ArtefactCard({ artefact: a }: { artefact: ProfileArtefact }) {
             href={a.evidenceUrl}
             target="_blank"
             rel="noreferrer"
+            data-artefact-id={a.id}
             className="text-muted-foreground flex items-center gap-1 text-sm underline-offset-4 hover:underline"
           >
             Evidence

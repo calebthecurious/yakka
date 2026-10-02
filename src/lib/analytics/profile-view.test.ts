@@ -1,12 +1,22 @@
 import { describe, it, expect } from "vitest";
 import {
+  DWELL_BUCKETS,
+  DWELL_BUCKET_FLOOR_MS,
+  PROFILE_SECTIONS,
   ProfileViewInput,
   SELF_HOSTS,
+  SessionDedupe,
+  artefactIdFrom,
+  dwellBucket,
+  dwellBucketOf,
+  isProfileSection,
   parseUtm,
   profileShareUrl,
   referrerHost,
   toProfileViewRow,
 } from "./profile-view";
+
+const ARTEFACT = "f1f70000-0000-4000-8000-000000000401";
 
 const RESOLVED = { profileId: "p-1", syllabusId: "s-1", isOwner: false };
 
@@ -125,20 +135,44 @@ describe("toProfileViewRow", () => {
 
   it("keeps per-type fields only on their own event type", () => {
     const base = { handle: "h" };
+    // A dwell bucket on a view event is ignored, not stored.
     expect(
-      toProfileViewRow(ProfileViewInput.parse({ ...base, eventType: "view", dwellMs: 5000 }), RESOLVED)
-        .dwellMs,
+      toProfileViewRow(
+        ProfileViewInput.parse({ ...base, eventType: "view", dwellBucket: "30_60s" }),
+        RESOLVED,
+      ).dwellMs,
     ).toBeNull();
     expect(
-      toProfileViewRow(ProfileViewInput.parse({ ...base, eventType: "dwell", dwellMs: 5000 }), RESOLVED)
-        .dwellMs,
-    ).toBe(5000);
+      toProfileViewRow(
+        ProfileViewInput.parse({ ...base, eventType: "dwell", dwellBucket: "30_60s" }),
+        RESOLVED,
+      ).dwellMs,
+    ).toBe(30_000);
     expect(
       toProfileViewRow(
         ProfileViewInput.parse({ ...base, eventType: "section", section: "artefacts" }),
         RESOLVED,
       ).section,
     ).toBe("artefacts");
+    expect(
+      toProfileViewRow(
+        ProfileViewInput.parse({ ...base, eventType: "artefact_click", artefactId: ARTEFACT }),
+        RESOLVED,
+      ).artefactId,
+    ).toBe(ARTEFACT);
+  });
+
+  it("refuses a per-type event without its field — nothing half-empty is stored", () => {
+    expect(ProfileViewInput.safeParse({ handle: "h", eventType: "section" }).success).toBe(false);
+    expect(ProfileViewInput.safeParse({ handle: "h", eventType: "section", section: "sidebar" }).success).toBe(false);
+    expect(ProfileViewInput.safeParse({ handle: "h", eventType: "artefact_click" }).success).toBe(false);
+    expect(ProfileViewInput.safeParse({ handle: "h", eventType: "artefact_click", artefactId: "not-a-uuid" }).success).toBe(false);
+    expect(ProfileViewInput.safeParse({ handle: "h", eventType: "dwell" }).success).toBe(false);
+    expect(ProfileViewInput.safeParse({ handle: "h", eventType: "dwell", dwellBucket: "forever" }).success).toBe(false);
+    // and exact durations are not even a field any more
+    expect(
+      Object.keys(ProfileViewInput.parse({ handle: "h", eventType: "dwell", dwellBucket: "lt10s", dwellMs: 1234 } as unknown as Record<string, unknown>)),
+    ).not.toContain("dwellMs");
   });
 
   it("marks the owner so readouts can exclude them", () => {
@@ -171,5 +205,114 @@ describe("profileShareUrl — the C-4 copy-link helper", () => {
 
   it("refuses a source that is not a token", () => {
     expect(() => profileShareUrl("https://provency.ai", "caleb", { source: "not a token" })).toThrow();
+  });
+});
+
+/* ── P5.4b ────────────────────────────────────────────────────────────────── */
+
+describe("sections", () => {
+  it("has exactly the nine C-2 layout sections, in page order", () => {
+    expect([...PROFILE_SECTIONS]).toEqual([
+      "header",
+      "evidence_map",
+      "readiness_snapshot",
+      "artefacts",
+      "verified_competencies",
+      "self_assessed",
+      "learning_trail",
+      "currently_developing",
+      "footer",
+    ]);
+    expect(isProfileSection("artefacts")).toBe(true);
+    expect(isProfileSection("sidebar")).toBe(false);
+    expect(isProfileSection(undefined)).toBe(false);
+  });
+});
+
+describe("dwell bucketing", () => {
+  it("buckets at the stated boundaries and never keeps a duration", () => {
+    expect(dwellBucket(0)).toBe("lt10s");
+    expect(dwellBucket(9_999)).toBe("lt10s");
+    expect(dwellBucket(10_000)).toBe("10_30s");
+    expect(dwellBucket(29_999)).toBe("10_30s");
+    expect(dwellBucket(30_000)).toBe("30_60s");
+    expect(dwellBucket(59_999)).toBe("30_60s");
+    expect(dwellBucket(60_000)).toBe("60_180s");
+    expect(dwellBucket(179_999)).toBe("60_180s");
+    expect(dwellBucket(180_000)).toBe("180s_plus");
+    expect(dwellBucket(10 * 60 * 60 * 1000)).toBe("180s_plus");
+  });
+
+  it("treats garbage as the first bucket rather than failing", () => {
+    expect(dwellBucket(-5)).toBe("lt10s");
+    expect(dwellBucket(Number.NaN)).toBe("lt10s");
+  });
+
+  it("stores the floor and recovers the bucket from it", () => {
+    for (const b of DWELL_BUCKETS) {
+      expect(dwellBucketOf(DWELL_BUCKET_FLOOR_MS[b])).toBe(b);
+    }
+    expect(dwellBucketOf(12_345)).toBeNull(); // an exact duration is not a bucket
+    expect(dwellBucketOf(null)).toBeNull();
+  });
+});
+
+describe("artefactIdFrom", () => {
+  it("accepts only a UUID from the data attribute", () => {
+    expect(artefactIdFrom(ARTEFACT)).toBe(ARTEFACT);
+    expect(artefactIdFrom("https://github.com/x/y")).toBeNull(); // never the URL
+    expect(artefactIdFrom("")).toBeNull();
+    expect(artefactIdFrom(undefined)).toBeNull();
+    expect(artefactIdFrom("<img src=x onerror=1>")).toBeNull();
+  });
+});
+
+describe("SessionDedupe", () => {
+  function mapStore() {
+    const m = new Map<string, string>();
+    return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), m };
+  }
+
+  it("claims once per kind per session, then refuses", () => {
+    const d = new SessionDedupe(mapStore(), "fixture-fiona");
+    expect(d.claim("view")).toBe(true);
+    expect(d.claim("view")).toBe(false);
+    expect(d.claim("dwell")).toBe(true);
+    expect(d.claim("dwell")).toBe(false);
+  });
+
+  it("dedupes sections per section id, so nine sections yield nine claims and no tenth", () => {
+    const d = new SessionDedupe(mapStore(), "fixture-fiona");
+    const claimed = PROFILE_SECTIONS.map((s) => d.claim("section", s));
+    expect(claimed.every(Boolean)).toBe(true);
+    expect(PROFILE_SECTIONS.map((s) => d.claim("section", s)).some(Boolean)).toBe(false);
+  });
+
+  it("scopes keys by handle so two profiles in one tab are independent", () => {
+    const store = mapStore();
+    const a = new SessionDedupe(store, "a");
+    const b = new SessionDedupe(store, "b");
+    expect(a.claim("section", "artefacts")).toBe(true);
+    expect(b.claim("section", "artefacts")).toBe(true);
+    expect(a.claim("section", "artefacts")).toBe(false);
+  });
+
+  it("degrades to 'send' when storage is missing or throws — never to silence", () => {
+    const none = new SessionDedupe(null, "h");
+    expect(none.claim("view")).toBe(true);
+    expect(none.claim("view")).toBe(true); // no memory, so it would send again
+    const throwing = new SessionDedupe(
+      {
+        getItem: () => {
+          throw new Error("blocked");
+        },
+        setItem: () => {
+          throw new Error("blocked");
+        },
+      },
+      "h",
+    );
+    expect(throwing.claim("view")).toBe(true);
+    expect(throwing.mark("view")).toBe(false);
   });
 });

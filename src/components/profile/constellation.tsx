@@ -685,6 +685,7 @@ function SelectedPanel({ placed, onClose }: { placed: Placed; onClose: () => voi
                   href={ref.url}
                   target="_blank"
                   rel="noreferrer"
+                  data-artefact-id={ref.artefactId}
                   className="text-foreground flex w-fit items-center gap-1 text-xs font-medium underline-offset-4 hover:underline"
                 >
                   View work
