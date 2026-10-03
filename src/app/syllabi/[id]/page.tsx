@@ -26,6 +26,8 @@ import { DeleteSyllabusButton } from "./delete-syllabus-button";
 import { loadSyllabus, readinessForLoadedSyllabus } from "./queries";
 import type { SyllabusPurpose } from "@/lib/syllabus-purpose";
 import { PURPOSE_COPY } from "@/lib/syllabus-purpose-copy";
+import { weeklyPanelData } from "@/lib/readiness/weekly";
+import { WeeklyPanel } from "./weekly-panel";
 
 // This page is the resume entry point: on load it kicks the generation worker
 // via after(), which continues after the response within this invocation's
@@ -343,6 +345,16 @@ export default async function SyllabusPage({ params }: PageProps) {
         hasBegun={hasBegun}
         purpose={syllabus.purpose}
       />
+
+      {syllabus.purpose === "current_role" ? (
+        // W-3: the weekly loop. Every fact comes from the ledger module
+        // (weeklyPanelData); this page only maps ids to names.
+        <WeeklyPanel
+          data={weeklyPanelData(readinessLedger, new Date().toISOString())}
+          conceptName={new Map(allConcepts.map((c) => [c.id, c.name]))}
+          clusterName={new Map(clusters.map((c) => [c.id, c.name]))}
+        />
+      ) : null}
 
       <BlockersCard
         blockers={metadata.structuralBlockers}
