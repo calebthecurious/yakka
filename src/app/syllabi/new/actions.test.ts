@@ -6,9 +6,14 @@ const dbMocks = vi.hoisted(() => {
     returning: () => Promise.resolve([{ id: "syll-1" }]),
   }));
   const insert = vi.fn(() => ({ values }));
-  return { insert, values };
+  // W-5: the action counts the user's active syllabi before inserting.
+  const state = { activeCount: 0 };
+  const select = vi.fn(() => ({
+    from: () => ({ where: () => Promise.resolve([{ n: state.activeCount }]) }),
+  }));
+  return { insert, values, select, state };
 });
-vi.mock("@/db", () => ({ db: { insert: dbMocks.insert } }));
+vi.mock("@/db", () => ({ db: { insert: dbMocks.insert, select: dbMocks.select } }));
 
 // The whole point of req 1: NO generation runs on the request path. actions.ts
 // no longer imports any generator — it only schedules the worker via after() —
@@ -50,6 +55,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
   vi.clearAllMocks();
   serverMocks.calls.length = 0;
+  dbMocks.state.activeCount = 0;
 });
 
 describe("createSyllabus — resumable path persists before generation (req 1)", () => {
@@ -136,6 +142,37 @@ describe("createSyllabus — resumable path persists before generation (req 1)",
     );
     expect(result).toEqual({ status: "error", message: expect.any(String) });
     expect(dbMocks.insert).not.toHaveBeenCalled();
+  });
+
+  it("W-5: at the free-tier boundary the action refuses with the wall message and inserts nothing", async () => {
+    const { createSyllabus } = await import("./actions");
+    dbMocks.state.activeCount = 1; // one active syllabus already
+    const result = await createSyllabus(
+      { status: "idle" },
+      form({
+        targetRole: "Second Role",
+        targetCompany: "",
+        jobDescription: "x".repeat(60),
+        currentSkills: "y".repeat(30),
+      }),
+    );
+    expect(result).toEqual({ status: "error", message: expect.stringContaining("Premium") });
+    expect(result).toEqual({ status: "error", message: expect.stringContaining("nothing to buy") });
+    expect(dbMocks.insert).not.toHaveBeenCalled();
+    expect(serverMocks.calls).toHaveLength(0);
+  });
+
+  it("W-5: a failed syllabus does not occupy the slot (count excludes failed) and a raised limit is honoured", async () => {
+    const { createSyllabus } = await import("./actions");
+    vi.stubEnv("FREE_TIER_ACTIVE_SYLLABI", "2");
+    dbMocks.state.activeCount = 1;
+    await expect(
+      createSyllabus(
+        { status: "idle" },
+        form({ targetRole: "R", targetCompany: "", jobDescription: "x".repeat(60), currentSkills: "y".repeat(30) }),
+      ),
+    ).rejects.toThrow("REDIRECT:/syllabi/syll-1");
+    expect(dbMocks.insert).toHaveBeenCalledTimes(1);
   });
 
   it("rejects invalid input before touching the database", async () => {

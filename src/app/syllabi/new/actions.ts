@@ -3,8 +3,10 @@
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { z } from "zod";
+import { and, count, eq, ne } from "drizzle-orm";
 import { db } from "@/db";
 import { syllabi } from "@/db/schema";
+import { WALL_COPY, canCreateSyllabus, readEntitlementConfig } from "@/lib/entitlements";
 import { runSyllabusGeneration } from "@/lib/generation/run";
 import { requireCurrentUserId } from "@/lib/auth";
 import { syllabusPurposeInput } from "@/lib/syllabus-purpose";
@@ -62,6 +64,18 @@ export async function createSyllabus(
   }
 
   const input = parsed.data;
+
+  // W-5: the free-tier boundary. The page already shows the wall instead of
+  // the form; this re-check is defence in depth for a stale tab or a direct
+  // POST. Same rule, same module.
+  const [activeRow] = await db
+    .select({ n: count() })
+    .from(syllabi)
+    .where(and(eq(syllabi.userId, userId), ne(syllabi.status, "failed")));
+  const decision = canCreateSyllabus(activeRow?.n ?? 0, readEntitlementConfig(process.env));
+  if (!decision.allowed) {
+    return { status: "error", message: WALL_COPY.actionMessage(decision.limit) };
+  }
 
   // Persist the skeleton row in 'generating' state. roleNature + blockers/branches
   // are produced by the worker's skeleton stage; seed neutral defaults now
