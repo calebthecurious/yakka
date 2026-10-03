@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageContainer } from "@/components/page-container";
+import { PURPOSE_COPY } from "@/lib/syllabus-purpose-copy";
 
 export const metadata: Metadata = {
   title: "Syllabi — Provency",
@@ -147,6 +148,9 @@ export default async function SyllabiIndexPage() {
                           </CardTitle>
                           <CardDescription>
                             {format(s.createdAt, "d MMM yyyy, HH:mm")}
+                            {PURPOSE_COPY[s.purpose].listTag ? (
+                              <span className="text-sky-300/90"> · {PURPOSE_COPY[s.purpose].listTag}</span>
+                            ) : null}
                           </CardDescription>
                         </div>
                         {blockerCount > 0 ? (
@@ -176,6 +180,7 @@ function loadSyllabi(userId: string) {
       id: syllabi.id,
       targetRole: syllabi.targetRole,
       targetCompany: syllabi.targetCompany,
+      purpose: syllabi.purpose,
       createdAt: syllabi.createdAt,
       metadata: syllabi.metadata,
     })

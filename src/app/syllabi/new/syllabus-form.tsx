@@ -10,6 +10,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { createSyllabus, type CreateSyllabusState } from "./actions";
 import { extractResumeText } from "./extract-resume";
 import { GenerationLoading } from "./generation-loading";
+import {
+  DEFAULT_SYLLABUS_PURPOSE,
+  SYLLABUS_PURPOSES,
+  type SyllabusPurpose,
+} from "@/lib/syllabus-purpose";
+import { PURPOSE_COPY } from "@/lib/syllabus-purpose-copy";
 
 const initialState: CreateSyllabusState = { status: "idle" };
 
@@ -18,6 +24,10 @@ export function SyllabusForm() {
     createSyllabus,
     initialState,
   );
+  // W-2: presentation-layer framing only. The generator is identical for both
+  // purposes; this selects which copy the form shows and what the row records.
+  const [purpose, setPurpose] = useState<SyllabusPurpose>(DEFAULT_SYLLABUS_PURPOSE);
+  const copy = PURPOSE_COPY[purpose];
   const [currentSkills, setCurrentSkills] = useState("");
   const [resumeStatus, setResumeStatus] = useState<
     | { kind: "idle" }
@@ -57,39 +67,71 @@ export function SyllabusForm() {
 
   return (
     <form action={action} className="flex flex-col gap-6">
+      <fieldset className="flex flex-col gap-2">
+        <legend className="text-sm font-medium">What is this for?</legend>
+        <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Purpose">
+          {SYLLABUS_PURPOSES.map((value) => {
+            const c = PURPOSE_COPY[value];
+            const selected = purpose === value;
+            return (
+              <label
+                key={value}
+                className={cn(
+                  "flex cursor-pointer flex-col gap-1 rounded-lg border px-4 py-3 transition-colors",
+                  selected
+                    ? "border-primary/50 bg-primary/[0.06]"
+                    : "border-border/60 bg-card hover:border-foreground/30",
+                )}
+              >
+                <input
+                  type="radio"
+                  name="purpose"
+                  value={value}
+                  checked={selected}
+                  onChange={() => setPurpose(value)}
+                  className="sr-only"
+                />
+                <span className="text-sm font-medium">{c.selector.label}</span>
+                <span className="text-muted-foreground text-xs">{c.selector.description}</span>
+              </label>
+            );
+          })}
+        </div>
+      </fieldset>
+
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-2">
-          <Label htmlFor="targetRole">Target role</Label>
+          <Label htmlFor="targetRole">{copy.form.roleLabel}</Label>
           <Input
             id="targetRole"
             name="targetRole"
             required
             maxLength={120}
-            placeholder="e.g. ML Engineer, neural decoding"
+            placeholder={copy.form.rolePlaceholder}
           />
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="targetCompany">
-            Target company{" "}
+            {copy.form.companyLabel}{" "}
             <span className="text-muted-foreground text-xs">(optional)</span>
           </Label>
           <Input
             id="targetCompany"
             name="targetCompany"
             maxLength={120}
-            placeholder="e.g. Seer Medical"
+            placeholder={copy.form.companyPlaceholder}
           />
         </div>
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="jobDescription">Job description</Label>
+        <Label htmlFor="jobDescription">{copy.form.jdLabel}</Label>
         <Textarea
           id="jobDescription"
           name="jobDescription"
           required
           rows={12}
-          placeholder="Paste the full JD here."
+          placeholder={copy.form.jdPlaceholder}
           className="font-mono text-sm"
         />
       </div>
@@ -146,10 +188,7 @@ export function SyllabusForm() {
           onChange={(e) => setCurrentSkills(e.target.value)}
           placeholder="A few sentences on what you already know, what you've built, and your formal background — or upload your resume."
         />
-        <p className="text-muted-foreground text-xs">
-          The AI uses this to identify credential/experience gaps and suggest
-          alternative target roles where your actual profile is viable.
-        </p>
+        <p className="text-muted-foreground text-xs">{copy.form.skillsHelp}</p>
       </div>
 
       {state.status === "error" ? (
@@ -183,7 +222,7 @@ export function SyllabusForm() {
           disabled={isPending}
           className="w-full sm:w-auto"
         >
-          {isPending ? "Generating…" : "Generate syllabus"}
+          {isPending ? copy.form.submitting : copy.form.submit}
         </Button>
       </div>
 

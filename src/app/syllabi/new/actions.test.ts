@@ -89,6 +89,55 @@ describe("createSyllabus — resumable path persists before generation (req 1)",
     expect(navMocks.redirect).toHaveBeenCalledWith("/syllabi/syll-1");
   });
 
+  it("W-1/W-2: purpose defaults to get_hired when the form sends none — the old flow is unchanged", async () => {
+    const { createSyllabus } = await import("./actions");
+    const fd = form({
+      targetRole: "ML Engineer",
+      targetCompany: "",
+      jobDescription: "x".repeat(60),
+      currentSkills: "y".repeat(30),
+    });
+    await expect(createSyllabus({ status: "idle" }, fd)).rejects.toThrow("REDIRECT:");
+    expect(dbMocks.values).toHaveBeenCalledWith(
+      expect.objectContaining({ purpose: "get_hired" }),
+    );
+  });
+
+  it("W-2: purpose=current_role is threaded to the row, with the same generator path", async () => {
+    const { createSyllabus } = await import("./actions");
+    const fd = form({
+      purpose: "current_role",
+      targetRole: "Signal Processing Engineer",
+      targetCompany: "Seer Medical",
+      jobDescription: "x".repeat(60),
+      currentSkills: "y".repeat(30),
+    });
+    await expect(createSyllabus({ status: "idle" }, fd)).rejects.toThrow("REDIRECT:/syllabi/syll-1");
+    expect(dbMocks.values).toHaveBeenCalledWith(
+      expect.objectContaining({ purpose: "current_role", status: "generating" }),
+    );
+    // Same worker, same arguments — no generator variant in this slice.
+    expect(serverMocks.calls).toHaveLength(1);
+    await serverMocks.calls[0]();
+    expect(runMocks.runSyllabusGeneration).toHaveBeenCalledWith("syll-1");
+  });
+
+  it("W-2: an unknown purpose is rejected before the database", async () => {
+    const { createSyllabus } = await import("./actions");
+    const result = await createSyllabus(
+      { status: "idle" },
+      form({
+        purpose: "promotion",
+        targetRole: "ML Engineer",
+        targetCompany: "",
+        jobDescription: "x".repeat(60),
+        currentSkills: "y".repeat(30),
+      }),
+    );
+    expect(result).toEqual({ status: "error", message: expect.any(String) });
+    expect(dbMocks.insert).not.toHaveBeenCalled();
+  });
+
   it("rejects invalid input before touching the database", async () => {
     const { createSyllabus } = await import("./actions");
 

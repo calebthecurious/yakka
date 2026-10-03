@@ -24,6 +24,8 @@ import { GeneratingView } from "./generating-view";
 import { RetryGenerationButton } from "./retry-generation-button";
 import { DeleteSyllabusButton } from "./delete-syllabus-button";
 import { loadSyllabus, readinessForLoadedSyllabus } from "./queries";
+import type { SyllabusPurpose } from "@/lib/syllabus-purpose";
+import { PURPOSE_COPY } from "@/lib/syllabus-purpose-copy";
 
 // This page is the resume entry point: on load it kicks the generation worker
 // via after(), which continues after the response within this invocation's
@@ -303,6 +305,12 @@ export default async function SyllabusPage({ params }: PageProps) {
           >
             {ROLE_NATURE_BADGE[syllabus.roleNature].label}
           </Badge>
+          {PURPOSE_COPY[syllabus.purpose].headerBadge ? (
+            // W-2: only current_role renders this; get_hired adds no element.
+            <Badge variant="outline" className="border-sky-400/40 text-sky-300">
+              {PURPOSE_COPY[syllabus.purpose].headerBadge}
+            </Badge>
+          ) : null}
         </div>
         <p className="text-muted-foreground text-sm">
           {clusters.length} clusters ·{" "}
@@ -330,7 +338,11 @@ export default async function SyllabusPage({ params }: PageProps) {
         </div>
       </header>
 
-      <StartHereBanner syllabusId={syllabus.id} hasBegun={hasBegun} />
+      <StartHereBanner
+        syllabusId={syllabus.id}
+        hasBegun={hasBegun}
+        purpose={syllabus.purpose}
+      />
 
       <BlockersCard
         blockers={metadata.structuralBlockers}
@@ -362,10 +374,13 @@ export default async function SyllabusPage({ params }: PageProps) {
 function StartHereBanner({
   syllabusId,
   hasBegun,
+  purpose,
 }: {
   syllabusId: string;
   hasBegun: boolean;
+  purpose: SyllabusPurpose;
 }) {
+  const copy = PURPOSE_COPY[purpose].startHere;
   return (
     <Link
       href={`/syllabi/${syllabusId}/start`}
@@ -386,12 +401,10 @@ function StartHereBanner({
       </div>
       <div className="flex flex-1 flex-col">
         <span className="font-medium">
-          {hasBegun ? "Revisit your launching point" : "New here? Start with the on-ramp"}
+          {hasBegun ? copy.revisitTitle : copy.freshTitle}
         </span>
         <span className="text-muted-foreground text-sm">
-          {hasBegun
-            ? "Baselines this syllabus assumes, and the ordered first steps."
-            : "See what this syllabus assumes you know, and exactly where to begin — no guessing."}
+          {hasBegun ? copy.revisitBody : copy.freshBody}
         </span>
       </div>
       <span
