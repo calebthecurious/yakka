@@ -5,6 +5,53 @@ range and anything a future reader would otherwise have to rediscover.
 
 ---
 
+## 2026-10-03 — INCIDENT: W-1 pushed before the G3 prod apply was verified; profiles 500'd ~17h; rolled back
+
+**What happened.** `6d888aa` (W-1, `syllabi.purpose` enum column, dev-applied
+only) was pushed to `main` on 2 Oct at ≈16:50 +0700 (≈09:50Z) and
+auto-deployed. The new build selects every `syllabi` column, so the first
+`syllabi` read on `/u/[handle]` failed against prod's schema, which had no
+`purpose` column: **every profile with a syllabus returned 500** from
+≈09:54Z (first observed) until the rollback on the morning of 3 Oct. The
+unknown-handle path kept returning 404 (profiles lookup fine), `/login` 200,
+`/u/beacon` 204 (fail-closed by design) — the signature of "schema behind
+code", not "database down".
+
+**Resolution.** Production promoted back to the `7e41c56` deployment (P5.4b),
+which predates the column read. Verified after rollback: `/u/caleb` 200,
+unknown handle 404, `/login` 200, `/u/beacon` 204.
+
+**Root cause.** Push before verify. The G3 pre-flight (this log, 2 Oct)
+stated the order explicitly — apply 0017, verify, *then* push `6d888aa` —
+and the apply was reported done, but the read-only verifier
+(`./.tmp-verify-g3.cjs`, run from the operator shell holding
+`PROD_DIRECT_URL`) was never run before the push. Whether the apply landed on
+a different database than Vercel's `PROD_DATABASE_URL`, or did not land at
+all, is **still unknown** — the verifier remains the one query that settles
+it. Contributing: nothing client-visible changed between `7e41c56` and
+`6d888aa`, so the post-push health check had no markup marker and could only
+observe the 500 after the fact.
+
+**Still open.**
+- **G3 (0016 + 0017) is NOT confirmed on prod.** Until the verifier reports
+  both journal hashes present, `profile_view_events` present with RLS on,
+  and `syllabi.purpose` present with backfill = row count, prod's schema is
+  assumed to be at 0015.
+- Consequence: the P5.4a/b beacon on prod fails closed on every page view
+  (one warning per failure code in the Vercel logs); **no analytics are
+  being recorded in production.**
+- **PUSH EMBARGO (from 3 Oct).** `main` contains W-1. Any push auto-deploys
+  a build that 500s against prod's current schema. Nothing is pushed — by
+  Claude or by Caleb — until the verifier has run on prod and 0017 is
+  confirmed present. Commits accumulate locally. Lifts only on that evidence.
+
+**Rule added (see CLAUDE.md changelog 2026-08-13 for the family).** A
+schema-dependent commit is not pushable until the migration it depends on
+is *verified* on prod by a read, not reported applied. "Applied" is a claim;
+the journal row with a matching hash is the evidence.
+
+---
+
 ## 2026-08-28 — Supabase project move: Y1–Y3 landed (schema, data, RLS parity, P2.2b committed)
 
 Closes steps 1–3 of the 2026-08-26 entry below. Y4–Y5 (Vercel env + password
