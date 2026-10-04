@@ -18,7 +18,8 @@
     "db:seed:dev": "tsx scripts/seed-dev.ts",
     "metrics:dev": "tsx scripts/metrics.ts --env dev",
     "metrics": "tsx scripts/metrics.ts --env prod",
-    "metrics:snapshot": "tsx scripts/metrics.ts --env prod --snapshot"
+    "metrics:snapshot": "tsx scripts/metrics.ts --env prod --snapshot",
+    "gate": "node scripts/gate.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.96.0",

@@ -58,6 +58,14 @@ four weeks of real cohort data.
   to non-prod; removal is a product call.
 - Rotation (Phase 0.1) is closed by Caleb's report of the new password;
   the old project's retirement (10b) has no evidence in this log.
+- **Test flake, unreproduced.** `src/app/syllabi/new/actions.test.ts` →
+  "writes a 'generating' skeleton row, runs no generator, then kicks the
+  worker and redirects" failed once in the full-suite run that preceded
+  commit `2a406d9` (4 Oct), passed alone, and passed in five further full
+  runs (two the same hour, three in the characterisation run for the gate
+  fix). No assertion diff was captured because the commit chain grepped the
+  output instead of reading the exit code — the defect that `npm run gate`
+  now closes. Not skipped, not quarantined. Reopen with the diff if seen.
 
 ---
 

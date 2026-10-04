@@ -96,6 +96,28 @@ For semantic/intent questions, prefer `mcp__gbrain__*` tools (after restart) or,
 
 ## Changelog
 
+### 2026-10-04 — Process: a gate is an exit code, never a grep
+
+**Rule.** Every claim of "gates green" in a commit message comes from
+`npm run gate` (`scripts/gate.mjs`): typecheck, the FULL vitest suite,
+`check:single-truth`, and eslint on files changed vs `origin/main`, each
+checked by process exit code, stopping at the first failure. Never gate on
+grepping a runner's output for a summary line — a grep that matches exits 0
+whether the tests passed or not. No test is skipped or quarantined to make a
+gate pass; a flaky test is characterised (re-run, named, logged), not hidden.
+
+**Why.** `2a406d9` (metrics v2) was committed with one failing test because the
+commit chain was `npm test | grep "Tests "` → `&& git commit`. The grep
+matched the summary line, so the chain continued and the message claimed
+314/314. The message was amended the same day to say what actually happened.
+
+**In practice.** Run `npm run gate` before every commit; paste its final line
+("GATE GREEN …") or its failure, never a hand-typed count. If the flake in
+`src/app/syllabi/new/actions.test.ts` ("writes a 'generating' skeleton row…")
+reappears, it goes in WORKLOG with the assertion diff; as of today it is
+unreproduced in three consecutive full runs.
+
+
 ### 2026-08-13 — Process: a prompt is not done until it is checked and committed
 
 **Rule.** A prompt's STOP is not complete until its real-eyes check and commit
