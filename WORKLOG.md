@@ -5,6 +5,62 @@ range and anything a future reader would otherwise have to rediscover.
 
 ---
 
+## 2026-10-03 — What landed 2–3 Oct (16 commits, 6 unpushed under embargo)
+
+All dev-verified; gates green at every step (tsc 0, vitest climbing
+185 → 309, eslint 0 on changed files, `check:single-truth` OK). Pushed
+through `7e41c56`; **`9f0162b` onward is local only — see the incident entry
+below and the embargo note at its end.**
+
+**Plan / docs.** Upgrade Plan v2 in-repo (`2db088b`, v1 delta-noted
+superseded). Taxonomy E-track states — process-verified, attestation
+sub-tiers, revoked, superseded — strings fixed before any code renders them
+(`f7f5ca4`). G-A3 opened: EEG `v1.0.0` → `9a9afb9`, public at
+github.com/calebthecurious/eeg-stream-demo (`68ab69a`). P6.1 RLS policy
+matrix v1 for the employer surface, spec for review before S-1 (`183f5b8`).
+
+**Profile / Constellation.** PR-3 evidence timestamps: `occurredAt` on
+evidence, `firstEvidenceAt`, dated labels, "Building this record since"
+(`10b0687`). C-1 `constellationData` payload (`ed009a3`), C-2 the SVG
+evidence map + legend + panel + keyboard (`cab0699`), C-3 time scrubber
+with play (`546cd93`), label-clipping fix (`3206844`). Dev preview at
+`/u/dev-constellation` (404s in prod). Real `/u/caleb` renders 91 nodes, 0
+verified — honest.
+
+**Analytics.** P5.4a `profile_view_events` + first-party view beacon,
+0016 dev-applied (`eacb09e`). P5.4b section / artefact-click / dwell-bucket
+events, recorder fails closed (proven live by hiding the table on dev)
+(`7e41c56`). Beacon route lives at `/u/beacon` because the auth middleware
+redirects `/api/*`; "beacon" and "dev-constellation" are now reserved
+handles (`9f0162b`).
+
+**W-track, closed.** W-1 `syllabi.purpose` enum, 0017 dev-applied
+(`6d888aa`). W-2 purpose selector + purpose-keyed copy, get_hired pinned
+byte-identical by test; both purposes generated end-to-end on dev
+(`fce15e9`). W-3 "This week" panel for current_role — next unverified via
+the P1.9 machine, most recent dated evidence, 30-day drift — all in
+`src/lib/readiness/weekly.ts` (`851c613`). W-4 `scripts/metrics.ts`, the
+seven numbers + wedge lines, read-only, hand-count matched (`8772edd`).
+W-5 free-tier boundary, one active syllabus, honest "Premium is coming"
+wall, env-configurable (`02c0ded`). Next W investment decision waits for
+four weeks of real cohort data.
+
+**Still open / gated.**
+- **G3 unverified on prod** → push embargo (incident entry). Verifier:
+  `node ./.tmp-verify-g3.cjs` from the shell holding `PROD_DIRECT_URL`.
+- **G-A4** (two discovery calls) gates E-1…E-5. **G-A5** (signed partner)
+  gates S-1…S-5; S-1 also needs the P6.1 review (R-1 undecided). **G-A6**
+  gates B-1…B-3. **DNS** (`provency.ai` still dead) gates C-4 and P5.5.
+- P0.3 prod smoke (human, logged in). Stale OAuth callback comment in
+  `src/lib/supabase/server.ts` names the old project (pair with
+  supabase-auth-qa). W-2 page-intro copy is a late-bind from the copy
+  session. Dev-only ledger JSON dump on `/syllabi/[id]` is still gated
+  to non-prod; removal is a product call.
+- Rotation (Phase 0.1) is closed by Caleb's report of the new password;
+  the old project's retirement (10b) has no evidence in this log.
+
+---
+
 ## 2026-10-03 — INCIDENT: W-1 pushed before the G3 prod apply was verified; profiles 500'd ~17h; rolled back
 
 **What happened.** `6d888aa` (W-1, `syllabi.purpose` enum column, dev-applied
