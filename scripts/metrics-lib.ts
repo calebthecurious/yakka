@@ -96,3 +96,77 @@ export function fmtCount(n: number | null, note?: string): string {
   if (n == null) return note ? `not instrumented — ${note}` : "not instrumented";
   return String(n);
 }
+
+/* ── Snapshot mode (A8.3 v2) ─────────────────────────────────────────────── */
+
+/** `YYYY-MM` → the month's half-open bounds in UTC, or null when malformed. */
+export function monthBounds(month: string): { from: string; to: string; label: string } | null {
+  const m = /^(\d{4})-(\d{2})$/.exec(month);
+  if (!m) return null;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  if (mo < 1 || mo > 12) return null;
+  const from = new Date(Date.UTC(y, mo - 1, 1));
+  const to = new Date(Date.UTC(y, mo, 1));
+  return { from: from.toISOString(), to: to.toISOString(), label: `${m[1]}-${m[2]}` };
+}
+
+/** The month before the one containing `nowIso` — what a 1st-of-month run snapshots. */
+export function previousMonth(nowIso: string): string {
+  const d = new Date(nowIso);
+  const y = d.getUTCFullYear();
+  const mo = d.getUTCMonth(); // 0-based current month
+  const prev = new Date(Date.UTC(y, mo - 1, 1));
+  return `${prev.getUTCFullYear()}-${String(prev.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+/** Every `YYYY-MM` from `firstMonth` through `lastMonth` inclusive. */
+export function monthRange(firstMonth: string, lastMonth: string): string[] {
+  const a = monthBounds(firstMonth);
+  const b = monthBounds(lastMonth);
+  if (!a || !b) return [];
+  const out: string[] = [];
+  let cur = new Date(a.from);
+  const end = new Date(b.from);
+  while (cur <= end) {
+    out.push(`${cur.getUTCFullYear()}-${String(cur.getUTCMonth() + 1).padStart(2, "0")}`);
+    cur = new Date(Date.UTC(cur.getUTCFullYear(), cur.getUTCMonth() + 1, 1));
+  }
+  return out;
+}
+
+/** A metric value: a number, or an honest reason it is absent. */
+export type MetricValue = number | { notInstrumented: string };
+
+export interface MetricsSnapshot {
+  /** Schema version of this file's shape. Bump when fields change meaning. */
+  schema: 1;
+  month: string;
+  /** Window bounds (half-open) the in-window numbers were computed over. */
+  window: { from: string; to: string };
+  env: "dev" | "prod";
+  generatedAt: string;
+  /** Cumulative as of `window.to`. */
+  cumulative: {
+    signups: MetricValue;
+    activated: MetricValue;
+    profilesSharedExternally: MetricValue;
+    currentRoleWorkspaces: MetricValue;
+  };
+  /** Events/people inside the window. */
+  inWindow: {
+    evidenceEvents: MetricValue;
+    activeUsers: MetricValue;
+    profilesSharedExternally: MetricValue;
+    currentRoleWorkspacesCreated: MetricValue;
+    currentRoleActiveUsers: MetricValue;
+  };
+  /** As of `window.to`. */
+  week4Return: { eligible: number; returned: number; ratePct: number | null } | { notInstrumented: string };
+  mrr: MetricValue;
+  displacementEvents: MetricValue;
+}
+
+export function fmtMetric(v: MetricValue): string {
+  return typeof v === "number" ? String(v) : `not yet instrumented — ${v.notInstrumented}`;
+}

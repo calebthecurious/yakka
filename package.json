@@ -17,7 +17,8 @@
     "db:migrate:dev": "tsx scripts/migrate.ts --env dev",
     "db:seed:dev": "tsx scripts/seed-dev.ts",
     "metrics:dev": "tsx scripts/metrics.ts --env dev",
-    "metrics": "tsx scripts/metrics.ts --env prod"
+    "metrics": "tsx scripts/metrics.ts --env prod",
+    "metrics:snapshot": "tsx scripts/metrics.ts --env prod --snapshot"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.96.0",

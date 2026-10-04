@@ -85,3 +85,42 @@ describe("helpers", () => {
     expect(fmtCount(null, "A8")).toBe("not instrumented — A8");
   });
 });
+
+/* ── snapshot mode ──────────────────────────────────────────────────────── */
+import { fmtMetric, monthBounds, monthRange, previousMonth } from "./metrics-lib";
+
+describe("monthBounds", () => {
+  it("gives half-open UTC bounds for a month", () => {
+    expect(monthBounds("2026-09")).toEqual({
+      from: "2026-09-01T00:00:00.000Z",
+      to: "2026-10-01T00:00:00.000Z",
+      label: "2026-09",
+    });
+    expect(monthBounds("2026-12")?.to).toBe("2027-01-01T00:00:00.000Z");
+  });
+  it("rejects malformed input", () => {
+    expect(monthBounds("2026-13")).toBeNull();
+    expect(monthBounds("2026-9")).toBeNull();
+    expect(monthBounds("Sept 2026")).toBeNull();
+  });
+});
+
+describe("previousMonth / monthRange", () => {
+  it("a 1st-of-month run snapshots the month just ended, across a year boundary too", () => {
+    expect(previousMonth("2026-10-01T03:00:00.000Z")).toBe("2026-09");
+    expect(previousMonth("2027-01-01T00:00:00.000Z")).toBe("2026-12");
+  });
+  it("enumerates months inclusively", () => {
+    expect(monthRange("2026-05", "2026-09")).toEqual(["2026-05", "2026-06", "2026-07", "2026-08", "2026-09"]);
+    expect(monthRange("2026-11", "2027-01")).toEqual(["2026-11", "2026-12", "2027-01"]);
+    expect(monthRange("2026-09", "2026-05")).toEqual([]);
+    expect(monthRange("bad", "2026-05")).toEqual([]);
+  });
+});
+
+describe("fmtMetric", () => {
+  it("prints numbers and honest absences", () => {
+    expect(fmtMetric(7)).toBe("7");
+    expect(fmtMetric({ notInstrumented: "Stripe (A8)" })).toBe("not yet instrumented — Stripe (A8)");
+  });
+});

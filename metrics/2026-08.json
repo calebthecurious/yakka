@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "month": "2026-08",
+  "window": {
+    "from": "2026-08-01T00:00:00.000Z",
+    "to": "2026-09-01T00:00:00.000Z"
+  },
+  "env": "prod",
+  "generatedAt": "2026-10-04T01:07:56.948Z",
+  "cumulative": {
+    "signups": 12,
+    "activated": 10,
+    "profilesSharedExternally": {
+      "notInstrumented": "migration 0016 (profile_view_events) pending on this database"
+    },
+    "currentRoleWorkspaces": {
+      "notInstrumented": "migration 0017 (syllabi.purpose) pending on this database"
+    }
+  },
+  "inWindow": {
+    "evidenceEvents": 0,
+    "activeUsers": 0,
+    "profilesSharedExternally": {
+      "notInstrumented": "migration 0016 (profile_view_events) pending on this database"
+    },
+    "currentRoleWorkspacesCreated": {
+      "notInstrumented": "migration 0017 (syllabi.purpose) pending on this database"
+    },
+    "currentRoleActiveUsers": {
+      "notInstrumented": "migration 0017 (syllabi.purpose) pending on this database"
+    }
+  },
+  "week4Return": {
+    "notInstrumented": "migration 0017 (syllabi.purpose) pending on this database"
+  },
+  "mrr": {
+    "notInstrumented": "Stripe (A8 billing not built)"
+  },
+  "displacementEvents": {
+    "notInstrumented": "S-5 not built"
+  }
+}
