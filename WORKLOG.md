@@ -5,6 +5,63 @@ range and anything a future reader would otherwise have to rediscover.
 
 ---
 
+## 2026-10-05 — Prod credential fault diagnosed (28P01 from Vercel); db:check added; operator step open
+
+**Diagnosis, from evidence.** `vercel logs` on `yakka-two.vercel.app` for
+`GET /u/caleb` and `GET /u/<nonsense>` (both 500): `Failed query: select …
+from "profiles" where handle = $1` with cause `28P01 password authentication
+failed for user "postgres"`, `severity_local: FATAL`. So Vercel's
+`PROD_DATABASE_URL` is set and parses (the URL guard in `src/lib/env.ts` did
+not throw) but carries a password the pooler no longer accepts — the
+pre-reset one. Everything else is coherent:
+
+- Supabase project `skksjylkquovwhgjbwxi` is live: GoTrue health 200
+  (v2.197.0), PostgREST answers with the anon key (`profiles` count 12).
+  Not paused.
+- The pooler string on the `PROD_DIRECT_URL` line of `.env.local` (user
+  `postgres.skksjylkquovwhgjbwxi`) authenticates from this machine on
+  **both** `:5432` (session) and `:6543` (transaction) — 17 public tables,
+  **19 migrations recorded**, 12 profiles, 29 syllabi. The 5432 session
+  pooler is reachable again (the earlier "only 6543 works" note is stale).
+- Direct host `db.skksjylkquovwhgjbwxi.supabase.co:5432`: TCP never opens
+  from here (IPv6-only; this machine and Vercel are IPv4-only). Do not use it.
+- Local docker stack (`DEV_DATABASE_URL`, 127.0.0.1:54322): healthy,
+  **19 migrations recorded** — dev and prod schemas agree at 0017.
+- Vercel Production env: `NEXT_PUBLIC_SUPABASE_URL` = the live project,
+  `NEXT_PUBLIC_SUPABASE_ANON_KEY` present. `PROD_DATABASE_URL`,
+  `GROK_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`,
+  `SUPABASE_TRANSACTION_POOLER` pull as `""` — sensitive values, not
+  empty ones (the 28P01 proves `PROD_DATABASE_URL` has a value). The last
+  three are referenced by no code and can be removed. Preview has none of
+  the app variables; irrelevant while deploys are direct-to-main.
+- `provency.ai` still returns 000 (DNS, Y6). Health check stays on
+  `yakka-two.vercel.app`.
+
+**Landed.**
+- `scripts/db-check.ts` + `npm run db:check` / `db:check:dev`: read-only
+  (every statement inside `set transaction read only`), reuses
+  `migrate-guard` target resolution — prod reads `PROD_DATABASE_URL` from
+  process.env only — prints host/port/db (never the URL), server version,
+  applied/pending vs the journal, profile/syllabus counts; exit 0 / 2
+  (pending) / 1 (cannot connect). Diagnoses 28P01, ENOTFOUND, ECONNREFUSED
+  in plain words. Replaces the ad-hoc `.tmp-verify-g3.cjs` ritual.
+- Stale OAuth checklist in `src/lib/supabase/server.ts` now names the live
+  project ref and includes `provency.ai` origins (comment only).
+- `.env.example` states the pooler shape for `PROD_DATABASE_URL`;
+  CLAUDE.md changelog: "a database password reset is a deploy".
+
+**Still open — operator, one sitting (Y5 + Incident 2 credential fault).**
+The current password has again appeared in chat (this session). So:
+(1) Supabase dashboard → Database → reset password (generated);
+(2) `vercel env add PROD_DATABASE_URL production --force --sensitive` with
+the new `…pooler.supabase.com:6543` string on stdin; (3) `vercel redeploy`
+the current production deployment; (4) `/u/<nonsense>` → 404 and
+`npm run db:check` → `DB CHECK OK`; (5) delete the `PROD_DIRECT_URL` line
+from `.env.local` (P2.2b — no prod credential at rest locally). Until (2)+(3)
+land, every DB-backed page on prod is down regardless of code.
+
+---
+
 ## 2026-10-04 — G3 CLOSED on prod (0016 + 0017 verified); embargo lifted; second incident recorded
 
 **G3 applied, verified by a read, not a report.** Operator ran

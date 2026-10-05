@@ -96,6 +96,30 @@ For semantic/intent questions, prefer `mcp__gbrain__*` tools (after restart) or,
 
 ## Changelog
 
+### 2026-10-05 — Process: a database password reset is a deploy
+
+**Rule.** Resetting the Supabase database password is not finished until
+Vercel `PROD_DATABASE_URL` holds the new transaction-pooler string
+(`aws-0-ap-south-1.pooler.supabase.com:6543`, user `postgres.<ref>`), the
+site is redeployed, and `npm run db:check` (with that string exported) prints
+`DB CHECK OK`. Verify prod by behaviour, not by inspection: an unknown handle
+at `/u/<nonsense>` must return **404**; a **500** there means the credential,
+not the schema. `vercel env pull` writes sensitive values as `""`, so an
+empty pull proves nothing either way.
+
+**Why.** From before 2026-10-04 01:20Z until 2026-10-05, every DB-backed page
+on prod 500'd with Postgres `28P01 password authentication failed` — Vercel's
+`PROD_DATABASE_URL` still carried the pre-reset password while the pooler
+string in `.env.local` authenticated fine. Public pages (`/`, `/login`)
+stayed 200, so the health check was green throughout. The cause was only
+visible in `vercel logs`.
+
+**In practice.** Connection map: local processes → `DEV_DATABASE_URL`
+(docker, loopback only); Vercel → `PROD_DATABASE_URL` (pooler 6543); the
+direct host `db.<ref>.supabase.co` is IPv6-only and unreachable from Vercel
+and this machine — never use it. Health-check a DB route (`/u/<nonsense>` →
+404) alongside `/login` → 200.
+
 ### 2026-10-04 — Process: a gate is an exit code, never a grep
 
 **Rule.** Every claim of "gates green" in a commit message comes from

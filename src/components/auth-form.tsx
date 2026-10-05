@@ -14,6 +14,7 @@
  * `src/lib/supabase/server.ts`:
  *     http://localhost:3000/auth/callback
  *     https://yakka-two.vercel.app/auth/callback
+ *     https://provency.ai/auth/callback
  */
 
 import { useState } from "react";

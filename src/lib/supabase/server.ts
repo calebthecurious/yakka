@@ -16,8 +16,9 @@
  *     2. Authorized JavaScript origins:
  *          http://localhost:3000
  *          https://yakka-two.vercel.app
+ *          https://provency.ai
  *     3. Authorized redirect URIs  (this points at SUPABASE, not our app):
- *          https://dzdfeundgibdiyvtajue.supabase.co/auth/v1/callback
+ *          https://skksjylkquovwhgjbwxi.supabase.co/auth/v1/callback
  *        (= NEXT_PUBLIC_SUPABASE_URL + "/auth/v1/callback")
  *     4. Copy the generated Client ID and Client Secret.
  *
@@ -29,6 +30,7 @@
  *          - Redirect URLs (allow-list — these are OUR app's callback, one per env):
  *              http://localhost:3000/auth/callback
  *              https://yakka-two.vercel.app/auth/callback
+ *              https://provency.ai/auth/callback
  *     3. (Email/password) Authentication → Providers → Email is on by default.
  *        Decide whether "Confirm email" is required — if on, new signups must
  *        click the emailed link before they can log in.
