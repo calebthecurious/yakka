@@ -126,6 +126,8 @@ function diagnose(err: unknown, target: ResolvedTarget): string {
 
 /* ── Main ──────────────────────────────────────────────────────────────── */
 
+let reported = false;
+
 async function main(): Promise<number> {
   const env = parseEnvFlag(process.argv.slice(2));
   const target = resolveTarget(env, loadVars());
@@ -163,12 +165,21 @@ async function main(): Promise<number> {
     return 0;
   } catch (err) {
     console.log("───────────────────────────────────────────────────────");
+    reported = true;
     console.error(`DB CHECK FAILED (${target.source}): ${diagnose(err, target)}`);
     return 1;
   } finally {
     await sql.end({ timeout: 3 });
   }
 }
+
+// Supavisor can send a second ErrorResponse after a failed auth ("Authentication
+// credentials are invalid…"), which postgres.js surfaces as an unhandled
+// rejection after our catch has already reported. Keep the exit clean.
+process.on("unhandledRejection", (err: unknown) => {
+  if (!reported) console.error(err instanceof Error ? err.message : String(err));
+  process.exit(1);
+});
 
 main()
   .then((code) => process.exit(code))
