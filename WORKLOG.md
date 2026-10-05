@@ -50,15 +50,32 @@ pre-reset one. Everything else is coherent:
 - `.env.example` states the pooler shape for `PROD_DATABASE_URL`;
   CLAUDE.md changelog: "a database password reset is a deploy".
 
-**Still open — operator, one sitting (Y5 + Incident 2 credential fault).**
-The current password has again appeared in chat (this session). So:
-(1) Supabase dashboard → Database → reset password (generated);
-(2) `vercel env add PROD_DATABASE_URL production --force --sensitive` with
-the new `…pooler.supabase.com:6543` string on stdin; (3) `vercel redeploy`
-the current production deployment; (4) `/u/<nonsense>` → 404 and
-`npm run db:check` → `DB CHECK OK`; (5) delete the `PROD_DIRECT_URL` line
-from `.env.local` (P2.2b — no prod credential at rest locally). Until (2)+(3)
-land, every DB-backed page on prod is down regardless of code.
+**RESOLVED 2026-10-05 ≈04:00Z — two faults, not one.** Operator set
+`PROD_DATABASE_URL` (`vercel env add … --force --sensitive --value`, after
+`npm run db:check` printed OK on the same shell value) and ran `vercel
+redeploy` — and prod still 500'd. `vercel inspect https://yakka-two.vercel.app`
+showed why: the production domain was still assigned to
+`dpl_AyK3yowM` (**`7e41c56`, built 2026-10-02**). Every deployment since —
+`2a406d9` on 4 Oct and all three redeploys on 5 Oct — was "Ready ·
+Production" in `vercel ls` but never received the domain. That is the
+post-Instant-Rollback state: after the 4 Oct rollback to `7e41c56`, Vercel
+stopped auto-promoting new production builds. So the 500s were the OLD build
+with the OLD credential, and the new credential had been live on an unaliased
+deployment all along.
+
+Fix: `vercel promote https://yakka-6fzhq8tg8-calebthecurious-projects.vercel.app`
+(built from `2a406d9` = origin/main). Verified by behaviour afterwards:
+`/login` 200, `/` 200, **`/u/nope-handle` 404**, **`/u/caleb` 200**.
+Incident 2's credential fault is closed. **Lesson, now in CLAUDE.md:**
+"Ready" in `vercel ls --prod` is not "live"; after any rollback, confirm
+`vercel inspect <production domain>` reports the newest deployment id, or
+promote.
+
+Still open after this: **Y5** (the password has been typed into chat in
+three sessions now — rotate, then env add + redeploy + `db:check`), the
+four local-only commits (`cbd62bd`…`02c426d`) await the user's push, and
+the three unused Vercel variables.
+
 
 ---
 

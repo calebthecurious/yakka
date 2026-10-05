@@ -119,6 +119,12 @@ visible in `vercel logs`.
 direct host `db.<ref>.supabase.co` is IPv6-only and unreachable from Vercel
 and this machine — never use it. Health-check a DB route (`/u/<nonsense>` →
 404) alongside `/login` → 200.
+**"Ready" is not "live".** After an Instant Rollback, Vercel stops auto-promoting
+new production builds: every later push and `vercel redeploy` shows "● Ready ·
+Production" in `vercel ls --prod` but the domain stays on the rolled-back
+deployment (that is how 5 Oct's credential fix "did not take" twice). Before
+declaring a deploy done, `vercel inspect https://yakka-two.vercel.app` must
+report the newest deployment id; if not, `vercel promote <newest url>`.
 
 ### 2026-10-04 — Process: a gate is an exit code, never a grep
 
