@@ -77,15 +77,54 @@
   --font-serif: var(--font-instrument-serif), Georgia, "Times New Roman", serif;
 }
 
-/* Slow, organic drift for the landing hero gradient ribbon. Gated behind
-   motion-safe at the call site so reduced-motion users get a static ribbon. */
-@keyframes wave-drift {
-  0%,
-  100% {
-    transform: translate3d(-2%, 0, 0) scale(1.02);
-  }
-  50% {
-    transform: translate3d(2%, -5%, 0) scale(1.06);
+/* ── Landing tokens (PR-4b) ─────────────────────────────────────────────────
+   The 30 pen variables from docs/design/landing-v2.pen, exported 1:1 with an
+   `--lp-` prefix (see docs/design/landing-v2-handoff.md for the table). Hex
+   only. The phone values are the pen's `device: phone` theme, applied below
+   768px. The node colours are the ONE token set for the Constellation on both
+   the landing and the public profile; tier words still come from the ledger. */
+:root {
+  --lp-bg: #0a0a0f;
+  --lp-surface: #12121a;
+  --lp-line: #1f1f2a;
+  --lp-text-primary: #ececf1;
+  --lp-text-secondary: #8b8b99;
+  --lp-accent: #00d9c0;
+  --lp-accent-check: #00d9c0d9;
+  --lp-accent-ring: #00d9c059;
+  --lp-node-in-progress: #6e6e80;
+  --lp-node-not-started: #262631;
+  --lp-font-display: var(--font-instrument-serif), Georgia, "Times New Roman", serif;
+  --lp-font-text: var(--font-geist-sans), system-ui, sans-serif;
+  --lp-size-display-xl: 84px;
+  --lp-size-display-lg: 40px;
+  --lp-size-display-md: 28px;
+  --lp-size-text-lg: 18px;
+  --lp-size-text-md: 16px;
+  --lp-size-text-sm: 14px;
+  --lp-size-text-xs: 12px;
+  --lp-space-1: 8px;
+  --lp-space-2: 16px;
+  --lp-space-3: 24px;
+  --lp-space-4: 32px;
+  --lp-space-6: 48px;
+  --lp-space-8: 64px;
+  --lp-space-12: 96px;
+  --lp-space-20: 160px;
+  --lp-gutter: 120px;
+  --lp-section-gap: 160px;
+  --lp-radius-pill: 999px;
+}
+
+@media (max-width: 768px) {
+  :root {
+    --lp-size-display-xl: 44px;
+    --lp-size-display-lg: 30px;
+    --lp-size-display-md: 24px;
+    --lp-size-text-lg: 16px;
+    --lp-size-text-md: 15px;
+    --lp-gutter: 16px;
+    --lp-section-gap: 96px;
   }
 }
 

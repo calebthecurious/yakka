@@ -7,27 +7,25 @@
  * same redirectTo → /auth/callback?next=...) so the landing's dominant CTA starts
  * OAuth with zero form friction. New users without a handle land on /profile/setup
  * via middleware after the callback; everyone else goes to `next`.
+ *
+ * Styled with the landing tokens (`--lp-*`, globals.css): the accent fill is
+ * reserved for this button and for verified-tier nodes, nothing else on the page.
  */
 
 import { useState } from "react";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
 type Props = {
   /** Where to land after auth. Defaults to the app home. */
   next?: string;
-  /** "primary" = dominant high-contrast button; "soft" = quieter on dark panels. */
-  variant?: "primary" | "soft";
-  size?: "lg" | "xl";
   label?: string;
   className?: string;
 };
 
 export function LandingCta({
   next = "/syllabi",
-  variant = "primary",
-  size = "lg",
   label = "Continue with Google",
   className,
 }: Props) {
@@ -57,32 +55,25 @@ export function LandingCta({
   }
 
   return (
-    <div className="flex flex-col items-center gap-2">
+    <div className={cn("flex flex-col items-center gap-2", className)}>
       <button
         type="button"
         onClick={handleGoogle}
         disabled={loading}
         className={cn(
-          "group inline-flex cursor-pointer items-center justify-center gap-2.5 rounded-full font-medium",
-          "transition-all duration-200 outline-none focus-visible:ring-[3px] focus-visible:ring-sky-400/50",
+          "inline-flex h-13 w-full cursor-pointer items-center justify-center gap-3 rounded-full px-7",
+          "bg-(--lp-accent) text-(--lp-bg) text-(length:--lp-size-text-md) font-medium",
+          "transition-[transform,filter] duration-200 hover:-translate-y-0.5 hover:brightness-105 motion-reduce:transition-none motion-reduce:hover:translate-y-0",
+          "outline-none focus-visible:ring-[3px] focus-visible:ring-(--lp-text-primary)/60 focus-visible:ring-offset-2 focus-visible:ring-offset-(--lp-bg)",
           "disabled:pointer-events-none disabled:opacity-60",
-          size === "xl" ? "h-13 px-7 text-base" : "h-11 px-6 text-sm",
-          variant === "primary"
-            ? // Restrained high-contrast pill: light on dark, a soft neutral lift on hover.
-              "bg-foreground text-background shadow-[0_1px_2px_rgba(0,0,0,0.4)] hover:shadow-[0_6px_24px_-8px_rgba(0,0,0,0.6)] hover:-translate-y-0.5"
-            : "border border-border/70 bg-card/60 text-foreground backdrop-blur hover:bg-card hover:-translate-y-0.5",
-          className,
         )}
       >
         {loading ? (
-          <Loader2 className="size-5 animate-spin" aria-hidden />
+          <Loader2 className="size-5 animate-spin motion-reduce:animate-none" aria-hidden />
         ) : (
           <GoogleIcon />
         )}
         {loading ? "Redirecting…" : label}
-        {!loading && (
-          <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-0.5" />
-        )}
       </button>
       {error ? (
         <p className="text-destructive text-xs" role="alert">

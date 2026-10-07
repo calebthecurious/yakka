@@ -56,6 +56,10 @@ export function Nav({ user }: { user: NavUser | null }) {
   // Public profile pages render their own full-bleed chrome.
   if (pathname.startsWith("/u/")) return null;
 
+  // The landing page has its own nav (wordmark + Log in); logged-in users
+  // never see "/" because the page redirects them to /syllabi.
+  if (pathname === "/") return null;
+
   // Logged out, or mid handle-selection: brand + a quiet log-in link.
   if (!user) {
     return shell(

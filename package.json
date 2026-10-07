@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "landing:fixture": "tsx scripts/build-landing-fixture.ts",
+    "build": "npm run landing:fixture && next build",
     "start": "next start",
     "lint": "eslint",
     "check:single-truth": "node scripts/check-single-truth.mjs",

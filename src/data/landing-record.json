@@ -1,0 +1,980 @@
+{
+  "nodes": [
+    {
+      "id": "sampling",
+      "label": "Sampling and aliasing",
+      "clusterId": "sig",
+      "subSkillId": "sig-1",
+      "tier": "check_passed",
+      "rung": 2,
+      "verified": true,
+      "inProgress": false,
+      "occurredAt": "2026-01-27T00:00:00.000Z",
+      "evidence": [
+        {
+          "kind": "competency_check",
+          "score": 5,
+          "outOf": 5,
+          "occurredAt": "2026-01-27T00:00:00.000Z",
+          "label": "Competency check passed · 5/5 · 27 Jan 2026"
+        }
+      ]
+    },
+    {
+      "id": "fir",
+      "label": "FIR and IIR filters",
+      "clusterId": "sig",
+      "subSkillId": "sig-1",
+      "tier": "artefact_verified",
+      "rung": 3,
+      "verified": true,
+      "inProgress": false,
+      "occurredAt": "2026-03-18T00:00:00.000Z",
+      "evidence": [
+        {
+          "kind": "artefact",
+          "artefactId": "sig-artefact",
+          "title": "Signal processing — working demo",
+          "url": "https://github.com/example/sig-demo",
+          "occurredAt": "2026-03-18T00:00:00.000Z",
+          "label": "Demonstrated in “Signal processing — working demo” · 18 Mar 2026"
+        }
+      ]
+    },
+    {
+      "id": "notch",
+      "label": "Notch and line-noise removal",
+      "clusterId": "sig",
+      "subSkillId": "sig-1",
+      "tier": "artefact_verified",
+      "rung": 3,
+      "verified": true,
+      "inProgress": false,
+      "occurredAt": "2026-03-18T00:00:00.000Z",
+      "evidence": [
+        {
+          "kind": "competency_check",
+          "score": 5,
+          "outOf": 5,
+          "occurredAt": "2026-03-17T00:00:00.000Z",
+          "label": "Competency check passed · 5/5 · 17 Mar 2026"
+        },
+        {
+          "kind": "artefact",
+          "artefactId": "sig-artefact",
+          "title": "Signal processing — working demo",
+          "url": "https://github.com/example/sig-demo",
+          "occurredAt": "2026-03-18T00:00:00.000Z",
+          "label": "Demonstrated in “Signal processing — working demo” · 18 Mar 2026"
+        }
+      ]
+    },
+    {
+      "id": "artefact",
+      "label": "Artefact rejection",
+      "clusterId": "sig",
+      "subSkillId": "sig-1",
+      "tier": "check_passed",
+      "rung": 2,
+      "verified": true,
+      "inProgress": false,
+      "occurredAt": "2026-02-14T00:00:00.000Z",
+      "evidence": [
+        {
+          "kind": "competency_check",
+          "score": 4,
+          "outOf": 5,
+          "occurredAt": "2026-02-14T00:00:00.000Z",
+          "label": "Competency check passed · 4/5 · 14 Feb 2026"
+        }
+      ]
+    },
+    {
+      "id": "epoch",
+      "label": "Epoching",
+      "clusterId": "sig",
+      "subSkillId": "sig-1",
+      "tier": "artefact_verified",
+      "rung": 3,
+      "verified": true,
+      "inProgress": false,
+      "occurredAt": "2026-03-18T00:00:00.000Z",
+      "evidence": [
+        {
+          "kind": "artefact",
+          "artefactId": "sig-artefact",
+          "title": "Signal processing — working demo",
+          "url": "https://github.com/example/sig-demo",
+          "occurredAt": "2026-03-18T00:00:00.000Z",
+          "label": "Demonstrated in “Signal processing — working demo” · 18 Mar 2026"
+        }
+      ]
+    },
+    {
+      "id": "reref",
+      "label": "Re-referencing",
+      "clusterId": "sig",
+      "subSkillId": "sig-1",
+      "tier": "self_assessed",
+      "rung": 1,
+      "verified": false,
+      "inProgress": false,
+      "occurredAt": null,
+      "evidence": []
+    },
+    {
+      "id": "fft",
+      "label": "FFT and spectral estimation",
+      "clusterId": "sig",
+      "subSkillId": "sig-2",
+      "tier": "artefact_verified",
+      "rung": 3,
+      "verified": true,
+      "inProgress": false,
+      "occurredAt": "2026-03-18T00:00:00.000Z",
+      "evidence": [
+        {
+          "kind": "artefact",
+          "artefactId": "sig-artefact",
+          "title": "Signal processing — working demo",
+          "url": "https://github.com/example/sig-demo",
+          "occurredAt": "2026-03-18T00:00:00.000Z",
+          "label": "Demonstrated in “Signal processing — working demo” · 18 Mar 2026"
+        }
+      ]
+    },
+    {
+      "id": "welch",
+      "label": "Welch's method",
+      "clusterId": "sig",
+      "subSkillId": "sig-2",
+      "tier": "check_passed",
+      "rung": 2,
+      "verified": true,
+      "inProgress": false,
+      "occurredAt": "2026-03-10T00:00:00.000Z",
+      "evidence": [
+        {
+          "kind": "competency_check",
+          "score": 4,
+          "outOf": 5,
+          "occurredAt": "2026-03-10T00:00:00.000Z",
+          "label": "Competency check passed · 4/5 · 10 Mar 2026"
+        }
+      ]
+    },
+    {
+      "id": "bands",
+      "label": "Canonical frequency bands",
+      "clusterId": "sig",
+      "subSkillId": "sig-2",
+      "tier": "self_assessed",
+      "rung": 1,
+      "verified": false,
+      "inProgress": false,
+      "occurredAt": null,
+      "evidence": []
+    },
+    {
+      "id": "tfr",
+      "label": "Time-frequency representations",
+      "clusterId": "sig",
+      "subSkillId": "sig-2",
+      "tier": "in_progress",
+      "rung": 0,
+      "verified": false,
+      "inProgress": true,
+      "occurredAt": null,
+      "evidence": []
+    },
+    {
+      "id": "hilbert",
+      "label": "Hilbert transform",
+      "clusterId": "sig",
+      "subSkillId": "sig-2",
+      "tier": "not_started",
+      "rung": null,
+      "verified": false,
+      "inProgress": false,
+      "occurredAt": null,
+      "evidence": []
+    },
+    {
+      "id": "coh",
+      "label": "Coherence",
+      "clusterId": "sig",
+      "subSkillId": "sig-2",
+      "tier": "not_started",
+      "rung": null,
+      "verified": false,
+      "inProgress": false,
+      "occurredAt": null,
+      "evidence": []
+    },
+    {
+      "id": "csp",
+      "label": "Common spatial patterns",
+      "clusterId": "ml",
+      "subSkillId": "ml-1",
+      "tier": "artefact_verified",
+      "rung": 3,
+      "verified": true,
+      "inProgress": false,
+      "occurredAt": "2026-04-17T00:00:00.000Z",
+      "evidence": [
+        {
+          "kind": "artefact",
+          "artefactId": "ml-artefact",
+          "title": "Decoding and classification — working demo",
+          "url": "https://github.com/example/ml-demo",
+          "occurredAt": "2026-04-17T00:00:00.000Z",
+          "label": "Demonstrated in “Decoding and classification — working demo” · 17 Apr 2026"
+        }
+      ]
+    },
+    {
+      "id": "lda",
+      "label": "LDA",
+      "clusterId": "ml",
+      "subSkillId": "ml-1",
+      "tier": "check_passed",
+      "rung": 2,
+      "verified": true,
+      "inProgress": false,
+      "occurredAt": "2026-04-15T00:00:00.000Z",
+      "evidence": [
+        {
+          "kind": "competency_check",
+          "score": 4,
+          "outOf": 5,
+          "occurredAt": "2026-04-15T00:00:00.000Z",
+          "label": "Competency check passed · 4/5 · 15 Apr 2026"
+        }
+      ]
+    },
+    {
+      "id": "shrink",
+      "label": "Covariance shrinkage",
+      "clusterId": "ml",
+      "subSkillId": "ml-1",
+      "tier": "check_passed",
+      "rung": 2,
+      "verified": true,
+      "inProgress": false,
+      "occurredAt": "2026-04-21T00:00:00.000Z",
+      "evidence": [
+        {
+          "kind": "competency_check",
+          "score": 5,
+          "outOf": 5,
+          "occurredAt": "2026-04-21T00:00:00.000Z",
+          "label": "Competency check passed · 5/5 · 21 Apr 2026"
+        }
+      ]
+    },
+    {
+      "id": "riemann",
+      "label": "Riemannian geometry",
+      "clusterId": "ml",
+      "subSkillId": "ml-1",
+      "tier": "in_progress",
+      "rung": 0,
+      "verified": false,
+      "inProgress": true,
+      "occurredAt": null,
+      "evidence": []
+    },
+    {
+      "id": "cv",
+      "label": "Subject-wise cross-validation",
+      "clusterId": "ml",
+      "subSkillId": "ml-1",
+      "tier": "artefact_verified",
+      "rung": 3,
+      "verified": true,
+      "inProgress": false,
+      "occurredAt": "2026-04-17T00:00:00.000Z",
+      "evidence": [
+        {
+          "kind": "artefact",
+          "artefactId": "ml-artefact",
+          "title": "Decoding and classification — working demo",
+          "url": "https://github.com/example/ml-demo",
+          "occurredAt": "2026-04-17T00:00:00.000Z",
+          "label": "Demonstrated in “Decoding and classification — working demo” · 17 Apr 2026"
+        }
+      ]
+    },
+    {
+      "id": "leak",
+      "label": "Data leakage",
+      "clusterId": "ml",
+      "subSkillId": "ml-1",
+      "tier": "self_assessed",
+      "rung": 1,
+      "verified": false,
+      "inProgress": false,
+      "occurredAt": null,
+      "evidence": []
+    },
+    {
+      "id": "calib",
+      "label": "Calibration drift",
+      "clusterId": "ml",
+      "subSkillId": "ml-2",
+      "tier": "in_progress",
+      "rung": 0,
+      "verified": false,
+      "inProgress": true,
+      "occurredAt": null,
+      "evidence": []
+    },
+    {
+      "id": "transfer",
+      "label": "Transfer learning",
+      "clusterId": "ml",
+      "subSkillId": "ml-2",
+      "tier": "not_started",
+      "rung": null,
+      "verified": false,
+      "inProgress": false,
+      "occurredAt": null,
+      "evidence": []
+    },
+    {
+      "id": "online",
+      "label": "Online adaptation",
+      "clusterId": "ml",
+      "subSkillId": "ml-2",
+      "tier": "not_started",
+      "rung": null,
+      "verified": false,
+      "inProgress": false,
+      "occurredAt": null,
+      "evidence": []
+    },
+    {
+      "id": "metrics",
+      "label": "Chance level and significance",
+      "clusterId": "ml",
+      "subSkillId": "ml-2",
+      "tier": "check_passed",
+      "rung": 2,
+      "verified": true,
+      "inProgress": false,
+      "occurredAt": "2026-06-02T00:00:00.000Z",
+      "evidence": [
+        {
+          "kind": "competency_check",
+          "score": 4,
+          "outOf": 5,
+          "occurredAt": "2026-06-02T00:00:00.000Z",
+          "label": "Competency check passed · 4/5 · 2 Jun 2026"
+        }
+      ]
+    },
+    {
+      "id": "ring",
+      "label": "Ring buffers and latency",
+      "clusterId": "rt",
+      "subSkillId": "rt-1",
+      "tier": "in_progress",
+      "rung": 0,
+      "verified": false,
+      "inProgress": true,
+      "occurredAt": null,
+      "evidence": []
+    },
+    {
+      "id": "ws",
+      "label": "WebSocket streaming",
+      "clusterId": "rt",
+      "subSkillId": "rt-1",
+      "tier": "artefact_verified",
+      "rung": 3,
+      "verified": true,
+      "inProgress": false,
+      "occurredAt": "2026-05-02T00:00:00.000Z",
+      "evidence": [
+        {
+          "kind": "competency_check",
+          "score": 5,
+          "outOf": 5,
+          "occurredAt": "2026-06-30T00:00:00.000Z",
+          "label": "Competency check passed · 5/5 · 30 Jun 2026"
+        },
+        {
+          "kind": "artefact",
+          "artefactId": "rt-artefact",
+          "title": "Real-time systems — working demo",
+          "url": "https://github.com/example/rt-demo",
+          "occurredAt": "2026-05-02T00:00:00.000Z",
+          "label": "Demonstrated in “Real-time systems — working demo” · 2 May 2026"
+        }
+      ]
+    },
+    {
+      "id": "backpressure",
+      "label": "Backpressure",
+      "clusterId": "rt",
+      "subSkillId": "rt-1",
+      "tier": "self_assessed",
+      "rung": 1,
+      "verified": false,
+      "inProgress": false,
+      "occurredAt": null,
+      "evidence": []
+    },
+    {
+      "id": "jitter",
+      "label": "Timing jitter",
+      "clusterId": "rt",
+      "subSkillId": "rt-1",
+      "tier": "not_started",
+      "rung": null,
+      "verified": false,
+      "inProgress": false,
+      "occurredAt": null,
+      "evidence": []
+    },
+    {
+      "id": "rtos",
+      "label": "RTOS basics",
+      "clusterId": "rt",
+      "subSkillId": "rt-1",
+      "tier": "not_started",
+      "rung": null,
+      "verified": false,
+      "inProgress": false,
+      "occurredAt": null,
+      "evidence": []
+    },
+    {
+      "id": "tga",
+      "label": "TGA device classification",
+      "clusterId": "reg",
+      "subSkillId": "reg-1",
+      "tier": "check_passed",
+      "rung": 2,
+      "verified": true,
+      "inProgress": false,
+      "occurredAt": "2026-07-08T00:00:00.000Z",
+      "evidence": [
+        {
+          "kind": "competency_check",
+          "score": 4,
+          "outOf": 5,
+          "occurredAt": "2026-07-08T00:00:00.000Z",
+          "label": "Competency check passed · 4/5 · 8 Jul 2026"
+        }
+      ]
+    },
+    {
+      "id": "iec",
+      "label": "IEC 62304",
+      "clusterId": "reg",
+      "subSkillId": "reg-1",
+      "tier": "self_assessed",
+      "rung": 1,
+      "verified": false,
+      "inProgress": false,
+      "occurredAt": null,
+      "evidence": []
+    },
+    {
+      "id": "risk",
+      "label": "ISO 14971 risk management",
+      "clusterId": "reg",
+      "subSkillId": "reg-1",
+      "tier": "in_progress",
+      "rung": 0,
+      "verified": false,
+      "inProgress": true,
+      "occurredAt": null,
+      "evidence": []
+    },
+    {
+      "id": "clin",
+      "label": "Communicating with clinicians",
+      "clusterId": "reg",
+      "subSkillId": "reg-1",
+      "tier": "not_started",
+      "rung": null,
+      "verified": false,
+      "inProgress": false,
+      "occurredAt": null,
+      "evidence": []
+    },
+    {
+      "id": "privacy",
+      "label": "Health data privacy",
+      "clusterId": "reg",
+      "subSkillId": "reg-1",
+      "tier": "not_started",
+      "rung": null,
+      "verified": false,
+      "inProgress": false,
+      "occurredAt": null,
+      "evidence": []
+    },
+    {
+      "id": "qms",
+      "label": "Quality management systems",
+      "clusterId": "reg",
+      "subSkillId": "reg-1",
+      "tier": "not_started",
+      "rung": null,
+      "verified": false,
+      "inProgress": false,
+      "occurredAt": null,
+      "evidence": []
+    },
+    {
+      "id": "tests",
+      "label": "Testing scientific code",
+      "clusterId": "eng",
+      "subSkillId": "eng-1",
+      "tier": "check_passed",
+      "rung": 2,
+      "verified": true,
+      "inProgress": false,
+      "occurredAt": "2026-08-13T00:00:00.000Z",
+      "evidence": [
+        {
+          "kind": "competency_check",
+          "score": 4,
+          "outOf": 5,
+          "occurredAt": "2026-08-13T00:00:00.000Z",
+          "label": "Competency check passed · 4/5 · 13 Aug 2026"
+        }
+      ]
+    },
+    {
+      "id": "repro",
+      "label": "Reproducible pipelines",
+      "clusterId": "eng",
+      "subSkillId": "eng-1",
+      "tier": "check_passed",
+      "rung": 2,
+      "verified": true,
+      "inProgress": false,
+      "occurredAt": "2026-08-19T00:00:00.000Z",
+      "evidence": [
+        {
+          "kind": "competency_check",
+          "score": 5,
+          "outOf": 5,
+          "occurredAt": "2026-08-19T00:00:00.000Z",
+          "label": "Competency check passed · 5/5 · 19 Aug 2026"
+        }
+      ]
+    },
+    {
+      "id": "ci",
+      "label": "Continuous integration",
+      "clusterId": "eng",
+      "subSkillId": "eng-1",
+      "tier": "self_assessed",
+      "rung": 1,
+      "verified": false,
+      "inProgress": false,
+      "occurredAt": null,
+      "evidence": []
+    },
+    {
+      "id": "docs",
+      "label": "Technical writing",
+      "clusterId": "eng",
+      "subSkillId": "eng-1",
+      "tier": "not_started",
+      "rung": null,
+      "verified": false,
+      "inProgress": false,
+      "occurredAt": null,
+      "evidence": []
+    }
+  ],
+  "clusters": [
+    {
+      "id": "sig",
+      "label": "Signal processing",
+      "weight": 5,
+      "concepts": {
+        "done": 7,
+        "total": 12,
+        "selfAssessed": 2,
+        "pct": 58.333333333333336
+      }
+    },
+    {
+      "id": "ml",
+      "label": "Decoding and classification",
+      "weight": 4,
+      "concepts": {
+        "done": 5,
+        "total": 10,
+        "selfAssessed": 1,
+        "pct": 50
+      }
+    },
+    {
+      "id": "rt",
+      "label": "Real-time systems",
+      "weight": 4,
+      "concepts": {
+        "done": 1,
+        "total": 5,
+        "selfAssessed": 1,
+        "pct": 20
+      }
+    },
+    {
+      "id": "reg",
+      "label": "Regulatory and clinical",
+      "weight": 3,
+      "concepts": {
+        "done": 1,
+        "total": 6,
+        "selfAssessed": 1,
+        "pct": 16.666666666666664
+      }
+    },
+    {
+      "id": "eng",
+      "label": "Engineering practice",
+      "weight": 2,
+      "concepts": {
+        "done": 2,
+        "total": 4,
+        "selfAssessed": 1,
+        "pct": 50
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "sig",
+      "target": "sampling"
+    },
+    {
+      "source": "sig",
+      "target": "fir"
+    },
+    {
+      "source": "sig",
+      "target": "notch"
+    },
+    {
+      "source": "sig",
+      "target": "artefact"
+    },
+    {
+      "source": "sig",
+      "target": "epoch"
+    },
+    {
+      "source": "sig",
+      "target": "reref"
+    },
+    {
+      "source": "sig",
+      "target": "fft"
+    },
+    {
+      "source": "sig",
+      "target": "welch"
+    },
+    {
+      "source": "sig",
+      "target": "bands"
+    },
+    {
+      "source": "sig",
+      "target": "tfr"
+    },
+    {
+      "source": "sig",
+      "target": "hilbert"
+    },
+    {
+      "source": "sig",
+      "target": "coh"
+    },
+    {
+      "source": "ml",
+      "target": "csp"
+    },
+    {
+      "source": "ml",
+      "target": "lda"
+    },
+    {
+      "source": "ml",
+      "target": "shrink"
+    },
+    {
+      "source": "ml",
+      "target": "riemann"
+    },
+    {
+      "source": "ml",
+      "target": "cv"
+    },
+    {
+      "source": "ml",
+      "target": "leak"
+    },
+    {
+      "source": "ml",
+      "target": "calib"
+    },
+    {
+      "source": "ml",
+      "target": "transfer"
+    },
+    {
+      "source": "ml",
+      "target": "online"
+    },
+    {
+      "source": "ml",
+      "target": "metrics"
+    },
+    {
+      "source": "rt",
+      "target": "ring"
+    },
+    {
+      "source": "rt",
+      "target": "ws"
+    },
+    {
+      "source": "rt",
+      "target": "backpressure"
+    },
+    {
+      "source": "rt",
+      "target": "jitter"
+    },
+    {
+      "source": "rt",
+      "target": "rtos"
+    },
+    {
+      "source": "reg",
+      "target": "tga"
+    },
+    {
+      "source": "reg",
+      "target": "iec"
+    },
+    {
+      "source": "reg",
+      "target": "risk"
+    },
+    {
+      "source": "reg",
+      "target": "clin"
+    },
+    {
+      "source": "reg",
+      "target": "privacy"
+    },
+    {
+      "source": "reg",
+      "target": "qms"
+    },
+    {
+      "source": "eng",
+      "target": "tests"
+    },
+    {
+      "source": "eng",
+      "target": "repro"
+    },
+    {
+      "source": "eng",
+      "target": "ci"
+    },
+    {
+      "source": "eng",
+      "target": "docs"
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-01-27T00:00:00.000Z",
+      "kind": "competency_check",
+      "conceptId": "sampling",
+      "clusterId": "sig",
+      "artefactId": null,
+      "score": 5,
+      "label": "Competency check passed · 5/5 · 27 Jan 2026"
+    },
+    {
+      "at": "2026-02-14T00:00:00.000Z",
+      "kind": "competency_check",
+      "conceptId": "artefact",
+      "clusterId": "sig",
+      "artefactId": null,
+      "score": 4,
+      "label": "Competency check passed · 4/5 · 14 Feb 2026"
+    },
+    {
+      "at": "2026-03-10T00:00:00.000Z",
+      "kind": "competency_check",
+      "conceptId": "welch",
+      "clusterId": "sig",
+      "artefactId": null,
+      "score": 4,
+      "label": "Competency check passed · 4/5 · 10 Mar 2026"
+    },
+    {
+      "at": "2026-03-17T00:00:00.000Z",
+      "kind": "competency_check",
+      "conceptId": "notch",
+      "clusterId": "sig",
+      "artefactId": null,
+      "score": 5,
+      "label": "Competency check passed · 5/5 · 17 Mar 2026"
+    },
+    {
+      "at": "2026-03-18T00:00:00.000Z",
+      "kind": "artefact",
+      "conceptId": "fir",
+      "clusterId": "sig",
+      "artefactId": "sig-artefact",
+      "score": null,
+      "label": "Demonstrated in “Signal processing — working demo” · 18 Mar 2026"
+    },
+    {
+      "at": "2026-03-18T00:00:00.000Z",
+      "kind": "artefact",
+      "conceptId": "notch",
+      "clusterId": "sig",
+      "artefactId": "sig-artefact",
+      "score": null,
+      "label": "Demonstrated in “Signal processing — working demo” · 18 Mar 2026"
+    },
+    {
+      "at": "2026-03-18T00:00:00.000Z",
+      "kind": "artefact",
+      "conceptId": "epoch",
+      "clusterId": "sig",
+      "artefactId": "sig-artefact",
+      "score": null,
+      "label": "Demonstrated in “Signal processing — working demo” · 18 Mar 2026"
+    },
+    {
+      "at": "2026-03-18T00:00:00.000Z",
+      "kind": "artefact",
+      "conceptId": "fft",
+      "clusterId": "sig",
+      "artefactId": "sig-artefact",
+      "score": null,
+      "label": "Demonstrated in “Signal processing — working demo” · 18 Mar 2026"
+    },
+    {
+      "at": "2026-04-15T00:00:00.000Z",
+      "kind": "competency_check",
+      "conceptId": "lda",
+      "clusterId": "ml",
+      "artefactId": null,
+      "score": 4,
+      "label": "Competency check passed · 4/5 · 15 Apr 2026"
+    },
+    {
+      "at": "2026-04-17T00:00:00.000Z",
+      "kind": "artefact",
+      "conceptId": "csp",
+      "clusterId": "ml",
+      "artefactId": "ml-artefact",
+      "score": null,
+      "label": "Demonstrated in “Decoding and classification — working demo” · 17 Apr 2026"
+    },
+    {
+      "at": "2026-04-17T00:00:00.000Z",
+      "kind": "artefact",
+      "conceptId": "cv",
+      "clusterId": "ml",
+      "artefactId": "ml-artefact",
+      "score": null,
+      "label": "Demonstrated in “Decoding and classification — working demo” · 17 Apr 2026"
+    },
+    {
+      "at": "2026-04-21T00:00:00.000Z",
+      "kind": "competency_check",
+      "conceptId": "shrink",
+      "clusterId": "ml",
+      "artefactId": null,
+      "score": 5,
+      "label": "Competency check passed · 5/5 · 21 Apr 2026"
+    },
+    {
+      "at": "2026-05-02T00:00:00.000Z",
+      "kind": "artefact",
+      "conceptId": "ws",
+      "clusterId": "rt",
+      "artefactId": "rt-artefact",
+      "score": null,
+      "label": "Demonstrated in “Real-time systems — working demo” · 2 May 2026"
+    },
+    {
+      "at": "2026-06-02T00:00:00.000Z",
+      "kind": "competency_check",
+      "conceptId": "metrics",
+      "clusterId": "ml",
+      "artefactId": null,
+      "score": 4,
+      "label": "Competency check passed · 4/5 · 2 Jun 2026"
+    },
+    {
+      "at": "2026-06-30T00:00:00.000Z",
+      "kind": "competency_check",
+      "conceptId": "ws",
+      "clusterId": "rt",
+      "artefactId": null,
+      "score": 5,
+      "label": "Competency check passed · 5/5 · 30 Jun 2026"
+    },
+    {
+      "at": "2026-07-08T00:00:00.000Z",
+      "kind": "competency_check",
+      "conceptId": "tga",
+      "clusterId": "reg",
+      "artefactId": null,
+      "score": 4,
+      "label": "Competency check passed · 4/5 · 8 Jul 2026"
+    },
+    {
+      "at": "2026-08-13T00:00:00.000Z",
+      "kind": "competency_check",
+      "conceptId": "tests",
+      "clusterId": "eng",
+      "artefactId": null,
+      "score": 4,
+      "label": "Competency check passed · 4/5 · 13 Aug 2026"
+    },
+    {
+      "at": "2026-08-19T00:00:00.000Z",
+      "kind": "competency_check",
+      "conceptId": "repro",
+      "clusterId": "eng",
+      "artefactId": null,
+      "score": 5,
+      "label": "Competency check passed · 5/5 · 19 Aug 2026"
+    }
+  ],
+  "range": {
+    "first": "2026-01-27T00:00:00.000Z",
+    "last": "2026-08-19T00:00:00.000Z"
+  },
+  "undatedEvents": 0,
+  "totals": {
+    "concepts": 37,
+    "verified": 16,
+    "selfAssessed": 6,
+    "inProgress": 5,
+    "notStarted": 10
+  }
+}

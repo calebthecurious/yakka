@@ -109,30 +109,34 @@ function truncate(s: string, n: number): string {
   return s.length > n ? `${s.slice(0, n - 1)}…` : s;
 }
 
-/* ── theme: tier → classes (design-system tokens + the profile's two accents) ── */
+/* ── theme: tier → classes ──────────────────────────────────────────────────
+   ONE token set for the landing and the profile (PR-4b): the `--lp-*` hex
+   values in globals.css. Verified fills are the accent; the artefact ring is
+   the accent at 35%; self-assessed is a dashed outline; in progress and not
+   started are two greys. Tier WORDS still come from formatTierLabel. */
 
 const TIER_NODE: Record<ConstellationTier, string> = {
-  artefact_verified: "fill-emerald-300 stroke-emerald-200",
-  check_passed: "fill-emerald-400/85 stroke-emerald-300",
-  self_assessed: "fill-transparent stroke-foreground/55",
-  in_progress: "fill-sky-400/55 stroke-sky-300/80",
-  not_started: "fill-muted stroke-muted-foreground/35",
+  artefact_verified: "fill-(--lp-accent) stroke-(--lp-accent)",
+  check_passed: "fill-(--lp-accent-check) stroke-(--lp-accent)",
+  self_assessed: "fill-transparent stroke-(--lp-text-secondary)",
+  in_progress: "fill-(--lp-node-in-progress) stroke-(--lp-text-secondary)",
+  not_started: "fill-(--lp-node-not-started) stroke-(--lp-line)",
 };
 
 const TIER_PILL: Record<ConstellationTier, string> = {
-  artefact_verified: "bg-emerald-400/10 text-emerald-300",
-  check_passed: "bg-emerald-400/10 text-emerald-300",
+  artefact_verified: "bg-(--lp-accent)/10 text-(--lp-accent)",
+  check_passed: "bg-(--lp-accent)/10 text-(--lp-accent)",
   self_assessed: "border border-dashed border-border text-muted-foreground",
-  in_progress: "bg-sky-400/10 text-sky-300",
+  in_progress: "bg-(--lp-node-in-progress)/25 text-foreground/85",
   not_started: "bg-muted text-muted-foreground",
 };
 
 /** Legend rows. "Verified" appears once: rungs 2–3 share a word and a fill. */
 const LEGEND: { tier: ConstellationTier; swatch: string }[] = [
-  { tier: "check_passed", swatch: "bg-emerald-400/85 ring-1 ring-emerald-300" },
-  { tier: "self_assessed", swatch: "border border-dashed border-foreground/55" },
-  { tier: "in_progress", swatch: "bg-sky-400/55 ring-1 ring-sky-300/80" },
-  { tier: "not_started", swatch: "bg-muted ring-1 ring-muted-foreground/35" },
+  { tier: "check_passed", swatch: "bg-(--lp-accent-check) ring-1 ring-(--lp-accent)" },
+  { tier: "self_assessed", swatch: "border border-dashed border-(--lp-text-secondary)" },
+  { tier: "in_progress", swatch: "bg-(--lp-node-in-progress) ring-1 ring-(--lp-text-secondary)" },
+  { tier: "not_started", swatch: "bg-(--lp-node-not-started) ring-1 ring-(--lp-line)" },
 ];
 
 /* ── layout ────────────────────────────────────────────────────────────────── */
@@ -216,10 +220,26 @@ function layout(data: ConstellationData): { sectors: Sector[]; placed: Placed[] 
 export function Constellation({
   data,
   className,
+  variant = "profile",
+  clusterLabels = "always",
 }: {
   data: ConstellationData;
   className?: string;
+  /**
+   * "profile" (default): the side panel is a bordered card beside the map.
+   * "landing": the same panel — legend, or the selected node's evidence —
+   * without the card chrome, laid out beneath the map with the legend as a
+   * row. Only container classes differ; nothing is forked.
+   */
+  variant?: "profile" | "landing";
+  /** "md-up" hides the cluster labels below 768px (nodes stay tappable). */
+  clusterLabels?: "always" | "md-up";
 }) {
+  const landing = variant === "landing";
+  // Dim text on the landing lifts to the secondary grey so every string clears
+  // 4.5:1 on --lp-bg; the profile keeps its own muted tones.
+  const dim = landing ? "text-(--lp-text-secondary)" : "text-muted-foreground/70";
+  const dim80 = landing ? "text-(--lp-text-secondary)" : "text-muted-foreground/80";
   const { sectors, placed } = useMemo(() => layout(data), [data]);
   const nodeR = nodeRadiusFor(data.nodes.length);
 
@@ -395,6 +415,7 @@ export function Constellation({
                   className={cn(
                     "text-[17px] font-medium tracking-wide transition-colors duration-200 motion-reduce:transition-none",
                     isActive ? "fill-foreground" : "fill-muted-foreground",
+                    clusterLabels === "md-up" && "max-md:hidden",
                   )}
                 >
                   {s.label ? truncate(s.label, LABEL_MAX_CHARS) : ""}
@@ -404,7 +425,10 @@ export function Constellation({
                   y={ly + 20}
                   textAnchor={anchor}
                   dominantBaseline="middle"
-                  className="fill-muted-foreground/70 text-[13px] tabular-nums"
+                  className={cn(
+                    "fill-muted-foreground/70 text-[13px] tabular-nums",
+                    clusterLabels === "md-up" && "max-md:hidden",
+                  )}
                 >
                   {atIso == null ? s.done : (doneAtByCluster.get(s.id) ?? 0)} / {s.total}
                 </text>
@@ -470,7 +494,7 @@ export function Constellation({
                     cx={p.x}
                     cy={p.y}
                     r={nodeR + 4.5}
-                    className="fill-none stroke-emerald-300/35"
+                    className="fill-none stroke-(--lp-accent-ring)"
                     strokeWidth={1.5}
                   />
                 ) : null}
@@ -538,7 +562,7 @@ export function Constellation({
         </svg>
 
         {data.totals.verified === 0 ? (
-          <p className="text-muted-foreground/70 mt-2 text-center text-xs">
+          <p className={cn(dim, "mt-2 text-center text-xs")}>
             Nothing verified yet. The record fills from the centre outward as
             evidence lands.
           </p>
@@ -588,7 +612,7 @@ export function Constellation({
                 {atIso == null ? "Now" : formatEvidenceDate(atIso)}
               </span>
             </div>
-            <div className="text-muted-foreground/70 flex items-baseline justify-between gap-3 text-[11px]">
+            <div className={cn(dim, "flex items-baseline justify-between gap-3 text-[11px]")}>
               <span>{formatRecordSinceLabel(data.range.first)}</span>
               <span className="tabular-nums">
                 {dated.length} dated evidence event{dated.length === 1 ? "" : "s"}
@@ -601,35 +625,45 @@ export function Constellation({
 
       {/* ── side panel: legend, or the selected node's evidence ── */}
       <aside
-        className="border-border/60 bg-card/30 flex h-fit flex-col gap-4 rounded-xl border p-5 lg:sticky lg:top-6"
+        className={cn(
+          "flex h-fit flex-col gap-4",
+          landing
+            ? "w-full max-w-[720px] justify-self-center text-center"
+            : "border-border/60 bg-card/30 rounded-xl border p-5 lg:sticky lg:top-6",
+        )}
         aria-live="polite"
       >
         {selected ? (
-          <SelectedPanel placed={selected} onClose={() => setSelectedId(null)} />
+          <SelectedPanel placed={selected} dim={dim} onClose={() => setSelectedId(null)} />
         ) : (
           <>
-            <div className="flex flex-col gap-1">
+            <div className={cn("flex flex-col gap-1", landing && "items-center")}>
               <h3 className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
                 Legend
               </h3>
-              <p className="text-muted-foreground/80 text-xs">
+              <p className={cn(dim80, "text-xs")}>
                 Fill is the evidence tier. Verified work sits nearest the centre.
               </p>
             </div>
-            <ul className="flex flex-col gap-2">
+            <ul
+              className={cn(
+                "flex gap-2",
+                landing ? "flex-wrap justify-center gap-x-6 gap-y-2" : "flex-col",
+              )}
+            >
               {LEGEND.map(({ tier, swatch }) => (
                 <li key={tier} className="flex items-center gap-2.5 text-sm">
                   <span className={cn("size-3 shrink-0 rounded-full", swatch)} aria-hidden />
                   <span className="text-foreground/90">{formatTierLabel(tier)}</span>
                   {tier === "check_passed" ? (
-                    <span className="text-muted-foreground/70 text-xs">
+                    <span className={cn(dim, "text-xs")}>
                       · a ring marks an artefact
                     </span>
                   ) : null}
                 </li>
               ))}
             </ul>
-            <p className="text-muted-foreground/70 border-border/50 border-t pt-3 text-xs">
+            <p className={cn(dim, "border-border/50 border-t pt-3 text-xs")}>
               Select a node to see its evidence. Tab moves between nodes; arrow
               keys walk the record; Enter opens.
             </p>
@@ -640,7 +674,16 @@ export function Constellation({
   );
 }
 
-function SelectedPanel({ placed, onClose }: { placed: Placed; onClose: () => void }) {
+function SelectedPanel({
+  placed,
+  dim,
+  onClose,
+}: {
+  placed: Placed;
+  /** Class for de-emphasised text; the caller picks a contrast-safe one. */
+  dim: string;
+  onClose: () => void;
+}) {
   const { node } = placed;
   const date = formatEvidenceDate(node.occurredAt);
   return (
@@ -659,7 +702,7 @@ function SelectedPanel({ placed, onClose }: { placed: Placed; onClose: () => voi
             {node.label ?? formatTierLabel(node.tier)}
           </h3>
           {date ? (
-            <span className="text-muted-foreground/70 text-xs tabular-nums">{date}</span>
+            <span className={cn(dim, "text-xs tabular-nums")}>{date}</span>
           ) : null}
         </div>
         <button
@@ -696,7 +739,7 @@ function SelectedPanel({ placed, onClose }: { placed: Placed; onClose: () => voi
           ))}
         </ul>
       ) : (
-        <p className="text-muted-foreground/80 text-xs">
+        <p className={cn(dim, "text-xs")}>
           {node.tier === "self_assessed"
             ? "Marked understood, not yet backed by a competency check or project."
             : node.tier === "in_progress"

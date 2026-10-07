@@ -124,3 +124,29 @@ the component renders it on the fixture.
    component colours in-progress sky and verified emerald; this design uses
    grey for in-progress and the `#00D9C0` accent for verified. Does the
    profile adopt these tokens, or does the landing carry its own theme?
+
+## Build vs .pen (PR-4b)
+
+Captured from the dev server at 1440 and 390 in
+`landing-v2-impl-desktop.png` and `landing-v2-impl-mobile.png`. Where the
+build differs from the frames, and why:
+
+- **Time scrubber under the map.** The live `<Constellation>` shows its
+  play/scrub bar whenever the record has 3+ dated events (the fixture has
+  18). Decision: live component at both sizes, so it stays.
+- **"Select a node to see its evidence…" hint under the legend.** Part of
+  the component's legend panel; kept for the same reason, and it is the
+  keyboard affordance the brief asks for.
+- **Hero link "Hiring? See what a record proves ↓"** under the trust line,
+  anchored to the employer band. Ratified adjustment, not in the frames.
+- **Trust line keeps "roadmap".** `docs/verification-taxonomy.md` names no
+  term for the first generated syllabus, so per the decision the word stays.
+- **Mobile map is the full viewBox, uncropped,** with cluster labels hidden
+  below 768px (`clusterLabels="md-up"`); the frame's cluster list beneath
+  the map was not built. Ratified: no crop.
+- **Footer is wordmark + © 2026.** Privacy and Terms wait for PR-4c.
+- **Dim component text on the landing** (scrubber footer, legend notes,
+  evidence dates) uses `--lp-text-secondary` instead of the profile's
+  muted-70%, so every string clears 4.5:1 on `--lp-bg`. Profile unchanged.
+- **Employer mailto has no recipient yet.** `EMPLOYER_CONTACT_EMAIL` in
+  `src/app/page.tsx` is empty pending the address from the decision.
