@@ -61,7 +61,7 @@ export function LandingCta({
         onClick={handleGoogle}
         disabled={loading}
         className={cn(
-          "inline-flex h-13 w-full cursor-pointer items-center justify-center gap-3 rounded-full px-7",
+          "inline-flex w-full cursor-pointer items-center justify-center gap-(--lp-space-2) rounded-(--lp-radius-pill) px-(--lp-cta-pad-x) py-(--lp-cta-pad-y)",
           "bg-(--lp-accent) text-(--lp-bg) text-(length:--lp-size-text-md) font-medium",
           "transition-[transform,filter] duration-200 hover:-translate-y-0.5 hover:brightness-105 motion-reduce:transition-none motion-reduce:hover:translate-y-0",
           "outline-none focus-visible:ring-[3px] focus-visible:ring-(--lp-text-primary)/60 focus-visible:ring-offset-2 focus-visible:ring-offset-(--lp-bg)",

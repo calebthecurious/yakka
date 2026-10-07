@@ -221,7 +221,7 @@ export function Constellation({
   data,
   className,
   variant = "profile",
-  clusterLabels = "always",
+  compact = false,
 }: {
   data: ConstellationData;
   className?: string;
@@ -232,8 +232,13 @@ export function Constellation({
    * row. Only container classes differ; nothing is forked.
    */
   variant?: "profile" | "landing";
-  /** "md-up" hides the cluster labels below 768px (nodes stay tappable). */
-  clusterLabels?: "always" | "md-up";
+  /**
+   * ≤768px treatment (PR-4b): the full rings and nodes, the centre count,
+   * no in-SVG cluster labels; the cluster names and their done / total
+   * counts render as a list beneath the map instead. Nodes stay tappable.
+   * Above 768px `compact` changes nothing.
+   */
+  compact?: boolean;
 }) {
   const landing = variant === "landing";
   // Dim text on the landing lifts to the secondary grey so every string clears
@@ -415,7 +420,7 @@ export function Constellation({
                   className={cn(
                     "text-[17px] font-medium tracking-wide transition-colors duration-200 motion-reduce:transition-none",
                     isActive ? "fill-foreground" : "fill-muted-foreground",
-                    clusterLabels === "md-up" && "max-md:hidden",
+                    compact && "max-md:hidden",
                   )}
                 >
                   {s.label ? truncate(s.label, LABEL_MAX_CHARS) : ""}
@@ -427,7 +432,7 @@ export function Constellation({
                   dominantBaseline="middle"
                   className={cn(
                     "fill-muted-foreground/70 text-[13px] tabular-nums",
-                    clusterLabels === "md-up" && "max-md:hidden",
+                    compact && "max-md:hidden",
                   )}
                 >
                   {atIso == null ? s.done : (doneAtByCluster.get(s.id) ?? 0)} / {s.total}
@@ -560,6 +565,20 @@ export function Constellation({
             </foreignObject>
           ) : null}
         </svg>
+
+        {/* compact (≤768px): the cluster labels the SVG hides, as a list */}
+        {compact && sectors.length > 0 ? (
+          <ul className="mt-3 flex flex-col gap-1.5 md:hidden" aria-label="Clusters">
+            {sectors.map((s) => (
+              <li key={s.id} className="flex items-baseline justify-between gap-3 text-sm">
+                <span className="text-foreground/90">{s.label ?? ""}</span>
+                <span className={cn(dim, "text-xs tabular-nums")}>
+                  {atIso == null ? s.done : (doneAtByCluster.get(s.id) ?? 0)} / {s.total}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
 
         {data.totals.verified === 0 ? (
           <p className={cn(dim, "mt-2 text-center text-xs")}>

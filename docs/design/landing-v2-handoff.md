@@ -128,25 +128,38 @@ the component renders it on the fixture.
 ## Build vs .pen (PR-4b)
 
 Captured from the dev server at 1440 and 390 in
-`landing-v2-impl-desktop.png` and `landing-v2-impl-mobile.png`. Where the
-build differs from the frames, and why:
+`landing-v2-impl-desktop.png` and `landing-v2-impl-mobile.png`. The .pen is
+unchanged; these are the ratified departures from its frames, and why:
 
-- **Time scrubber under the map.** The live `<Constellation>` shows its
-  play/scrub bar whenever the record has 3+ dated events (the fixture has
-  18). Decision: live component at both sizes, so it stays.
-- **"Select a node to see its evidence…" hint under the legend.** Part of
-  the component's legend panel; kept for the same reason, and it is the
-  keyboard affordance the brief asks for.
-- **Hero link "Hiring? See what a record proves ↓"** under the trust line,
-  anchored to the employer band. Ratified adjustment, not in the frames.
+- **Nav gains "For employers"** (anchors to the employer band) beside
+  "Log in". The hero has no extra link.
+- **Employer band sits above the three steps.** Order is now nav, hero,
+  Constellation, employer band, steps, final CTA, footer.
+- **Step 03 reads "Share a record anyone can check."** and one line sits
+  beneath the three: "Employers define the role standard; candidates build
+  toward it; the record proves it." Both are new copy, from the brief.
+- **Primary CTA repeats before the footer**, button and trust line only.
+- **Time scrubber and the "Select a node…" hint** render under the map:
+  they are part of the live component, which is the decision.
 - **Trust line keeps "roadmap".** `docs/verification-taxonomy.md` names no
-  term for the first generated syllabus, so per the decision the word stays.
-- **Mobile map is the full viewBox, uncropped,** with cluster labels hidden
-  below 768px (`clusterLabels="md-up"`); the frame's cluster list beneath
-  the map was not built. Ratified: no crop.
-- **Footer is wordmark + © 2026.** Privacy and Terms wait for PR-4c.
+  term for the first generated syllabus, so the word stays.
+- **≤768px is the `compact` treatment**: full rings and nodes, centre
+  count, no in-SVG cluster labels, and the five cluster names with their
+  done / total counts as a list beneath the map (as the mobile frame
+  drew). Above 768px `compact` changes nothing.
 - **Dim component text on the landing** (scrubber footer, legend notes,
   evidence dates) uses `--lp-text-secondary` instead of the profile's
-  muted-70%, so every string clears 4.5:1 on `--lp-bg`. Profile unchanged.
-- **Employer mailto has no recipient yet.** `EMPLOYER_CONTACT_EMAIL` in
-  `src/app/page.tsx` is empty pending the address from the decision.
+  muted-70%, so every string clears 4.5:1 on `--lp-bg`. The profile keeps
+  its own tones; only its node palette changed.
+- **Footer is wordmark, © 2026, Privacy.** No Terms link.
+- **/privacy is new, static and public.** Its sentences are new copy, from
+  the brief's list: what is collected (Google account email, the profile
+  content you create, first-party page analytics, no third-party scripts),
+  how to delete an account (mailto for now), and a "Last updated" date.
+- **Both mailtos have no recipient yet.** `EMPLOYER_CONTACT_EMAIL` in
+  `src/components/landing/landing-chrome.tsx` is empty pending the address
+  from the decision; the employer CTA carries subject "Provency pilot".
+- **Tokens live in `src/styles/tokens.css`**: the 30 pen variables plus a
+  second block of the frames' per-node values (text measures,
+  letter-spacing, line-height, button padding) so `page.tsx` holds no
+  literal colour or size.
