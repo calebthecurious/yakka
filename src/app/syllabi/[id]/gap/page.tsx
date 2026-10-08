@@ -21,7 +21,16 @@ import type {
 import { requireCurrentUserId } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { tierByConceptId, type ConstellationTier } from "@/lib/readiness/constellation";
-import { formatTierLabel } from "@/lib/readiness/surface-words";
+import {
+  AI_SUMMARY_PREFIX,
+  GAP_NOTHING_OUTSTANDING,
+  GAP_NOT_STARTED_SUBTITLE,
+  GAP_STARTED_SUBTITLE,
+  GAP_STARTED_TITLE,
+  GAP_STRENGTHS_SUBTITLE,
+  formatGapSummary,
+  formatTierLabel,
+} from "@/lib/readiness/surface-words";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { PageContainer } from "@/components/page-container";
@@ -108,11 +117,15 @@ function ConceptLink({
   );
 }
 
+/**
+ * The one-line summary is composed from the AI report's buckets (H-2, B4). It
+ * is rendered behind AI_SUMMARY_PREFIX and its words are the words module's:
+ * resume matches and gaps, never evidence.
+ */
 function buildSummary(report: {
   strengths: unknown[];
   gapsNotStarted: GapNotStarted[];
 }): string {
-  const strengthCount = report.strengths.length;
   const blindSpots = report.gapsNotStarted.filter((g) => g.isSyllabusBlindSpot);
   const orderedGaps = [
     ...blindSpots.map((g) => g.requirement),
@@ -120,22 +133,11 @@ function buildSummary(report: {
       .filter((g) => !g.isSyllabusBlindSpot)
       .map((g) => g.requirement),
   ];
-  const topGaps = orderedGaps.slice(0, 3);
-
-  const strengthPart =
-    strengthCount > 0
-      ? `Strong start — ${strengthCount} role requirement${strengthCount === 1 ? "" : "s"} already evidenced`
-      : "Nothing fully evidenced yet";
-  const gapPart =
-    topGaps.length > 0
-      ? `main gaps are ${topGaps.join(", ")}`
-      : "no outstanding gaps identified";
-  const blindNote =
-    blindSpots.length > 0
-      ? ` (${blindSpots.length} not yet in your syllabus)`
-      : "";
-
-  return `${strengthPart}; ${gapPart}${blindNote}.`;
+  return formatGapSummary({
+    strengthCount: report.strengths.length,
+    topGaps: orderedGaps.slice(0, 3),
+    blindSpotCount: blindSpots.length,
+  });
 }
 
 export default async function GapPage({ params }: PageProps) {
@@ -250,6 +252,7 @@ export default async function GapPage({ params }: PageProps) {
               </span>
             </h1>
             <p className="text-foreground/80 max-w-prose text-sm leading-relaxed">
+              <span className="text-muted-foreground">{AI_SUMMARY_PREFIX} </span>
               {buildSummary(report)}
             </p>
           </div>
@@ -265,7 +268,7 @@ export default async function GapPage({ params }: PageProps) {
         <SectionHeading
           icon={<Sparkles className="size-4 text-emerald-300" />}
           title="What you already bring"
-          subtitle="Role requirements your resume already evidences."
+          subtitle={GAP_STRENGTHS_SUBTITLE}
           count={report.strengths.length}
         />
         {report.strengths.length > 0 ? (
@@ -295,12 +298,13 @@ export default async function GapPage({ params }: PageProps) {
         )}
       </section>
 
-      {/* 2 ── In progress (gapsInProgress) ───────────────────────────────────*/}
+      {/* 2 ── Started (gapsInProgress). Not titled "In progress": that is a
+             tier word, and this bucket is the AI's resume-vs-syllabus match. */}
       <section className="flex flex-col gap-3">
         <SectionHeading
           icon={<CircleDashed className="size-4 text-amber-300" />}
-          title="In progress"
-          subtitle="Not on your resume yet, but covered by concepts you've started."
+          title={GAP_STARTED_TITLE}
+          subtitle={GAP_STARTED_SUBTITLE}
           count={report.gapsInProgress.length}
         />
         {report.gapsInProgress.length > 0 ? (
@@ -328,7 +332,7 @@ export default async function GapPage({ params }: PageProps) {
             })}
           </ul>
         ) : (
-          <EmptyNote>Nothing currently in progress.</EmptyNote>
+          <EmptyNote>Nothing here yet.</EmptyNote>
         )}
       </section>
         </div>
@@ -339,7 +343,7 @@ export default async function GapPage({ params }: PageProps) {
         <SectionHeading
           icon={<Telescope className="size-4 text-violet-300" />}
           title="Not yet addressed"
-          subtitle="Requirements you haven't evidenced or started."
+          subtitle={GAP_NOT_STARTED_SUBTITLE}
           count={report.gapsNotStarted.length}
         />
 
@@ -415,7 +419,7 @@ export default async function GapPage({ params }: PageProps) {
         ) : null}
 
         {report.gapsNotStarted.length === 0 ? (
-          <EmptyNote>Nothing outstanding — every requirement is at least in progress.</EmptyNote>
+          <EmptyNote>{GAP_NOTHING_OUTSTANDING}</EmptyNote>
         ) : null}
       </section>
 

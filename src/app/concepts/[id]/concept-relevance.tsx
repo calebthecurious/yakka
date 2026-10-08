@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import { Compass, Loader2, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ConceptImportance, ConceptRelevance } from "@/db/schema";
+import {
+  AI_SUMMARY_PREFIX,
+  RELEVANCE_BASIS_LABEL,
+} from "@/lib/readiness/surface-words";
 import { generateConceptRelevance } from "./actions";
 
 const IMPORTANCE_META: Record<
@@ -114,7 +118,9 @@ export function ConceptRelevanceSection({
 
       <div className="border-border/60 bg-card/30 flex flex-col gap-4 rounded-md border p-5">
         <div className="flex items-start justify-between gap-3">
+          {/* H-2 (B4): the one-line point is AI-written and says so. */}
           <p className="text-foreground text-base font-medium leading-snug">
+            <span className="text-muted-foreground font-normal">{AI_SUMMARY_PREFIX} </span>
             {relevance.point}
           </p>
           <span
@@ -138,8 +144,10 @@ export function ConceptRelevanceSection({
             </dd>
           </div>
           <div className="flex flex-col gap-1">
+            {/* H-2 (A5): not "Evidence" — that is the ledger's word. This row
+                is where in the role the AI found its basis. */}
             <dt className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
-              Evidence
+              {RELEVANCE_BASIS_LABEL}
             </dt>
             <dd className="text-foreground/90 leading-relaxed">
               {relevance.evidence}

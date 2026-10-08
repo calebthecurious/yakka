@@ -115,6 +115,68 @@ export const ARTEFACT_FORM_COMPLETE_LABEL = "Mark complete";
 export const ARTEFACT_FORM_COMPLETE_HINT =
   "— counts as evidence on your public record.";
 
+/* ── AI-written text (H-2) ────────────────────────────────────────────────── */
+
+/**
+ * Prefix on every AI-composed summary sentence, rendered muted. Nothing
+ * AI-written may read as a ledger fact; the prefix names the author.
+ */
+export const AI_SUMMARY_PREFIX = "AI summary —";
+
+/**
+ * The gap report compares the RESUME to the role. Its findings are matches
+ * and gaps in that text, never evidence, so the words "evidenced" and
+ * "verified" do not appear here. "In progress" (a tier word) is likewise
+ * not used for the AI's "covered by a started concept" bucket.
+ */
+export const GAP_STRENGTHS_SUBTITLE = "Role requirements your resume already covers.";
+export const GAP_STARTED_TITLE = "Covered by concepts you've started";
+export const GAP_STARTED_SUBTITLE =
+  "Not on your resume yet, but a concept in your syllabus covers it and you've begun.";
+export const GAP_NOT_STARTED_SUBTITLE =
+  "Requirements your resume doesn't cover and you haven't started.";
+export const GAP_NOTHING_OUTSTANDING =
+  "Nothing outstanding — every requirement is covered by your resume or by a started concept.";
+
+export function formatGapSummary(input: {
+  strengthCount: number;
+  topGaps: string[];
+  blindSpotCount: number;
+}): string {
+  const { strengthCount, topGaps, blindSpotCount } = input;
+  const strengthPart =
+    strengthCount > 0
+      ? `${strengthCount} role requirement${strengthCount === 1 ? "" : "s"} matched from your resume`
+      : "No role requirement matched from your resume yet";
+  const gapPart =
+    topGaps.length > 0
+      ? `main gaps are ${topGaps.join(", ")}`
+      : "no outstanding gaps identified";
+  const blindNote =
+    blindSpotCount > 0 ? ` (${blindSpotCount} not yet in your syllabus)` : "";
+  return `${strengthPart}; ${gapPart}${blindNote}.`;
+}
+
+/**
+ * Company insight draws on PUBLIC SOURCES. A claim with a retrieved source is
+ * "confirmed by a public source" — a statement about provenance, not an
+ * evidence tier — so the word "verified" is reserved for the ledger.
+ */
+export const COMPANY_SOURCED_HEADING = "Confirmed by a public source";
+export const COMPANY_SOURCED_EMPTY =
+  "No standalone facts could be confirmed from public sources.";
+export const COMPANY_SIGNALS_EMPTY =
+  "No tech signals could be confirmed from public sources.";
+export const COMPANY_DISCLAIMER =
+  "Company insights are drawn from public sources and informed inference. Check specifics directly — internal practices aren't always public. Every sourced item links to a page that was retrieved at generation time; inferences are clearly marked and are not facts.";
+export const COMPANY_THIN_RESULT =
+  "We found limited public information about this company's internal practices — nothing concrete could be tied to a public source this time.";
+export const COMPANY_INFERENCES_SUBTITLE =
+  "Informed guesses reasoned from public facts — not confirmed by a source, not stated as certain.";
+
+/** The relevance card's third row: where in the role the AI found its basis. */
+export const RELEVANCE_BASIS_LABEL = "Basis in the role";
+
 /* ── Tier words, re-exported so surfaces import one module ───────────────── */
 
 export { formatTierLabel };

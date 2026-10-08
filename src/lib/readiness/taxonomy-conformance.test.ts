@@ -165,6 +165,56 @@ describe("counts, not percentages, on the workspace", () => {
   });
 });
 
+describe("H-2: 'verified' and 'evidence' keep one sense; AI summaries say so", () => {
+  const gap = read("src/app/syllabi/[id]/gap/page.tsx");
+  const company = read("src/app/syllabi/[id]/company/page.tsx");
+  const relevance = read("src/app/concepts/[id]/concept-relevance.tsx");
+
+  it("the gap page never says evidenced, never titles a bucket 'In progress'", () => {
+    expect(gap).not.toMatch(/evidenced|evidences/);
+    expect(gap).not.toMatch(/title=["']In progress["']/);
+    expect(gap).not.toMatch(/Strong start/);
+    expect(gap).not.toMatch(/at least in progress/);
+    for (const name of [
+      "GAP_STRENGTHS_SUBTITLE",
+      "GAP_STARTED_TITLE",
+      "GAP_STARTED_SUBTITLE",
+      "GAP_NOT_STARTED_SUBTITLE",
+      "GAP_NOTHING_OUTSTANDING",
+      "formatGapSummary(",
+    ]) {
+      expect(gap).toContain(name);
+    }
+  });
+
+  it("the gap summary sentence is prefixed as an AI summary", () => {
+    expect(gap).toMatch(/\{AI_SUMMARY_PREFIX\}\s*<\/span>\s*\{buildSummary\(report\)\}/);
+  });
+
+  it("the company page says 'confirmed by a public source', never a 'verified' sense of its own", () => {
+    // The only remaining lowercase/uppercase 'verif' is the data field name
+    // `verifiedFacts`, which is the schema's and never rendered.
+    const rendered = company.replace(/verifiedFacts/g, "");
+    expect(rendered).not.toMatch(/verif/i);
+    for (const name of [
+      "COMPANY_SOURCED_HEADING",
+      "COMPANY_SOURCED_EMPTY",
+      "COMPANY_SIGNALS_EMPTY",
+      "COMPANY_DISCLAIMER",
+      "COMPANY_THIN_RESULT",
+      "COMPANY_INFERENCES_SUBTITLE",
+    ]) {
+      expect(company).toContain(name);
+    }
+  });
+
+  it("the relevance card prefixes its AI point and does not label a row 'Evidence'", () => {
+    expect(relevance).toMatch(/\{AI_SUMMARY_PREFIX\}\s*<\/span>\s*\{relevance\.point\}/);
+    expect(relevance).not.toMatch(/>\s*Evidence\s*</);
+    expect(relevance).toContain("RELEVANCE_BASIS_LABEL");
+  });
+});
+
 describe("write surfaces are reachable from the default view", () => {
   it("the Tree is the default view", () => {
     expect(read("src/app/syllabi/[id]/syllabus-views.tsx")).toMatch(

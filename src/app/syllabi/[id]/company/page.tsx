@@ -16,6 +16,14 @@ import {
 import { db } from "@/db";
 import type { CompanyFactSourceType } from "@/db/schema";
 import { requireCurrentUserId } from "@/lib/auth";
+import {
+  COMPANY_DISCLAIMER,
+  COMPANY_INFERENCES_SUBTITLE,
+  COMPANY_SIGNALS_EMPTY,
+  COMPANY_SOURCED_EMPTY,
+  COMPANY_SOURCED_HEADING,
+  COMPANY_THIN_RESULT,
+} from "@/lib/readiness/surface-words";
 import { Badge } from "@/components/ui/badge";
 import { PageContainer } from "@/components/page-container";
 import { CompanyInsightButton } from "./company-insight-button";
@@ -95,13 +103,9 @@ function Disclaimer() {
   return (
     <div className="border-border/60 bg-muted/30 text-muted-foreground flex items-start gap-2.5 rounded-lg border px-4 py-3 text-xs leading-relaxed">
       <Info className="mt-0.5 size-3.5 shrink-0" />
-      <p>
-        Company insights are drawn from public sources and informed inference.
-        Verify specifics directly — internal practices aren&rsquo;t always
-        public. Every &ldquo;verified&rdquo; item links to a real source that was
-        retrieved at generation time; inferences are clearly marked and are not
-        facts.
-      </p>
+      {/* H-2 (A5): the ledger's tier word is reserved for the ledger; a
+          sourced claim is "confirmed by a public source". */}
+      <p>{COMPANY_DISCLAIMER}</p>
     </div>
   );
 }
@@ -217,10 +221,10 @@ export default async function CompanyInsightPage({ params }: PageProps) {
 
         {hasSourced ? (
           <div className="grid grid-cols-1 gap-x-8 gap-y-8 lg:grid-cols-2 lg:items-start">
-            {/* Verified facts */}
+            {/* Sourced facts */}
             <div className="flex flex-col gap-2">
               <h3 className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
-                Verified facts
+                {COMPANY_SOURCED_HEADING}
               </h3>
               {verifiedFacts.length > 0 ? (
                 <ul className="flex flex-col gap-2">
@@ -237,7 +241,7 @@ export default async function CompanyInsightPage({ params }: PageProps) {
                   ))}
                 </ul>
               ) : (
-                <EmptyNote>No standalone facts were verifiable from public sources.</EmptyNote>
+                <EmptyNote>{COMPANY_SOURCED_EMPTY}</EmptyNote>
               )}
             </div>
 
@@ -268,18 +272,14 @@ export default async function CompanyInsightPage({ params }: PageProps) {
                   ))}
                 </ul>
               ) : (
-                <EmptyNote>No tech signals were verifiable from public sources.</EmptyNote>
+                <EmptyNote>{COMPANY_SIGNALS_EMPTY}</EmptyNote>
               )}
             </div>
           </div>
         ) : (
           // Honest empty-ish state — no fabricated detail.
           <div className="border-border/60 bg-card flex flex-col gap-2 rounded-lg border px-6 py-8">
-            <p className="text-foreground/90 text-sm leading-relaxed">
-              We found limited public information about {company}&rsquo;s internal
-              practices — here&rsquo;s what&rsquo;s verifiable: nothing concrete
-              could be tied to a public source this time.
-            </p>
+            <p className="text-foreground/90 text-sm leading-relaxed">{COMPANY_THIN_RESULT}</p>
             <p className="text-muted-foreground text-sm leading-relaxed">
               That&rsquo;s an honest result, not a failure — many companies keep
               their stack private. Try regenerating, or check the inferences below
@@ -296,7 +296,7 @@ export default async function CompanyInsightPage({ params }: PageProps) {
           <SectionHeading
             icon={<Lightbulb className="size-4 text-amber-300" />}
             title="Reasonable inferences"
-            subtitle="Informed guesses reasoned from public facts — not verified, not stated as certain."
+            subtitle={COMPANY_INFERENCES_SUBTITLE}
             count={likelyInferences.length}
           />
           <ul className="flex flex-col gap-2">

@@ -5,6 +5,81 @@ range and anything a future reader would otherwise have to rediscover.
 
 ---
 
+## 2026-10-08 — Taxonomy conformance on live screens (APP-1 Phase A → H-1 → H-1.1 → H-2)
+
+**Why.** The APP-1 Phase A inventory (`69c823a`,
+`docs/design/app-screen-map.md`) read every authenticated route against
+`docs/verification-taxonomy.md` and found the live app contradicting its
+own ladder: six files rendered "Learning" / "Understood" as states, five
+rendered "Verified" from raw `concepts.status` (a self-mark the taxonomy
+says grants nothing), the check flow ended by offering a self-mark on top of
+rung-2 evidence, artefact rows said "Self-logged" / "Not yet verified" /
+"Completed", and the mandala and tree drew percentages. The redesign
+(Phase B, pen.dev) is paused until PR-4c is committed and pen.dev is
+reachable; these fixes land first so the design inherits conformant copy
+and sources, not a list of exceptions.
+
+**H-1 (`6bf380a`) — labels and sources.** New
+`src/lib/readiness/surface-words.ts` holds every word a surface may put
+next to a concept, artefact or check result; `tierByConceptId(ledger)` in
+`constellation.ts` is the one lookup. Concept badge, status control, tree
+rows, mandala dots, gap report and start page read the ledger tier
+(`formatTierLabel`); the learner's own mark offers Not started / In
+progress / Self-assessed and never Verified (`updateConceptStatus` now
+rejects `verified`; legacy rows read as Self-assessed). The check flow
+writes the row, returns `completedAt`, and shows the taxonomy's dated label
+plus "Written to your record." — a fail says "Below the pass bar. Nothing
+was written to your record." Artefacts: incomplete → Self-assessed;
+completed → Verified / `Verified <d MMM yyyy>` on the public card; the
+owner's buttons say Mark complete / Mark incomplete. Mandala centre, cluster
+nodes and tree rows read "3 of 8"; the ring, arcs and bars are gone; hours
+read "~47h, AI estimate"; the generation overlay bar is indeterminate. Tree
+is the default view and the suggested-project link sits in the card's title
+row.
+
+**H-1.1 — read-only ruling, no change.** Asked whether an owner-completed
+artefact should read Self-assessed. The taxonomy's rung-3 row grants
+Verified to "an artefact with `verifiedAt` set … `verifiedAt` is the gate",
+and the Register says provenance "strengthens rung 3's credibility, not its
+rank". `verifiedAt` has exactly one writer: the owner's Mark complete. So
+the surfaces are correct to the taxonomy as written; making an
+owner-completed artefact Self-assessed is a taxonomy amendment (a stronger
+rung-3 gate plus a migration story for prod's rung-3 artefacts), recorded
+here as an open product decision, not a code bug.
+
+**H-2 — the last Phase A flags.** (A5) "verified" and "evidence" keep one
+sense each: the company page says "Confirmed by a public source" and
+"sourced item"; the gap report says "matched from your resume" / "covers",
+and its AI bucket is titled "Covered by concepts you've started" rather
+than the tier word "In progress"; the relevance card's third row is "Basis
+in the role", not "Evidence". (B4) The two AI-composed summary sentences —
+the gap page's one-liner and the relevance card's point — are prefixed
+"AI summary —" in muted text. (B5, start-page "You're ready" verdict) left
+as is: it is composed from the learner's own baseline marks, not AI, and
+asserts nothing about evidence.
+
+**Tests.** `surface-words.test.ts` pins every string byte for byte;
+`taxonomy-conformance.test.ts` reads the surface files and fails on any
+retired literal, raw-status label table, `pct` / `%`, or missing import
+from the ledger module. `check:single-truth` stays 0.
+
+**Flake, characterised.** On the first `npm run gate` for H-2 the known
+flake in `src/app/syllabi/new/actions.test.ts` ("writes a 'generating'
+skeleton row, runs no generator, then kicks the worker and redirects")
+reappeared as `Error: Test timed out in 5000ms` at the `await import(
+"./actions")` on line 63 — no assertion diff, a cold-transform timeout
+(that run reported transform 26.47s vs 7.14s on the immediate re-run, which
+passed 399/399). Not skipped, not quarantined; 1 occurrence since the
+2026-10-04 characterisation (then unreproduced ×3).
+
+**Still open from the map, deliberately.** `src/app/syllabi/[id]/page.tsx`
+renders a raw ledger JSON `<pre>` when `NODE_ENV !== "production"` or
+`READINESS_DEBUG=1` (marked TEMPORARY; harmless on prod). `/profile` is
+linked from nowhere (the avatar menu goes to `/u/`). Every destructive
+action is a `window.confirm`.
+
+---
+
 ## 2026-10-05 — Prod credential fault diagnosed (28P01 from Vercel); db:check added; operator step open
 
 **Diagnosis, from evidence.** `vercel logs` on `yakka-two.vercel.app` for

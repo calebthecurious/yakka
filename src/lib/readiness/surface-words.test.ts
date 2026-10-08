@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
+  AI_SUMMARY_PREFIX,
+  COMPANY_DISCLAIMER,
+  COMPANY_INFERENCES_SUBTITLE,
+  COMPANY_SIGNALS_EMPTY,
+  COMPANY_SOURCED_EMPTY,
+  COMPANY_SOURCED_HEADING,
+  COMPANY_THIN_RESULT,
+  GAP_NOTHING_OUTSTANDING,
+  GAP_NOT_STARTED_SUBTITLE,
+  GAP_STARTED_SUBTITLE,
+  GAP_STARTED_TITLE,
+  GAP_STRENGTHS_SUBTITLE,
+  RELEVANCE_BASIS_LABEL,
+  formatGapSummary,
   ARTEFACT_COMPLETE_REOPEN,
   ARTEFACT_FORM_COMPLETE_HINT,
   ARTEFACT_FORM_COMPLETE_LABEL,
@@ -128,6 +142,82 @@ describe("artefact words", () => {
     ]) {
       expect(s).not.toMatch(/verif/i);
     }
+  });
+});
+
+describe("H-2: AI-written text never reads as a ledger fact", () => {
+  it("the AI summary prefix is exactly this", () => {
+    expect(AI_SUMMARY_PREFIX).toBe("AI summary —");
+  });
+
+  it("gap-report words are resume matches and gaps, never evidence or a tier word", () => {
+    expect(GAP_STRENGTHS_SUBTITLE).toBe("Role requirements your resume already covers.");
+    expect(GAP_STARTED_TITLE).toBe("Covered by concepts you've started");
+    expect(GAP_STARTED_SUBTITLE).toBe(
+      "Not on your resume yet, but a concept in your syllabus covers it and you've begun.",
+    );
+    expect(GAP_NOT_STARTED_SUBTITLE).toBe(
+      "Requirements your resume doesn't cover and you haven't started.",
+    );
+    expect(GAP_NOTHING_OUTSTANDING).toBe(
+      "Nothing outstanding — every requirement is covered by your resume or by a started concept.",
+    );
+    for (const s of [
+      GAP_STRENGTHS_SUBTITLE,
+      GAP_STARTED_TITLE,
+      GAP_STARTED_SUBTITLE,
+      GAP_NOT_STARTED_SUBTITLE,
+      GAP_NOTHING_OUTSTANDING,
+    ]) {
+      expect(s).not.toMatch(/evidenc|verif|in progress/i);
+    }
+  });
+
+  it("formatGapSummary composes matches and gaps and never says evidenced", () => {
+    expect(
+      formatGapSummary({ strengthCount: 3, topGaps: ["IEC 62304", "GCP"], blindSpotCount: 1 }),
+    ).toBe(
+      "3 role requirements matched from your resume; main gaps are IEC 62304, GCP (1 not yet in your syllabus).",
+    );
+    expect(formatGapSummary({ strengthCount: 1, topGaps: [], blindSpotCount: 0 })).toBe(
+      "1 role requirement matched from your resume; no outstanding gaps identified.",
+    );
+    expect(formatGapSummary({ strengthCount: 0, topGaps: ["X"], blindSpotCount: 0 })).toBe(
+      "No role requirement matched from your resume yet; main gaps are X.",
+    );
+    expect(formatGapSummary({ strengthCount: 2, topGaps: [], blindSpotCount: 0 })).not.toMatch(
+      /evidenc|verif|strong start/i,
+    );
+  });
+
+  it("company-insight words say 'confirmed by a public source', never verified", () => {
+    expect(COMPANY_SOURCED_HEADING).toBe("Confirmed by a public source");
+    expect(COMPANY_SOURCED_EMPTY).toBe("No standalone facts could be confirmed from public sources.");
+    expect(COMPANY_SIGNALS_EMPTY).toBe("No tech signals could be confirmed from public sources.");
+    expect(COMPANY_DISCLAIMER).toBe(
+      "Company insights are drawn from public sources and informed inference. Check specifics directly — internal practices aren't always public. Every sourced item links to a page that was retrieved at generation time; inferences are clearly marked and are not facts.",
+    );
+    expect(COMPANY_THIN_RESULT).toBe(
+      "We found limited public information about this company's internal practices — nothing concrete could be tied to a public source this time.",
+    );
+    expect(COMPANY_INFERENCES_SUBTITLE).toBe(
+      "Informed guesses reasoned from public facts — not confirmed by a source, not stated as certain.",
+    );
+    for (const s of [
+      COMPANY_SOURCED_HEADING,
+      COMPANY_SOURCED_EMPTY,
+      COMPANY_SIGNALS_EMPTY,
+      COMPANY_DISCLAIMER,
+      COMPANY_THIN_RESULT,
+      COMPANY_INFERENCES_SUBTITLE,
+    ]) {
+      expect(s).not.toMatch(/verif/i);
+    }
+  });
+
+  it("the relevance card's basis row is not called Evidence", () => {
+    expect(RELEVANCE_BASIS_LABEL).toBe("Basis in the role");
+    expect(RELEVANCE_BASIS_LABEL).not.toMatch(/evidence/i);
   });
 });
 
