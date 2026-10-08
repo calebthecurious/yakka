@@ -91,6 +91,19 @@ export function tierOf(state: ConceptLedgerEntry): ConstellationTier {
   return "not_started";
 }
 
+/**
+ * conceptId → tier for every concept in a ledger, so a surface that already
+ * holds the ledger can label its rows without re-deriving anything (H-1: the
+ * concept badge, status control, mandala dots, gap report and start page all
+ * read this instead of raw `concepts.status`). A concept the ledger does not
+ * know is absent — callers fall back to `not_started`, never invent a rung.
+ */
+export function tierByConceptId(
+  ledger: Pick<ReadinessLedger, "conceptStates">,
+): Map<string, ConstellationTier> {
+  return new Map(ledger.conceptStates.map((s) => [s.conceptId, tierOf(s)]));
+}
+
 /* ── Labels (loader-supplied display data) ─────────────────────────────────── */
 
 export interface ConstellationLabels {

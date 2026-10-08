@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { formatDistanceToNow } from "date-fns";
 import {
   ArrowRight,
   BadgeCheck,
@@ -13,34 +12,42 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { PASS_BAR } from "@/lib/readiness/model";
+import {
+  COMPETENCY_CHECK_OUT_OF,
+  PASS_BAR,
+  formatEvidenceDate,
+  formatEvidenceLabelDated,
+} from "@/lib/readiness/model";
+import {
+  CHECK_FAIL_NEXT,
+  CHECK_FAIL_NOTHING_WRITTEN,
+  CHECK_PASS_WRITTEN,
+} from "@/lib/readiness/surface-words";
 import { Badge } from "@/components/ui/badge";
 import type { CompetencyQuestion } from "@/db/schema";
-import {
-  completeCompetencyCheck,
-  startCompetencyCheck,
-  updateConceptStatus,
-} from "./actions";
-
-type ConceptStatus = "not_started" | "learning" | "understood" | "verified";
+import { completeCompetencyCheck, startCompetencyCheck } from "./actions";
 
 const OPTION_LABELS = ["A", "B", "C", "D"];
 
-type Phase = "idle" | "generating" | "quiz" | "results";
+type Phase = "idle" | "generating" | "quiz" | "saving" | "results";
 
+/**
+ * The check flow (H-1 item 3). A pass at PASS_BAR is rung-2 evidence the moment
+ * the row is written; the results panel shows the taxonomy's dated label for
+ * exactly that row and offers nothing weaker on top of it. A fail writes only
+ * the check row and says so. No self-mark is written from here.
+ */
 export function CompetencyCheck({
   conceptId,
-  conceptStatus,
   lastScore,
   lastCompletedAt,
 }: {
   conceptId: string;
-  conceptStatus: ConceptStatus;
   lastScore: number | null;
   lastCompletedAt: Date | null;
 }) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
   const [phase, setPhase] = useState<Phase>("idle");
   const [questions, setQuestions] = useState<CompetencyQuestion[]>([]);
@@ -48,8 +55,8 @@ export function CompetencyCheck({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [score, setScore] = useState(0);
+  const [writtenAt, setWrittenAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [marked, setMarked] = useState(false);
 
   const total = questions.length;
   const current = questions[currentIndex];
@@ -58,7 +65,7 @@ export function CompetencyCheck({
 
   function handleStart() {
     setError(null);
-    setMarked(false);
+    setWrittenAt(null);
     setPhase("generating");
     void (async () => {
       try {
@@ -93,23 +100,20 @@ export function CompetencyCheck({
       setSelectedIndex(null);
       return;
     }
-    // Finished — persist the result, then show results.
-    setPhase("results");
-    if (checkId) {
-      void completeCompetencyCheck({ checkId, conceptId, score });
+    // Finished — persist the result, then show it with the instant it was
+    // written. The date shown is the row's own, not the browser clock.
+    setPhase("saving");
+    if (!checkId) {
+      setPhase("results");
+      return;
     }
-  }
-
-  function handleMarkUnderstood() {
     startTransition(async () => {
-      const res = await updateConceptStatus({
-        conceptId,
-        status: "understood",
-      });
-      if (res.ok) {
-        setMarked(true);
-        router.refresh();
-      }
+      const res = await completeCompetencyCheck({ checkId, conceptId, score });
+      if (!res.ok) setError(res.message ?? "Could not save the result.");
+      setWrittenAt(res.completedAt ?? null);
+      setPhase("results");
+      // The badge, CTA and counts on this page read the ledger; refresh them.
+      router.refresh();
     });
   }
 
@@ -124,18 +128,16 @@ export function CompetencyCheck({
                 Last score:{" "}
                 <span
                   className={cn(
-                    "font-semibold",
-                    lastScore >= PASS_BAR
-                      ? "text-emerald-300"
-                      : "text-amber-200",
+                    "font-semibold tabular-nums",
+                    lastScore >= PASS_BAR ? "text-(--lp-accent)" : "text-amber-200",
                   )}
                 >
-                  {lastScore}/5
+                  {lastScore}/{COMPETENCY_CHECK_OUT_OF}
                 </span>
               </span>
               {lastCompletedAt ? (
                 <span className="text-muted-foreground text-xs">
-                  {formatDistanceToNow(lastCompletedAt, { addSuffix: true })}
+                  {formatEvidenceDate(lastCompletedAt.toISOString())}
                 </span>
               ) : null}
             </div>
@@ -163,12 +165,14 @@ export function CompetencyCheck({
     );
   }
 
-  // ---- GENERATING ----
-  if (phase === "generating") {
+  // ---- GENERATING / SAVING ----
+  if (phase === "generating" || phase === "saving") {
     return (
       <div className="border-border/60 bg-card/40 text-muted-foreground flex items-center gap-2 rounded-lg border px-4 py-4 text-sm">
         <Loader2 className="size-4 animate-spin" aria-hidden />
-        Writing 5 questions on this concept…
+        {phase === "generating"
+          ? `Writing ${COMPETENCY_CHECK_OUT_OF} questions on this concept…`
+          : "Writing your result…"}
       </div>
     );
   }
@@ -176,71 +180,41 @@ export function CompetencyCheck({
   // ---- RESULTS ----
   if (phase === "results") {
     const passed = score >= PASS_BAR;
-    const alreadyResolved =
-      conceptStatus === "understood" || conceptStatus === "verified";
     return (
       <div className="border-border/60 bg-card/40 flex flex-col gap-4 rounded-lg border px-4 py-4">
         <div className="flex items-center gap-3">
           <span
             className={cn(
               "text-2xl font-semibold tabular-nums",
-              passed ? "text-emerald-300" : "text-amber-200",
+              passed ? "text-(--lp-accent)" : "text-amber-200",
             )}
           >
-            {score}/5
+            {score}/{COMPETENCY_CHECK_OUT_OF}
           </span>
-          <p className="text-sm leading-relaxed">
-            {passed
-              ? "Strong grasp of this concept."
-              : "Some gaps to close on this concept."}
-          </p>
+          {passed ? (
+            <div className="flex flex-col gap-0.5">
+              {/* The taxonomy's string for the row just written, dated. */}
+              <p className="flex items-center gap-1.5 text-sm font-medium">
+                <BadgeCheck className="size-4 text-(--lp-accent)" aria-hidden />
+                {formatEvidenceLabelDated({
+                  kind: "competency_check",
+                  score,
+                  outOf: COMPETENCY_CHECK_OUT_OF,
+                  occurredAt: writtenAt,
+                })}
+              </p>
+              <p className="text-muted-foreground text-xs">
+                {error ?? CHECK_PASS_WRITTEN}
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm leading-relaxed">{CHECK_FAIL_NOTHING_WRITTEN}</p>
+          )}
         </div>
 
-        {passed ? (
-          alreadyResolved || marked ? (
-            <p className="text-muted-foreground flex items-center gap-1.5 text-sm">
-              <BadgeCheck className="size-4 text-emerald-300" aria-hidden />
-              {marked
-                ? "Marked as understood."
-                : `This concept is already marked ${conceptStatus}.`}
-            </p>
-          ) : (
-            <div className="flex flex-col gap-2">
-              <p className="text-sm">Mark this concept as understood?</p>
-              <p className="text-muted-foreground text-xs leading-relaxed">
-                Passing suggests you&apos;re ready — but it&apos;s your call. Your
-                status reflects your own judgement.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={handleMarkUnderstood}
-                  disabled={isPending}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/40 bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-200 transition-colors hover:bg-emerald-500/25 disabled:opacity-60"
-                >
-                  {isPending ? (
-                    <Loader2 className="size-3.5 animate-spin" aria-hidden />
-                  ) : (
-                    <Check className="size-3.5" aria-hidden />
-                  )}
-                  Mark as understood
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPhase("idle")}
-                  className="border-border hover:border-foreground/40 inline-flex items-center rounded-md border px-3 py-1.5 text-xs font-medium transition-colors"
-                >
-                  Not yet
-                </button>
-              </div>
-            </div>
-          )
-        ) : (
+        {passed ? null : (
           <div className="flex flex-col gap-2">
-            <p className="text-muted-foreground text-sm leading-relaxed">
-              Revisit the resources above for the parts that tripped you up, then
-              run a fresh check when you&apos;re ready.
-            </p>
+            <p className="text-muted-foreground text-sm leading-relaxed">{CHECK_FAIL_NEXT}</p>
             <button
               type="button"
               onClick={handleStart}

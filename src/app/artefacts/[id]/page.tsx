@@ -13,6 +13,11 @@ import {
 import { db } from "@/db";
 import { requireCurrentUserId } from "@/lib/auth";
 import { criteriaProgress } from "@/lib/readiness/model";
+import {
+  ARTEFACT_SELF_ASSESSED,
+  formatCount,
+  formatTierLabel,
+} from "@/lib/readiness/surface-words";
 import { Badge } from "@/components/ui/badge";
 import { PageContainer } from "@/components/page-container";
 import { Separator } from "@/components/ui/separator";
@@ -114,25 +119,26 @@ export default async function ArtefactPage({ params }: PageProps) {
             <Icon className="size-3" />
             {meta.label}
           </Badge>
+          {/* H-1 item 4: completed → the ledger's Verified; otherwise Self-assessed. */}
           {verified ? (
             <Badge
               variant="outline"
-              className="gap-1 border-emerald-500/30 bg-emerald-500/10 text-xs text-emerald-200"
+              className="gap-1 border-(--lp-accent)/40 bg-(--lp-accent)/10 text-xs text-(--lp-accent)"
             >
               <ShieldCheck className="size-3" />
-              Verified
+              {formatTierLabel("artefact_verified")}
             </Badge>
           ) : (
             <Badge
               variant="outline"
-              className="text-muted-foreground text-xs"
+              className="text-muted-foreground border-dashed text-xs"
             >
-              Not yet verified
+              {ARTEFACT_SELF_ASSESSED}
             </Badge>
           )}
           {criteria.total > 0 ? (
             <span className="text-muted-foreground text-xs">
-              {criteria.done} / {criteria.total} criteria done
+              {formatCount(criteria.done, criteria.total)} criteria done
             </span>
           ) : null}
         </div>

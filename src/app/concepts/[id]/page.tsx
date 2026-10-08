@@ -20,6 +20,8 @@ import {
   unbackedBearingClusterIds,
   type ConceptCta,
 } from "@/lib/readiness/concept-cta";
+import { tierOf, type ConstellationTier } from "@/lib/readiness/constellation";
+import { CHECK_INTRO, formatTierLabel } from "@/lib/readiness/surface-words";
 import { loadSyllabus, readinessForLoadedSyllabus } from "../../syllabi/[id]/queries";
 import { ConceptCtaCard } from "./concept-cta";
 import { Badge } from "@/components/ui/badge";
@@ -40,31 +42,43 @@ type PageProps = { params: Promise<{ id: string }> };
 
 type ConceptStatus = "not_started" | "learning" | "understood" | "verified";
 
-const STATUS_BADGE: Record<
-  ConceptStatus,
-  { label: string; icon: LucideIcon; className: string }
-> = {
+/**
+ * The header badge renders the concept's LEDGER tier (H-1 item 2), never raw
+ * `concepts.status`. Words come from formatTierLabel; only the icon and colour
+ * live here. Verified is the accent; everything else is quiet.
+ */
+const TIER_BADGE: Record<ConstellationTier, { icon: LucideIcon; className: string }> = {
   not_started: {
-    label: "Not started",
     icon: CircleDashed,
     className: "bg-muted text-muted-foreground border-border",
   },
-  learning: {
-    label: "Learning",
+  in_progress: {
     icon: LearningIcon,
     className: "bg-amber-500/10 text-amber-200 border-amber-500/30",
   },
-  understood: {
-    label: "Understood",
+  self_assessed: {
     icon: Check,
-    className: "bg-emerald-500/10 text-emerald-200 border-emerald-500/30",
+    className: "border-dashed border-border text-muted-foreground",
   },
-  verified: {
-    label: "Verified",
+  check_passed: {
     icon: ShieldCheck,
-    className: "bg-sky-500/10 text-sky-200 border-sky-500/30",
+    className: "bg-(--lp-accent)/10 text-(--lp-accent) border-(--lp-accent)/40",
+  },
+  artefact_verified: {
+    icon: ShieldCheck,
+    className: "bg-(--lp-accent)/10 text-(--lp-accent) border-(--lp-accent)/40",
   },
 };
+
+/**
+ * A session younger than this is still "the current session" and the notes
+ * editor reopens it (mirrors SESSION_COALESCE_WINDOW_MINUTES in actions.ts).
+ * Reads the clock outside render so the server component stays pure.
+ */
+const SESSION_COALESCE_WINDOW_MS = 30 * 60 * 1000;
+function isWithinCoalesceWindow(createdAt: Date): boolean {
+  return Date.now() - new Date(createdAt).getTime() < SESSION_COALESCE_WINDOW_MS;
+}
 
 async function loadConcept(id: string, userId: string) {
   await connection();
@@ -159,9 +173,7 @@ export default async function ConceptPage({ params }: PageProps) {
 
   const currentSession = learningSessions[0];
   const recentSession =
-    currentSession &&
-    Date.now() - new Date(currentSession.createdAt).getTime() <
-      30 * 60 * 1000
+    currentSession && isWithinCoalesceWindow(currentSession.createdAt)
       ? currentSession
       : null;
   const initialSessionId = recentSession?.id ?? null;
@@ -172,9 +184,6 @@ export default async function ConceptPage({ params }: PageProps) {
     ? learningSessions.filter((s) => s.id !== recentSession.id)
     : learningSessions;
 
-  const statusBadge = STATUS_BADGE[concept.status as ConceptStatus];
-  const StatusIcon = statusBadge.icon;
-
   // ── "Start here": the single next step, selected from the LEDGER. ──
   // Raw `concepts.status` is deliberately not consulted: self-declaration moves
   // no ledger number, so it does not decide what to do next either. The one
@@ -184,6 +193,12 @@ export default async function ConceptPage({ params }: PageProps) {
   const ledger = ledgerTree ? readinessForLoadedSyllabus(ledgerTree) : null;
   const conceptState =
     ledger?.conceptStates.find((c) => c.conceptId === concept.id) ?? null;
+
+  // The header badge is the ledger's tier for this concept (H-1 item 2). A
+  // concept the ledger does not know renders as Not started, never invented.
+  const tier: ConstellationTier = conceptState ? tierOf(conceptState) : "not_started";
+  const tierBadge = TIER_BADGE[tier];
+  const TierIcon = tierBadge.icon;
   const nextConceptId =
     ledger && conceptState
       ? findNextUnverifiedConcept(ledger, concept.id)
@@ -242,10 +257,10 @@ export default async function ConceptPage({ params }: PageProps) {
           </h1>
           <Badge
             variant="outline"
-            className={cn("shrink-0 gap-1 text-xs", statusBadge.className)}
+            className={cn("shrink-0 gap-1 text-xs", tierBadge.className)}
           >
-            <StatusIcon className="size-3" />
-            {statusBadge.label}
+            <TierIcon className="size-3" />
+            {formatTierLabel(tier)}
           </Badge>
         </div>
         <p className="text-muted-foreground text-sm leading-relaxed">
@@ -292,7 +307,7 @@ export default async function ConceptPage({ params }: PageProps) {
       >
         <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-medium [&::-webkit-details-marker]:hidden">
           <ChevronRight className="text-muted-foreground size-4 transition-transform group-open:rotate-90" />
-          Status
+          Your own mark
         </summary>
         <div className="pt-1">
           <StatusControls
@@ -381,14 +396,9 @@ export default async function ConceptPage({ params }: PageProps) {
           Check your understanding
         </summary>
         <div className="flex flex-col gap-3 pt-1">
-          <p className="text-muted-foreground text-sm leading-relaxed">
-            A short quiz across everything you&apos;ve studied for this concept.
-            Passing suggests you&apos;re ready to mark it understood — the call
-            stays yours.
-          </p>
+          <p className="text-muted-foreground text-sm leading-relaxed">{CHECK_INTRO}</p>
           <CompetencyCheck
             conceptId={concept.id}
-            conceptStatus={concept.status as ConceptStatus}
             lastScore={lastCheck?.score ?? null}
             lastCompletedAt={lastCheck?.completedAt ?? null}
           />

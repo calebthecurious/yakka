@@ -11,10 +11,11 @@ import { runSyllabusGeneration } from "@/lib/generation/run";
 import {
   findClusterSummary,
   findSubSkillSummary,
-  ratioPct,
   summarizeReadinessLedger,
   type ReadinessSummary,
 } from "@/lib/readiness/summary";
+import { tierByConceptId } from "@/lib/readiness/constellation";
+import { formatHoursEstimate } from "@/lib/readiness/surface-words";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PageContainer } from "@/components/page-container";
@@ -58,8 +59,11 @@ const ROLE_NATURE_BADGE: Record<
   },
 };
 
-/** Concept-grained progress counts handed to the tree. */
-type ProgressCounts = { done: number; total: number; pct: number };
+/**
+ * Concept-grained progress counts handed to the tree. Counts only (H-1): no
+ * percentage leaves this page, so no surface can draw one.
+ */
+type ProgressCounts = { done: number; total: number };
 
 /**
  * One cluster's CONCEPT counts (the artefact-target milestone excluded, so the
@@ -71,8 +75,8 @@ function clusterConceptCounts(
   clusterId: string,
 ): ProgressCounts {
   const c = findClusterSummary(summary, clusterId);
-  if (!c) return { done: 0, total: 0, pct: 0 };
-  return { done: c.concepts.done, total: c.concepts.total, pct: c.concepts.pct };
+  if (!c) return { done: 0, total: 0 };
+  return { done: c.concepts.done, total: c.concepts.total };
 }
 
 /**
@@ -85,8 +89,8 @@ function subSkillConceptCounts(
   subSkillId: string,
 ): ProgressCounts {
   const s = findSubSkillSummary(summary, subSkillId);
-  if (!s) return { done: 0, total: 0, pct: 0 };
-  return { done: s.done, total: s.total, pct: s.pct };
+  if (!s) return { done: 0, total: 0 };
+  return { done: s.done, total: s.total };
 }
 
 export async function generateMetadata({
@@ -220,6 +224,11 @@ export default async function SyllabusPage({ params }: PageProps) {
   // renders, and hung on the nodes it already receives — one truth, resolved
   // server-side. A missing row can only mean the loader stopped supplying
   // subSkillId; `readiness.subSkillCoverage.complete` is the canary for that.
+  //
+  // Each concept also carries its ledger TIER (H-1). The tree and mandala
+  // label a concept with `formatTierLabel(tier)`, never with raw status; raw
+  // status still rides along, but only to drive the learner's own checkbox.
+  const tierOfConcept = tierByConceptId(readinessLedger);
   const treeData = clusters.map((cluster) => ({
     id: cluster.id,
     name: cluster.name,
@@ -244,6 +253,7 @@ export default async function SyllabusPage({ params }: PageProps) {
         id: concept.id,
         name: concept.name,
         status: concept.status,
+        tier: tierOfConcept.get(concept.id) ?? "not_started",
         resourceCount: concept.resources.length,
       })),
     })),
@@ -318,7 +328,7 @@ export default async function SyllabusPage({ params }: PageProps) {
           {clusters.length} clusters ·{" "}
           {clusters.reduce((s, c) => s + c.subSkills.length, 0)} sub-skills ·{" "}
           {readiness.concepts.total} concepts ({readiness.concepts.verified}{" "}
-          verified) · ~{totalHours}h estimated
+          verified) · {formatHoursEstimate(totalHours)}
         </p>
         <div className="flex flex-wrap gap-2">
           <Link
@@ -369,7 +379,6 @@ export default async function SyllabusPage({ params }: PageProps) {
         overall={{
           done: readiness.concepts.verified,
           total: readiness.concepts.total,
-          pct: ratioPct(readiness.concepts.verified, readiness.concepts.total),
         }}
       />
 

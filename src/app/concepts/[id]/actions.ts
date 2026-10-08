@@ -58,14 +58,21 @@ const ResourceType = z.enum([
   "paper",
 ]);
 
+/**
+ * The marks a learner may SET (H-1 item 2). `verified` is excluded: raw status
+ * grants nothing, so the product never writes it. Rows that already carry it
+ * are legacy and read as `understood` by `selfMarkFor`.
+ */
+const SelfMarkStatus = ConceptStatus.exclude(["verified"]);
+
 const UpdateConceptStatusInput = z.object({
   conceptId: z.string().uuid(),
-  status: ConceptStatus,
+  status: SelfMarkStatus,
 });
 
 export async function updateConceptStatus(input: {
   conceptId: string;
-  status: "not_started" | "learning" | "understood" | "verified";
+  status: "not_started" | "learning" | "understood";
 }): Promise<{ ok: boolean; message?: string }> {
   const parsed = UpdateConceptStatusInput.safeParse(input);
   if (!parsed.success) {
@@ -79,11 +86,7 @@ export async function updateConceptStatus(input: {
       .update(concepts)
       .set({
         status: parsed.data.status,
-        understoodAt:
-          parsed.data.status === "understood" ||
-          parsed.data.status === "verified"
-            ? new Date()
-            : null,
+        understoodAt: parsed.data.status === "understood" ? new Date() : null,
         updatedAt: new Date(),
       })
       .where(eq(concepts.id, parsed.data.conceptId));
@@ -448,11 +451,17 @@ const CompleteCompetencyCheckInput = z.object({
   score: z.number().int().min(0).max(5),
 });
 
+/**
+ * Write the check result. Returns the instant it was written so the surface
+ * can show the taxonomy's dated evidence label for exactly what the ledger
+ * will read (H-1 item 3). A pass is rung-2 evidence the moment this row lands;
+ * nothing weaker is offered on top of it, and a fail writes only this row.
+ */
 export async function completeCompetencyCheck(input: {
   checkId: string;
   conceptId: string;
   score: number;
-}): Promise<{ ok: boolean; message?: string }> {
+}): Promise<{ ok: boolean; completedAt?: string; message?: string }> {
   const parsed = CompleteCompetencyCheckInput.safeParse(input);
   if (!parsed.success) {
     return { ok: false, message: "Invalid input." };
@@ -463,9 +472,10 @@ export async function completeCompetencyCheck(input: {
     const userId = await requireCurrentUserId();
     await requireOwnedConcept(conceptId, userId);
 
+    const completedAt = new Date();
     await db
       .update(competencyChecks)
-      .set({ score, completedAt: new Date() })
+      .set({ score, completedAt })
       .where(
         and(
           eq(competencyChecks.id, checkId),
@@ -474,7 +484,7 @@ export async function completeCompetencyCheck(input: {
       );
 
     revalidatePath(`/concepts/${conceptId}`);
-    return { ok: true };
+    return { ok: true, completedAt: completedAt.toISOString() };
   } catch (err) {
     console.error("[completeCompetencyCheck] failed", err);
     return {

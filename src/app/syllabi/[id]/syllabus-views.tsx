@@ -26,7 +26,10 @@ export function SyllabusViews({
   /** Syllabus-wide concept counts, projected server-side from the summary. */
   overall: MandalaReadiness;
 }) {
-  const [view, setView] = useState<View>("mandala");
+  // The Tree is the default (H-1 item 6): the concept checkboxes, "Log
+  // artefact" and the suggested-project link all live there, and a surface
+  // that writes to the ledger must not sit behind a toggle.
+  const [view, setView] = useState<View>("tree");
 
   const mandalaClusters = useMemo<MandalaCluster[]>(
     () =>
@@ -42,7 +45,7 @@ export function SyllabusViews({
           skill.concepts.map((concept) => ({
             id: concept.id,
             name: concept.name,
-            status: concept.status,
+            tier: concept.tier,
           })),
         ),
       })),
@@ -53,16 +56,16 @@ export function SyllabusViews({
     <div className="flex flex-col gap-4">
       <div className="inline-flex w-fit rounded-lg border border-border/60 bg-card p-0.5 text-sm">
         <ToggleButton
-          active={view === "mandala"}
-          onClick={() => setView("mandala")}
-          icon={Aperture}
-          label="Mandala"
-        />
-        <ToggleButton
           active={view === "tree"}
           onClick={() => setView("tree")}
           icon={ListTree}
           label="Tree"
+        />
+        <ToggleButton
+          active={view === "mandala"}
+          onClick={() => setView("mandala")}
+          icon={Aperture}
+          label="Mandala"
         />
       </div>
 

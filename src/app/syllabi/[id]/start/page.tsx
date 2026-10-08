@@ -5,7 +5,9 @@ import type { Metadata } from "next";
 import { ArrowLeft, Rocket } from "lucide-react";
 import { db } from "@/db";
 import { requireCurrentUserId } from "@/lib/auth";
+import { tierByConceptId } from "@/lib/readiness/constellation";
 import { PageContainer } from "@/components/page-container";
+import { getReadinessForSyllabus } from "../queries";
 import { GenerateFoundationsButton } from "./generate-foundations-button";
 import { StartView } from "./start-view";
 
@@ -21,7 +23,7 @@ async function loadData(id: string, userId: string) {
         orderBy: (f, { asc }) => [asc(f.sequenceIndex)],
         with: {
           linkedConcept: {
-            columns: { id: true, name: true, status: true },
+            columns: { id: true, name: true },
           },
         },
       },
@@ -45,6 +47,11 @@ export default async function StartHerePage({ params }: PageProps) {
   const syllabus = await loadData(id, userId);
   if (!syllabus) notFound();
 
+  // A linked concept's badge is its LEDGER tier (H-1 item 2), so the ledger is
+  // loaded here; its absence (no tree yet) renders every link as Not started.
+  const ledger = await getReadinessForSyllabus(id, userId);
+  const tierOfConcept = ledger ? tierByConceptId(ledger) : new Map();
+
   const items = syllabus.foundationItems;
   const baselines = items
     .filter((i) => i.type === "assumed_baseline")
@@ -67,7 +74,7 @@ export default async function StartHerePage({ params }: PageProps) {
         ? {
             id: i.linkedConcept.id,
             name: i.linkedConcept.name,
-            status: i.linkedConcept.status,
+            tier: tierOfConcept.get(i.linkedConcept.id) ?? "not_started",
           }
         : null,
     }));

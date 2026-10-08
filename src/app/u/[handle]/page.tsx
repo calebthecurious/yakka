@@ -30,6 +30,7 @@ import {
   syllabi,
 } from "@/db/schema";
 import { cn } from "@/lib/utils";
+import { ARTEFACT_SELF_ASSESSED } from "@/lib/readiness/surface-words";
 import { Constellation } from "@/components/profile/constellation";
 import { ProfileViewBeacon } from "./view-beacon";
 import {
@@ -879,14 +880,17 @@ function ArtefactCard({ artefact: a }: { artefact: ProfileArtefact }) {
             <h3 className="font-medium tracking-tight">{a.title}</h3>
           </div>
         </div>
-        {a.completed ? (
-          <span className="flex shrink-0 items-center gap-1 rounded-full bg-emerald-400/10 px-2 py-0.5 text-[11px] font-medium text-emerald-300">
+        {/* H-1 item 4: the card's state word is the taxonomy's. A completed
+            artefact says `Verified <d MMM yyyy>` (formatArtefactVerifiedLabel);
+            an incomplete one is Self-assessed. Nothing else is said. */}
+        {a.completed && a.verifiedLabel ? (
+          <span className="flex shrink-0 items-center gap-1 rounded-full bg-(--lp-accent)/10 px-2 py-0.5 text-[11px] font-medium text-(--lp-accent) tabular-nums">
             <BadgeCheck className="size-3" aria-hidden />
-            Completed
+            {a.verifiedLabel}
           </span>
         ) : (
-          <span className="text-muted-foreground/70 shrink-0 rounded-full border border-border/50 px-2 py-0.5 text-[11px]">
-            In progress
+          <span className="text-muted-foreground/70 shrink-0 rounded-full border border-dashed border-border/50 px-2 py-0.5 text-[11px]">
+            {ARTEFACT_SELF_ASSESSED}
           </span>
         )}
       </div>
@@ -952,11 +956,6 @@ function ArtefactCard({ artefact: a }: { artefact: ProfileArtefact }) {
         {a.criteriaTotal > 0 ? (
           <span className="text-muted-foreground text-xs tabular-nums">
             {a.criteriaDone}/{a.criteriaTotal} acceptance criteria met
-          </span>
-        ) : null}
-        {a.verifiedLabel ? (
-          <span className="text-muted-foreground/70 text-xs tabular-nums">
-            {a.verifiedLabel}
           </span>
         ) : null}
       </div>

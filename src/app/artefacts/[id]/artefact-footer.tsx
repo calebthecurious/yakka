@@ -5,6 +5,10 @@ import { ShieldCheck, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
+  ARTEFACT_COMPLETE_REOPEN,
+  ARTEFACT_MARK_COMPLETE,
+} from "@/lib/readiness/surface-words";
+import {
   deleteArtefactFromPage,
   toggleArtefactVerificationOnPage,
 } from "./actions";
@@ -62,11 +66,13 @@ export function ArtefactFooter({
         className={cn(
           "gap-2",
           optimisticVerified &&
-            "border-emerald-500/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/15",
+            "border-(--lp-accent)/40 bg-(--lp-accent)/10 text-(--lp-accent) hover:bg-(--lp-accent)/15",
         )}
       >
         <ShieldCheck className="size-4" aria-hidden />
-        {optimisticVerified ? "Verified — click to unverify" : "Mark verified"}
+        {/* The owner's action is completion (what verifiedAt records); the
+            STATE word Verified is granted by the ledger and shown in the header. */}
+        {optimisticVerified ? ARTEFACT_COMPLETE_REOPEN : ARTEFACT_MARK_COMPLETE}
       </Button>
 
       <button

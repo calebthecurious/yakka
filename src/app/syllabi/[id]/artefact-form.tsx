@@ -12,6 +12,10 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  ARTEFACT_FORM_COMPLETE_HINT,
+  ARTEFACT_FORM_COMPLETE_LABEL,
+} from "@/lib/readiness/surface-words";
 import { addArtefact } from "./actions";
 
 type ArtefactType = "project" | "writeup" | "certificate" | "contribution";
@@ -186,11 +190,8 @@ export function ArtefactForm({
               className="border-input size-3.5 rounded"
             />
             <span>
-              Mark as verified
-              <span className="text-muted-foreground">
-                {" "}
-                — shows on public profile.
-              </span>
+              {ARTEFACT_FORM_COMPLETE_LABEL}
+              <span className="text-muted-foreground"> {ARTEFACT_FORM_COMPLETE_HINT}</span>
             </span>
           </label>
 

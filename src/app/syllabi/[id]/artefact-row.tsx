@@ -20,6 +20,12 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  ARTEFACT_MARK_COMPLETE,
+  ARTEFACT_MARK_INCOMPLETE,
+  ARTEFACT_SELF_ASSESSED,
+  formatTierLabel,
+} from "@/lib/readiness/surface-words";
 import { deleteArtefact, toggleArtefactVerification } from "./actions";
 
 type ArtefactType = "project" | "writeup" | "certificate" | "contribution";
@@ -93,7 +99,7 @@ export function ArtefactRow({
       onOpenChange={setOpen}
       className={cn(
         "border-border/60 bg-card/40 rounded-md border",
-        optimisticVerified && "border-emerald-500/30 bg-emerald-500/5",
+        optimisticVerified && "border-(--lp-accent)/30 bg-(--lp-accent)/5",
         isPending && "opacity-70",
       )}
     >
@@ -131,20 +137,22 @@ export function ArtefactRow({
             <ExternalLink className="size-3" />
           </a>
         ) : null}
+        {/* State word (H-1 item 4): a completed artefact is what the ledger
+            grants Verified to (rung 3); an incomplete one is Self-assessed. */}
         {optimisticVerified ? (
           <Badge
             variant="outline"
-            className="shrink-0 border-emerald-500/30 bg-emerald-500/10 text-[10px] text-emerald-200"
+            className="shrink-0 border-(--lp-accent)/40 bg-(--lp-accent)/10 text-[10px] text-(--lp-accent)"
           >
             <ShieldCheck className="mr-1 size-2.5" />
-            Verified
+            {formatTierLabel("artefact_verified")}
           </Badge>
         ) : (
           <Badge
-            variant="secondary"
-            className="text-muted-foreground shrink-0 text-[10px]"
+            variant="outline"
+            className="text-muted-foreground shrink-0 border-dashed text-[10px]"
           >
-            Self-logged
+            {ARTEFACT_SELF_ASSESSED}
           </Badge>
         )}
         <div className="ml-auto flex shrink-0 items-center gap-1">
@@ -155,10 +163,10 @@ export function ArtefactRow({
               "rounded-md border px-2 py-0.5 text-[10px] font-medium tracking-wide uppercase transition-colors",
               optimisticVerified
                 ? "border-border bg-muted/40 text-muted-foreground hover:text-foreground"
-                : "border-emerald-500/30 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20",
+                : "border-(--lp-accent)/40 bg-(--lp-accent)/10 text-(--lp-accent) hover:bg-(--lp-accent)/20",
             )}
           >
-            {optimisticVerified ? "Unverify" : "Verify"}
+            {optimisticVerified ? ARTEFACT_MARK_INCOMPLETE : ARTEFACT_MARK_COMPLETE}
           </button>
           <button
             type="button"

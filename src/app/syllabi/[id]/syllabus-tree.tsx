@@ -23,6 +23,11 @@ import {
 import { ConceptRow } from "./concept-row";
 import { ArtefactForm } from "./artefact-form";
 import { ArtefactRow } from "./artefact-row";
+import {
+  formatCount,
+  formatHoursEstimateShort,
+  type ConstellationTier,
+} from "@/lib/readiness/surface-words";
 
 type Status = "not_started" | "learning" | "understood" | "verified";
 type ClusterType = "technical" | "domain" | "soft" | "meta";
@@ -43,7 +48,10 @@ type ArtefactNode = {
 type ConceptNode = {
   id: string;
   name: string;
+  /** The learner's own mark. Drives the checkbox only, never a label. */
   status: Status;
+  /** The ledger's tier for this concept — the only source of its state word. */
+  tier: ConstellationTier;
   resourceCount: number;
 };
 
@@ -51,14 +59,13 @@ type ConceptNode = {
  * Evidence-gated concept counts, computed server-side from the readiness ledger
  * and passed down. This component never derives progress from `ConceptNode.status`
  * — that field is self-declared and drives the per-concept checkbox only.
+ * Counts only; there is no percentage to draw (H-1).
  */
 type ProgressCounts = {
   /** Evidence-verified concepts. */
   done: number;
   /** All concepts at this level. */
   total: number;
-  /** done/total as 0–100. */
-  pct: number;
 };
 
 type SubSkillNode = {
@@ -222,17 +229,9 @@ function ClusterSection({
             {cluster.description}
           </p>
         </div>
-        <div className="flex shrink-0 flex-col items-end gap-1 text-xs">
-          <span className="text-muted-foreground tabular-nums">
-            {progress.done} / {progress.total}
-          </span>
-          <div className="bg-muted h-1 w-20 overflow-hidden rounded-full">
-            <div
-              className="bg-foreground/60 h-full transition-all"
-              style={{ width: `${progress.pct}%` }}
-            />
-          </div>
-        </div>
+        <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
+          {formatCount(progress.done, progress.total)} verified
+        </span>
       </CollapsibleTrigger>
 
       <CollapsibleContent>
@@ -277,9 +276,10 @@ function ClusterSection({
 }
 
 /**
- * Compact, collapsed-by-default project card. Just the title row when closed;
- * expand reveals a one-line summary + the link to the full detail page. The full
- * problem statement and "why this matters" live on the detail page, not here.
+ * Compact project card. The link to the suggested project is in the title row
+ * itself (H-1 item 6: the only path to /clusters/[id]/artefact may not sit
+ * behind an expand); the expand reveals the one-line summary. The full problem
+ * statement and "why this matters" live on the detail page, not here.
  */
 function ProjectCard({
   clusterId,
@@ -295,31 +295,31 @@ function ProjectCard({
       onOpenChange={setOpen}
       className="border-primary/30 bg-primary/5 overflow-hidden rounded-md border"
     >
-      <CollapsibleTrigger className="hover:bg-primary/10 flex w-full items-center gap-2 px-3 py-2 text-left transition-colors">
+      <div className="flex w-full items-center gap-2 px-3 py-2">
+        <CollapsibleTrigger
+          aria-label={open ? "Hide summary" : "Show summary"}
+          className="text-muted-foreground hover:text-foreground -ml-1 shrink-0 rounded p-0.5 transition-colors"
+        >
+          <ChevronRight
+            className={cn("size-3.5 transition-transform", open && "rotate-90")}
+          />
+        </CollapsibleTrigger>
         <Target className="text-primary/80 size-3.5 shrink-0" />
         <Badge className="shrink-0 text-[10px]">
           {ARTEFACT_LABEL[artefact.type]}
         </Badge>
         <span className="truncate text-sm font-medium">{artefact.title}</span>
-        <ChevronRight
-          className={cn(
-            "text-muted-foreground ml-auto size-3.5 shrink-0 transition-transform",
-            open && "rotate-90",
-          )}
-        />
-      </CollapsibleTrigger>
+        <Link
+          href={`/clusters/${clusterId}/artefact`}
+          className="text-primary/90 hover:text-primary ml-auto shrink-0 text-xs font-medium"
+        >
+          View details &amp; build →
+        </Link>
+      </div>
       <CollapsibleContent>
-        <div className="flex flex-col gap-1.5 px-3 pb-2.5">
-          <p className="text-muted-foreground line-clamp-1 text-xs">
-            {artefact.description}
-          </p>
-          <Link
-            href={`/clusters/${clusterId}/artefact`}
-            className="text-primary/90 hover:text-primary text-xs font-medium"
-          >
-            View details &amp; build →
-          </Link>
-        </div>
+        <p className="text-muted-foreground line-clamp-1 px-3 pb-2.5 text-xs">
+          {artefact.description}
+        </p>
       </CollapsibleContent>
     </Collapsible>
   );
@@ -403,10 +403,10 @@ function SubSkillSection({
           ) : null}
         </div>
         <span className="text-muted-foreground/80 shrink-0 text-xs tabular-nums">
-          ~{skill.estimatedHours}h
+          {formatHoursEstimateShort(skill.estimatedHours)}
         </span>
         <span className="text-muted-foreground shrink-0 text-xs tabular-nums">
-          {progress.done}/{progress.total}
+          {formatCount(progress.done, progress.total)} verified
         </span>
       </CollapsibleTrigger>
 
@@ -425,6 +425,7 @@ function SubSkillSection({
                 syllabusId={syllabusId}
                 name={concept.name}
                 status={concept.status}
+                tier={concept.tier}
                 resourceCount={concept.resourceCount}
               />
             ))}

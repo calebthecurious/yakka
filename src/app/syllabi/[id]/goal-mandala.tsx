@@ -5,19 +5,24 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  formatCount,
+  formatTierLabel,
+  formatVerifiedCount,
+  type ConstellationTier,
+} from "@/lib/readiness/surface-words";
 
-type Status = "not_started" | "learning" | "understood" | "verified";
 type ClusterType = "technical" | "domain" | "soft" | "meta";
 
-type MandalaConcept = { id: string; name: string; status: Status };
+/** One concept dot: its ledger tier is the only state it carries (H-1). */
+type MandalaConcept = { id: string; name: string; tier: ConstellationTier };
 
 /**
  * Evidence-gated concept counts for one cluster, computed server-side from the
- * readiness ledger. `pct` arrives 0–100 (the ledger's convention) and is
- * converted to the 0–1 fraction this file's geometry expects at the single
- * seam below — never at a render site.
+ * readiness ledger. Counts only — there is no percentage anywhere in this file
+ * (H-1 item 5); every number renders as `formatCount`.
  */
-export type MandalaReadiness = { done: number; total: number; pct: number };
+export type MandalaReadiness = { done: number; total: number };
 
 export type MandalaCluster = {
   id: string;
@@ -33,7 +38,6 @@ const VB = 1000;
 const CX = VB / 2;
 const CY = VB / 2;
 const CENTER_R = 92;
-const CENTER_RING_R = 112;
 const CLUSTER_RING_R = 300;
 
 function polar(cx: number, cy: number, r: number, angle: number): [number, number] {
@@ -49,43 +53,11 @@ function nodeRadius(weight: number): number {
   return Math.min(64, Math.max(42, 38 + weight * 5));
 }
 
-/**
- * THE SEAM. Every progress number in this file — the centre ring, each cluster
- * arc, both percentage labels, the reduced-motion fallback and its bars — comes
- * through here. Progress is NOT derived from `MandalaConcept.status`: that field
- * is self-declared and only colours the individual concept dots. These counts are
- * evidence-gated by the ledger upstream.
- *
- * Returns `pct` as a 0–1 fraction because the geometry multiplies it by a
- * circumference; the ledger's 0–100 is divided down here, once.
- */
-function progressOf(cluster: MandalaCluster): { done: number; total: number; pct: number } {
-  const { done, total, pct } = cluster.readiness;
-  return { done, total, pct: pct / 100 };
-}
-
-/**
- * Syllabus-wide roll-up. NOT computed here: it arrives from the readiness
- * summary (`concepts.verified` / `concepts.total`, pct via the ledger's
- * `ratioPct`) and is only converted from the ledger's 0–100 to this file's 0–1
- * fraction — the same seam `progressOf` uses for a cluster. Reconciles with the
- * per-cluster arcs by the ledger's own tested invariant:
- * Σ byCluster.concepts.total === concepts.total (see summary.test.ts).
- */
-function overallProgressOf(overall: MandalaReadiness): {
-  done: number;
-  total: number;
-  pct: number;
-} {
-  const { done, total, pct } = overall;
-  return { done, total, pct: pct / 100 };
-}
-
 function truncate(s: string, n: number): string {
   return s.length > n ? `${s.slice(0, n - 1)}…` : s;
 }
 
-// --- theme maps (consistent with the tree's type/status palette) ---
+// --- theme maps (consistent with the tree's type palette) ---
 const CLUSTER_FILL: Record<ClusterType, string> = {
   technical: "fill-foreground/10 stroke-foreground/40",
   domain: "fill-amber-500/15 stroke-amber-500/60",
@@ -93,25 +65,26 @@ const CLUSTER_FILL: Record<ClusterType, string> = {
   meta: "fill-emerald-500/15 stroke-emerald-400/60",
 };
 
-const CLUSTER_ARC: Record<ClusterType, string> = {
-  technical: "stroke-foreground/70",
-  domain: "stroke-amber-400",
-  soft: "stroke-sky-300",
-  meta: "stroke-emerald-300",
+/**
+ * Concept dots by TIER, the Constellation's idiom: verified is the accent
+ * (artefact-verified solid, check-passed slightly lighter), self-assessed a
+ * dashed outline, in progress and not started two greys. Words come from
+ * formatTierLabel only.
+ */
+const TIER_DOT: Record<ConstellationTier, string> = {
+  artefact_verified: "fill-(--lp-accent) stroke-(--lp-accent)",
+  check_passed: "fill-(--lp-accent-check) stroke-(--lp-accent)",
+  self_assessed: "fill-transparent stroke-(--lp-text-secondary) [stroke-dasharray:3_2]",
+  in_progress: "fill-(--lp-node-in-progress) stroke-(--lp-text-secondary)",
+  not_started: "fill-(--lp-node-not-started) stroke-(--lp-line)",
 };
 
-const STATUS_DOT: Record<Status, string> = {
-  not_started: "fill-muted stroke-muted-foreground/50",
-  learning: "fill-amber-500 stroke-amber-300",
-  understood: "fill-foreground/80 stroke-foreground",
-  verified: "fill-emerald-400 stroke-emerald-200",
-};
-
-const STATUS_LABEL: Record<Status, string> = {
-  not_started: "Not started",
-  learning: "Learning",
-  understood: "Understood",
-  verified: "Verified",
+const TIER_CHIP: Record<ConstellationTier, string> = {
+  artefact_verified: "border-(--lp-accent)/50 bg-(--lp-accent)/10 text-(--lp-accent)",
+  check_passed: "border-(--lp-accent)/50 bg-(--lp-accent)/10 text-(--lp-accent)",
+  self_assessed: "border-dashed border-(--lp-text-secondary) text-muted-foreground",
+  in_progress: "border-(--lp-text-secondary) bg-(--lp-node-in-progress)/25 text-foreground/85",
+  not_started: "border-muted-foreground/30 text-muted-foreground",
 };
 
 const CLUSTER_TYPE_LABEL: Record<ClusterType, string> = {
@@ -129,33 +102,21 @@ const CLUSTER_BORDER: Record<ClusterType, string> = {
   meta: "border-l-emerald-400/50",
 };
 
-const STATUS_CHIP: Record<Status, string> = {
-  not_started: "border-muted-foreground/30 text-muted-foreground",
-  learning: "border-amber-500/50 bg-amber-500/10 text-amber-200",
-  understood: "border-foreground/40 bg-foreground/10 text-foreground",
-  verified: "border-emerald-400/50 bg-emerald-500/10 text-emerald-200",
-};
-
 type Hovered = { x: number; y: number; title: string; subtitle: string } | null;
 
 export function GoalMandala({
   targetRole,
   targetCompany,
   clusters,
-  overall: overallReadiness,
+  overall,
 }: {
   targetRole: string;
   targetCompany: string | null;
   clusters: MandalaCluster[];
-  /** Syllabus-wide concept counts from the readiness summary (pct 0–100). */
+  /** Syllabus-wide concept counts from the readiness summary. */
   overall: MandalaReadiness;
 }) {
   const [focusedId, setFocusedId] = useState<string | null>(null);
-
-  const overall = useMemo(
-    () => overallProgressOf(overallReadiness),
-    [overallReadiness],
-  );
 
   return (
     <>
@@ -197,7 +158,7 @@ function RadialMandala({
   targetRole: string;
   targetCompany: string | null;
   clusters: MandalaCluster[];
-  overall: { done: number; total: number; pct: number };
+  overall: MandalaReadiness;
   focusedId: string | null;
   setFocusedId: (id: string | null) => void;
 }) {
@@ -235,7 +196,6 @@ function RadialMandala({
     return placed;
   }, [focused, clusters, count]);
 
-  const centerCircumference = 2 * Math.PI * CENTER_RING_R;
   const tipW = 196;
   const tipX = hovered
     ? Math.min(VB - tipW - 6, Math.max(6, hovered.x - tipW / 2))
@@ -247,7 +207,7 @@ function RadialMandala({
         viewBox={`0 0 ${VB} ${VB}`}
         className="h-auto w-full select-none"
         role="img"
-        aria-label={`Goal mandala for ${targetRole}: ${overall.done} of ${overall.total} concepts understood`}
+        aria-label={`Goal mandala for ${targetRole}: ${formatVerifiedCount(overall.done, overall.total)}`}
       >
         {/* background: click to clear focus */}
         <rect
@@ -280,26 +240,8 @@ function RadialMandala({
           );
         })}
 
-        {/* center node + overall progress ring */}
-        <circle
-          cx={CX}
-          cy={CY}
-          r={CENTER_RING_R}
-          fill="none"
-          className="stroke-muted"
-          strokeWidth={7}
-        />
-        <circle
-          cx={CX}
-          cy={CY}
-          r={CENTER_RING_R}
-          fill="none"
-          className="stroke-foreground/70 transition-all duration-500"
-          strokeWidth={7}
-          strokeLinecap="round"
-          strokeDasharray={`${overall.pct * centerCircumference} ${centerCircumference}`}
-          transform={`rotate(-90 ${CX} ${CY})`}
-        />
+        {/* center node: the role and its verified count. No ring — a ring is a
+            percentage drawn (H-1). */}
         <circle
           cx={CX}
           cy={CY}
@@ -323,9 +265,10 @@ function RadialMandala({
                 {targetCompany}
               </span>
             ) : null}
-            <span className="mt-1 text-lg font-semibold tabular-nums text-foreground">
-              {Math.round(overall.pct * 100)}%
+            <span className="mt-1 text-[15px] font-semibold tabular-nums text-foreground">
+              {formatCount(overall.done, overall.total)}
             </span>
+            <span className="text-[10px] text-muted-foreground">verified</span>
           </div>
         </foreignObject>
 
@@ -334,9 +277,7 @@ function RadialMandala({
           const angle = clusterAngle(i, count);
           const [x, y] = polar(CX, CY, CLUSTER_RING_R, angle);
           const r = nodeRadius(cluster.weight);
-          const prog = progressOf(cluster);
-          const arcR = r + 7;
-          const arcC = 2 * Math.PI * arcR;
+          const prog = cluster.readiness;
           const isFocused = focusedId === cluster.id;
           const dim = focusedId !== null && !isFocused;
           return (
@@ -355,33 +296,13 @@ function RadialMandala({
                   x,
                   y,
                   title: cluster.name,
-                  subtitle: `${CLUSTER_TYPE_LABEL[cluster.type]} · ${prog.done}/${prog.total} understood`,
+                  subtitle: `${CLUSTER_TYPE_LABEL[cluster.type]} · ${formatVerifiedCount(prog.done, prog.total)}`,
                 })
               }
               onMouseLeave={() => setHovered(null)}
               role="button"
-              aria-label={`${cluster.name}, ${prog.done} of ${prog.total} concepts understood. Click to ${isFocused ? "collapse" : "expand"}.`}
+              aria-label={`${cluster.name}, ${formatVerifiedCount(prog.done, prog.total)}. Click to ${isFocused ? "collapse" : "expand"}.`}
             >
-              {/* progress track + arc around the node */}
-              <circle
-                cx={x}
-                cy={y}
-                r={arcR}
-                fill="none"
-                className="stroke-muted/40"
-                strokeWidth={4}
-              />
-              <circle
-                cx={x}
-                cy={y}
-                r={arcR}
-                fill="none"
-                className={cn(CLUSTER_ARC[cluster.type], "transition-all duration-500")}
-                strokeWidth={4}
-                strokeLinecap="round"
-                strokeDasharray={`${prog.pct * arcC} ${arcC}`}
-                transform={`rotate(-90 ${x} ${y})`}
-              />
               <circle
                 cx={x}
                 cy={y}
@@ -397,9 +318,9 @@ function RadialMandala({
                 y={y + 1}
                 textAnchor="middle"
                 dominantBaseline="middle"
-                className="fill-foreground text-[15px] font-semibold tabular-nums"
+                className="fill-foreground text-[13px] font-semibold tabular-nums"
               >
-                {Math.round(prog.pct * 100)}%
+                {formatCount(prog.done, prog.total)}
               </text>
               <text
                 x={x}
@@ -427,18 +348,18 @@ function RadialMandala({
                 x,
                 y,
                 title: concept.name,
-                subtitle: STATUS_LABEL[concept.status],
+                subtitle: formatTierLabel(concept.tier),
               })
             }
             onMouseLeave={() => setHovered(null)}
             role="link"
-            aria-label={`${concept.name}, ${STATUS_LABEL[concept.status]}`}
+            aria-label={`${concept.name}, ${formatTierLabel(concept.tier)}`}
           >
             <circle
               cx={x}
               cy={y}
               r={9}
-              className={cn(STATUS_DOT[concept.status], "transition-colors")}
+              className={cn(TIER_DOT[concept.tier], "transition-colors")}
               strokeWidth={1.5}
             />
           </g>
@@ -485,53 +406,28 @@ function StackedMandala({
   targetRole: string;
   targetCompany: string | null;
   clusters: MandalaCluster[];
-  overall: { done: number; total: number; pct: number };
+  overall: MandalaReadiness;
   focusedId: string | null;
   setFocusedId: (id: string | null) => void;
 }) {
-  const ringR = 30;
-  const ringC = 2 * Math.PI * ringR;
   return (
     <div className="flex flex-col gap-3">
       {/* hero: center node as a card */}
       <div className="flex items-center gap-4 rounded-lg border border-border bg-card px-4 py-4">
-        <svg viewBox="0 0 72 72" className="size-16 shrink-0" aria-hidden>
-          <circle cx={36} cy={36} r={ringR} fill="none" className="stroke-muted" strokeWidth={6} />
-          <circle
-            cx={36}
-            cy={36}
-            r={ringR}
-            fill="none"
-            className="stroke-foreground/70"
-            strokeWidth={6}
-            strokeLinecap="round"
-            strokeDasharray={`${overall.pct * ringC} ${ringC}`}
-            transform="rotate(-90 36 36)"
-          />
-          <text
-            x={36}
-            y={37}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            className="fill-foreground text-[16px] font-semibold tabular-nums"
-          >
-            {Math.round(overall.pct * 100)}
-          </text>
-        </svg>
         <div className="min-w-0">
           <p className="truncate font-medium text-foreground">{targetRole}</p>
           {targetCompany ? (
             <p className="truncate text-sm text-muted-foreground">{targetCompany}</p>
           ) : null}
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {overall.done} / {overall.total} concepts understood
+          <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
+            {formatVerifiedCount(overall.done, overall.total)}
           </p>
         </div>
       </div>
 
       {/* cluster accordion */}
       {clusters.map((cluster) => {
-        const prog = progressOf(cluster);
+        const prog = cluster.readiness;
         const open = focusedId === cluster.id;
         return (
           <div
@@ -554,17 +450,9 @@ function StackedMandala({
               />
               <div className="min-w-0 flex-1">
                 <span className="text-sm font-medium">{cluster.name}</span>
-                <div className="mt-1.5 flex items-center gap-2">
-                  <div className="h-1 w-24 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full bg-foreground/60 transition-all"
-                      style={{ width: `${prog.pct * 100}%` }}
-                    />
-                  </div>
-                  <span className="text-xs text-muted-foreground">
-                    {prog.done}/{prog.total}
-                  </span>
-                </div>
+                <p className="mt-1 text-xs text-muted-foreground tabular-nums">
+                  {formatVerifiedCount(prog.done, prog.total)}
+                </p>
               </div>
             </button>
             {open ? (
@@ -574,10 +462,10 @@ function StackedMandala({
                     <Link
                       key={concept.id}
                       href={`/concepts/${concept.id}`}
-                      title={STATUS_LABEL[concept.status]}
+                      title={formatTierLabel(concept.tier)}
                       className={cn(
                         "rounded-full border px-2.5 py-1 text-xs transition-colors",
-                        STATUS_CHIP[concept.status],
+                        TIER_CHIP[concept.tier],
                       )}
                     >
                       {concept.name}

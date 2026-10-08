@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { connection } from "next/server";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { format } from "date-fns";
@@ -21,35 +20,18 @@ import type {
 } from "@/db/schema";
 import { requireCurrentUserId } from "@/lib/auth";
 import { cn } from "@/lib/utils";
+import { tierByConceptId, type ConstellationTier } from "@/lib/readiness/constellation";
+import { formatTierLabel } from "@/lib/readiness/surface-words";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { PageContainer } from "@/components/page-container";
+import { loadSyllabus, readinessForLoadedSyllabus } from "../queries";
 import { GapReportButton } from "./gap-report-buttons";
 
 type PageProps = { params: Promise<{ id: string }> };
 
-type ConceptStatus = "not_started" | "learning" | "understood" | "verified";
-
-type ConceptMeta = { name: string; status: ConceptStatus };
-
-async function loadSyllabus(id: string, userId: string) {
-  await connection();
-
-  return db.query.syllabi.findFirst({
-    where: (s, { and, eq }) => and(eq(s.id, id), eq(s.userId, userId)),
-    with: {
-      clusters: {
-        with: {
-          subSkills: {
-            with: {
-              concepts: { columns: { id: true, name: true, status: true } },
-            },
-          },
-        },
-      },
-    },
-  });
-}
+/** A concept as the report links to it: its name and its LEDGER tier (H-1). */
+type ConceptMeta = { name: string; tier: ConstellationTier };
 
 async function loadReport(syllabusId: string) {
   return db.query.gapReports.findFirst({
@@ -67,25 +49,14 @@ export async function generateMetadata({
   return { title: `Gap analysis · ${syllabus.targetRole} — Provency` };
 }
 
-const STATUS_STYLE: Record<ConceptStatus, { label: string; className: string }> =
-  {
-    not_started: {
-      label: "Not started",
-      className: "border-border text-muted-foreground",
-    },
-    learning: {
-      label: "Learning",
-      className: "border-amber-500/30 bg-amber-500/10 text-amber-200",
-    },
-    understood: {
-      label: "Understood",
-      className: "border-emerald-500/30 bg-emerald-500/10 text-emerald-200",
-    },
-    verified: {
-      label: "Verified",
-      className: "border-emerald-500/30 bg-emerald-500/10 text-emerald-200",
-    },
-  };
+/** Tier → colour only. The word is always formatTierLabel's. */
+const TIER_STYLE: Record<ConstellationTier, string> = {
+  not_started: "border-border text-muted-foreground",
+  in_progress: "border-amber-500/30 bg-amber-500/10 text-amber-200",
+  self_assessed: "border-dashed border-border text-muted-foreground",
+  check_passed: "border-(--lp-accent)/40 bg-(--lp-accent)/10 text-(--lp-accent)",
+  artefact_verified: "border-(--lp-accent)/40 bg-(--lp-accent)/10 text-(--lp-accent)",
+};
 
 const EFFORT_STYLE: Record<
   SignalRecommendation["effort"],
@@ -105,11 +76,10 @@ const EFFORT_STYLE: Record<
   },
 };
 
-function ConceptStatusBadge({ status }: { status: ConceptStatus }) {
-  const style = STATUS_STYLE[status];
+function ConceptStatusBadge({ tier }: { tier: ConstellationTier }) {
   return (
-    <Badge variant="outline" className={cn("text-[10px]", style.className)}>
-      {style.label}
+    <Badge variant="outline" className={cn("text-[10px]", TIER_STYLE[tier])}>
+      {formatTierLabel(tier)}
     </Badge>
   );
 }
@@ -126,7 +96,7 @@ function ConceptLink({
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <ConceptStatusBadge status={concept.status} />
+      <ConceptStatusBadge tier={concept.tier} />
       <Link
         href={`/concepts/${conceptId}`}
         className="text-primary inline-flex items-center gap-1 text-xs font-medium underline-offset-4 hover:underline"
@@ -178,14 +148,16 @@ export default async function GapPage({ params }: PageProps) {
   const resumeText = (syllabus.metadata.currentSkills ?? "").trim();
   const hasResume = resumeText.length > 0;
 
-  // id → {name, status} so report rows can render concept names + statuses.
+  // id → {name, tier} so report rows can render concept names with the
+  // LEDGER's state word, never raw status (H-1 item 2).
+  const tierOfConcept = tierByConceptId(readinessForLoadedSyllabus(syllabus));
   const conceptLookup = new Map<string, ConceptMeta>();
   for (const cluster of syllabus.clusters) {
     for (const sub of cluster.subSkills) {
       for (const concept of sub.concepts) {
         conceptLookup.set(concept.id, {
           name: concept.name,
-          status: concept.status,
+          tier: tierOfConcept.get(concept.id) ?? "not_started",
         });
       }
     }

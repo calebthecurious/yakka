@@ -88,3 +88,14 @@
     font-family: var(--font-sans), system-ui, sans-serif;
   }
 }
+
+/* Indeterminate progress (H-1): a sweeping segment that encodes no fraction.
+   Used by the generation overlay via `animate-[indeterminate_…]`. */
+@keyframes indeterminate {
+  0% {
+    left: -33%;
+  }
+  100% {
+    left: 100%;
+  }
+}

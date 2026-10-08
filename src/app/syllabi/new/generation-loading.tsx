@@ -8,18 +8,16 @@ import { useEffect, useRef, useState } from "react";
  * sub-skill, ~1-3 min total).
  *
  * HONESTY NOTE: we cannot read true progress from a single synchronous Server
- * Action, so both the messages and the bar are timer-driven. They are still
- * honest:
- *   - Each STAGE line is a real, ordered description of what the generator
- *     actually does (see generate-syllabus.ts): skeleton (read role → identify
- *     clusters/skills → classify roleNature into technical/professional →
- *     blockers/branches), then per-sub-skill detail (concepts → tier sequencing
- *     → resources), then assembly. We never loop back to an earlier line — that
- *     would read as frozen — we hold the final line until the result arrives.
- *   - The bar eases on a decay curve that approaches but never reaches a 92%
- *     cap, so it is always moving and never sits at a "done" number while we
- *     wait. The real completion is the navigation to the syllabus page.
- * We deliberately do NOT invent granular real-time telemetry.
+ * Action, so the stage lines are timer-driven and the bar is INDETERMINATE
+ * (H-1 item 5): it shows that work is happening and encodes no fraction. Each
+ * STAGE line is a real, ordered description of what the generator actually
+ * does (see generate-syllabus.ts): skeleton (read role → identify
+ * clusters/skills → classify roleNature into technical/professional →
+ * blockers/branches), then per-sub-skill detail (concepts → tier sequencing →
+ * resources), then assembly. We never loop back to an earlier line — that
+ * would read as frozen — we hold the final line until the result arrives. The
+ * real completion is the navigation to the syllabus page. We deliberately do
+ * NOT invent granular real-time telemetry.
  */
 
 const STAGES = [
@@ -34,8 +32,6 @@ const STAGES = [
 ];
 
 const STAGE_INTERVAL_S = 22; // ~8 stages spread across the ~3-min expectation
-const PROGRESS_TAU = 55; // easing time-constant: fast early, slows toward the cap
-const PROGRESS_CAP = 92; // never claim done until the real result navigates away
 
 export function GenerationLoading() {
   const [elapsed, setElapsed] = useState(0);
@@ -51,10 +47,6 @@ export function GenerationLoading() {
     return () => clearInterval(id);
   }, []);
 
-  const progress = Math.min(
-    PROGRESS_CAP,
-    PROGRESS_CAP * (1 - Math.exp(-elapsed / PROGRESS_TAU)),
-  );
   const stageIndex = Math.min(
     STAGES.length - 1,
     Math.floor(elapsed / STAGE_INTERVAL_S),
@@ -85,11 +77,15 @@ export function GenerationLoading() {
         </div>
 
         <div className="w-full">
-          <div className="bg-muted h-1.5 w-full overflow-hidden rounded-full">
-            <div
-              className="bg-foreground/70 h-full rounded-full transition-[width] duration-300 ease-out"
-              style={{ width: `${progress}%` }}
-            />
+          {/* Indeterminate: a sweeping segment, no width that could be read as
+              a fraction. Reduced motion shows a static band. */}
+          <div
+            className="bg-muted relative h-1.5 w-full overflow-hidden rounded-full"
+            role="progressbar"
+            aria-label="Generating"
+            aria-valuetext="In progress, no fraction available"
+          >
+            <div className="bg-foreground/70 absolute inset-y-0 w-1/3 animate-[indeterminate_1.6s_ease-in-out_infinite] rounded-full motion-reduce:animate-none motion-reduce:left-1/3" />
           </div>
         </div>
 

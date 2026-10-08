@@ -15,10 +15,13 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import {
+  formatTierLabel,
+  type ConstellationTier,
+} from "@/lib/readiness/surface-words";
 import { setFoundationItemStatus } from "../foundations-actions";
 
 type UserStatus = "have_it" | "need_it" | "unset";
-type ConceptStatus = "not_started" | "learning" | "understood" | "verified";
 
 type Resource = { title: string; url: string | null; type: string };
 
@@ -36,7 +39,8 @@ type LaunchStep = {
   title: string;
   description: string;
   suggestedResources: Resource[];
-  linkedConcept: { id: string; name: string; status: ConceptStatus } | null;
+  /** The linked concept with its LEDGER tier (H-1), never raw status. */
+  linkedConcept: { id: string; name: string; tier: ConstellationTier } | null;
 };
 
 export function StartView({
@@ -296,32 +300,24 @@ function ReadinessSummary({ baselines }: { baselines: Baseline[] }) {
   );
 }
 
-const CONCEPT_STATUS_BADGE: Record<
-  ConceptStatus,
-  { label: string; className: string } | null
-> = {
+/** Tier → colour only; Not started renders no badge. Words are formatTierLabel's. */
+const TIER_BADGE_CLASS: Record<ConstellationTier, string | null> = {
   not_started: null,
-  learning: {
-    label: "Learning",
-    className: "bg-amber-500/10 text-amber-200 border-amber-500/30",
-  },
-  understood: {
-    label: "Understood",
-    className: "bg-emerald-500/10 text-emerald-200 border-emerald-500/30",
-  },
-  verified: {
-    label: "Verified",
-    className: "bg-emerald-500/15 text-emerald-200 border-emerald-500/40",
-  },
+  in_progress: "bg-amber-500/10 text-amber-200 border-amber-500/30",
+  self_assessed: "border-dashed border-border text-muted-foreground",
+  check_passed: "bg-(--lp-accent)/10 text-(--lp-accent) border-(--lp-accent)/40",
+  artefact_verified: "bg-(--lp-accent)/10 text-(--lp-accent) border-(--lp-accent)/40",
 };
 
 function LaunchStepItem({ step, index }: { step: LaunchStep; index: number }) {
   const isFirst = index === 0;
   const { title, description, suggestedResources, linkedConcept } = step;
 
-  const statusBadge = linkedConcept
-    ? CONCEPT_STATUS_BADGE[linkedConcept.status]
-    : null;
+  const tierClass = linkedConcept ? TIER_BADGE_CLASS[linkedConcept.tier] : null;
+  const statusBadge =
+    linkedConcept && tierClass
+      ? { label: formatTierLabel(linkedConcept.tier), className: tierClass }
+      : null;
 
   const body = (
     <>
